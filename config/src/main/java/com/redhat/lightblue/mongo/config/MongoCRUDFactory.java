@@ -19,9 +19,9 @@
 package com.redhat.lightblue.mongo.config;
 
 import com.redhat.lightblue.common.mongo.DBResolver;
-import com.redhat.lightblue.config.common.DataSourcesConfiguration;
-import com.redhat.lightblue.config.crud.ControllerConfiguration;
-import com.redhat.lightblue.config.crud.ControllerFactory;
+import com.redhat.lightblue.config.DataSourcesConfiguration;
+import com.redhat.lightblue.config.ControllerConfiguration;
+import com.redhat.lightblue.config.ControllerFactory;
 import com.redhat.lightblue.crud.CRUDController;
 import com.redhat.lightblue.crud.mongo.MongoCRUDController;
 
