@@ -172,7 +172,6 @@ public final class Merge {
                     // arrayField points to array (e.g. x.y.z)
                     List<PathAndField> identifiers = arrayIdentifiers.get(arrayField);
                     if (identifiers == null) {
-                        System.out.println("elemField:"+elemField+" arrayField:"+arrayField);
                         identifiers = getArrayIdentifiers(elemField);
                         if (!identifiers.isEmpty()) {
                             arrayIdentifiers.put(arrayField, identifiers);
@@ -259,7 +258,6 @@ public final class Merge {
     public List<PathAndField> getArrayIdentifiers(Path arrayElementField) {
         List<PathAndField> idPaths = new ArrayList<>();
         MutablePath mp = new MutablePath();
-        System.out.println("geArrayIdentifiers:"+arrayElementField);
         getArrayIdentifiers(md.getFieldCursor(arrayElementField), mp, idPaths, new ArrayIdCollector() {
             @Override
             public boolean isIncluded(SimpleField field) {
@@ -274,7 +272,6 @@ public final class Merge {
                 return false;
             }
         });
-        System.out.println("Returns ok");
         if (idPaths.isEmpty()) {
             getArrayIdentifiers(md.getFieldCursor(arrayElementField), mp, idPaths, new ArrayIdCollector() {
                 @Override
