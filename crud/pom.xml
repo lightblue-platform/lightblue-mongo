@@ -43,7 +43,7 @@
         <dependency>
             <groupId>com.redhat.lightblue</groupId>
             <artifactId>crud</artifactId>
-            <version>${project.version}</version>
+            <version>${lightblue-core.version}</version>
         </dependency>
         <dependency>
             <groupId>com.redhat.lightblue.mongo</groupId>

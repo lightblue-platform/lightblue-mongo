@@ -33,12 +33,12 @@
         <dependency>
             <groupId>com.redhat.lightblue</groupId>
             <artifactId>core-api</artifactId>
-            <version>${project.version}</version>
+            <version>${lightblue-core.version}</version>
         </dependency>
         <dependency>
             <groupId>com.redhat.lightblue</groupId>
             <artifactId>metadata</artifactId>
-            <version>${project.version}</version>
+            <version>${lightblue-core.version}</version>
         </dependency>
         <dependency>
             <groupId>de.flapdoodle.embed</groupId>
