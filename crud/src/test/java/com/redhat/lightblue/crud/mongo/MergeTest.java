@@ -39,7 +39,6 @@ import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.test.AbstractJsonSchemaTest;
-import org.junit.Ignore;
 
 public class MergeTest extends AbstractJsonSchemaTest {
 
