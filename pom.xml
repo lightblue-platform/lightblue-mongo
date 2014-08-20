@@ -194,7 +194,7 @@
         <sonar.jdbc.password>sonar</sonar.jdbc.password>
         <sonar.host.url>http://127.0.0.1:8080</sonar.host.url>
         <sonar.projectName>lightblue-mongo</sonar.projectName>
-        <lightblue-core.version>0.9.0</lightblue-core.version>
+        <lightblue-core.version>0.9.1-SNAPSHOT</lightblue-core.version>
     </properties>
     <build>
         <plugins>

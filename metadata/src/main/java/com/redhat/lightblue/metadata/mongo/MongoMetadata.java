@@ -96,7 +96,7 @@ public class MongoMetadata extends AbstractMetadata {
     private final transient DBCollection collection;
     private final transient DBResolver dbResolver;
     private final transient BSONParser mdParser;
-    private final transient Factory factory;
+    private final Factory factory;
 
     public MongoMetadata(DB db,
                          String metadataCollection,

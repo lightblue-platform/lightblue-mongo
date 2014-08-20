@@ -44,10 +44,12 @@ import com.mongodb.ServerAddress;
 import com.redhat.lightblue.config.DataSourceConfiguration;
 import com.redhat.lightblue.metadata.mongo.MongoDataStoreParser;
 import com.redhat.lightblue.metadata.parser.DataStoreParser;
+import java.security.KeyManagementException;
+import java.security.NoSuchAlgorithmException;
 
 /**
- * Mongo client makes a distinction between contructing using a list of
- * ServerAddress objects, and a single ServerAddress object. If you contruct
+ * Mongo client makes a distinction between constructing using a list of
+ * ServerAddress objects, and a single ServerAddress object. If you construct
  * with a List, it wants access to all the nodes in the replica set. If you
  * construct with a single ServerAddress, it only talks to that server. So, we
  * make a distinction between array of server addresses and a single server
@@ -61,12 +63,12 @@ public class MongoConfiguration implements DataSourceConfiguration {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoConfiguration.class);
 
-    private final List<ServerAddress> servers = new ArrayList<>();
-    private ServerAddress theServer = null;
+    private final transient List<ServerAddress> servers = new ArrayList<>();
+    private transient ServerAddress theServer = null;
 
     private Integer connectionsPerHost;
     private String database;
-    private List<MongoCredential> credentials;
+    private transient List<MongoCredential> credentials;
     private boolean ssl = Boolean.FALSE;
     private boolean noCertValidation = Boolean.FALSE;
     private Class metadataDataStoreParser = MongoDataStoreParser.class;
@@ -175,16 +177,19 @@ public class MongoConfiguration implements DataSourceConfiguration {
         database = s;
     }
 
-    private static TrustManager[] trustAllCerts = new TrustManager[]{
+    private static final TrustManager[] trustAllCerts = new TrustManager[]{
         new X509TrustManager() {
+            @Override
             public X509Certificate[] getAcceptedIssuers() {
                 return null;
             }
 
+            @Override
             public void checkClientTrusted(X509Certificate[] certs,
                                            String authType) {
             }
 
+            @Override
             public void checkServerTrusted(X509Certificate[] certs,
                                            String authType) {
             }
@@ -201,7 +206,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
             } else {
                 return SSLSocketFactory.getDefault();
             }
-        } catch (Exception e) {
+        } catch (KeyManagementException | NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
     }
@@ -242,6 +247,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
         return getMongoClient().getDB(database);
     }
 
+    @Override
     public String toString() {
         StringBuilder bld = new StringBuilder();
         if (theServer != null) {
@@ -289,21 +295,28 @@ public class MongoConfiguration implements DataSourceConfiguration {
             source = xnode.asText();
         }
 
-        MongoCredential cr;
-        if ("GSSAPI_MECHANISM".equals(mech)) {
-            cr = MongoCredential.createGSSAPICredential(userName);
-        } else if ("MONGODB_CR_MECHANISM".equals(mech)) {
-            cr = MongoCredential.createMongoCRCredential(userName, source,
-                    password == null ? null : password.toCharArray());
-        } else if ("MONGODB_X509_MECHANISM".equals(mech)) {
-            cr = MongoCredential.createMongoX509Credential(userName);
-        } else if ("PLAIN_MECHANISM".equals(mech)) {
-            cr = MongoCredential.createPlainCredential(userName, source,
-                    password == null ? null : password.toCharArray());
-        } else {
-            throw new IllegalArgumentException("invalid mechanism:" + mech + ", must be one of "
-                    + "GSSAPI_MECHANISM, MONGODB_CR_MECHANISM, "
-                    + "MONGODB_X5090_MECHANISM, or PLAIN_MECHANISM");
+        MongoCredential cr = null;
+        if (null != mech) {
+            switch (mech) {
+                case "GSSAPI_MECHANISM":
+                    cr = MongoCredential.createGSSAPICredential(userName);
+                    break;
+                case "MONGODB_CR_MECHANISM":
+                    cr = MongoCredential.createMongoCRCredential(userName, source,
+                            password == null ? null : password.toCharArray());
+                    break;
+                case "MONGODB_X509_MECHANISM":
+                    cr = MongoCredential.createMongoX509Credential(userName);
+                    break;
+                case "PLAIN_MECHANISM":
+                    cr = MongoCredential.createPlainCredential(userName, source,
+                            password == null ? null : password.toCharArray());
+                    break;
+                default:
+                    throw new IllegalArgumentException("invalid mechanism:" + mech + ", must be one of "
+                            + "GSSAPI_MECHANISM, MONGODB_CR_MECHANISM, "
+                            + "MONGODB_X5090_MECHANISM, or PLAIN_MECHANISM");
+            }
         }
         return cr;
     }
@@ -361,7 +374,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
                 if (x != null) {
                     metadataDataStoreParser = Class.forName(x.asText());
                 }
-            } catch (Exception e) {
+            } catch (ClassNotFoundException e) {
                 throw new IllegalArgumentException(node.toString() + ":" + e);
             }
             x = node.get("database");
@@ -409,7 +422,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
                         } else {
                             throw new IllegalStateException("host is required in server");
                         }
-                    } catch (Exception e) {
+                    } catch (IllegalStateException | UnknownHostException e) {
                         throw new IllegalStateException(e);
                     }
                 }
