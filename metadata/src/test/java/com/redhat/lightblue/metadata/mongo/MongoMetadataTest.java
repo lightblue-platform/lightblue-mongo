@@ -202,11 +202,7 @@ public class MongoMetadataTest {
         Extensions<BSONObject> x = new Extensions<>();
         x.addDefaultExtensions();
         x.registerDataStoreParser("mongo", new MongoDataStoreParser<BSONObject>());
-        md = new MongoMetadata(db, new DBResolver() {
-            public DB get(MongoDataStore ds) {
-                return db;
-            }
-        }, x, new DefaultTypes(), factory);
+        md = new MongoMetadata(db, x, new DefaultTypes(), factory);
         BasicDBObject index = new BasicDBObject("name", 1);
         index.put("version.value", 1);
         db.getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION).ensureIndex(index, "name", true);
