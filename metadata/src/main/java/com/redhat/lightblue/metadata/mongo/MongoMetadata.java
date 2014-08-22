@@ -94,28 +94,24 @@ public class MongoMetadata extends AbstractMetadata {
     private static final String LITERAL_NAME = "name";
 
     private final transient DBCollection collection;
-    private final transient DBResolver dbResolver;
     private final transient BSONParser mdParser;
-    private final transient Factory factory;
+    private final Factory factory;
 
     public MongoMetadata(DB db,
                          String metadataCollection,
-                         DBResolver dbResolver,
                          Extensions<BSONObject> parserExtensions,
                          TypeResolver typeResolver,
                          Factory factory) {
         this.collection = db.getCollection(metadataCollection);
         this.mdParser = new BSONParser(parserExtensions, typeResolver);
-        this.dbResolver = dbResolver;
         this.factory = factory;
     }
 
     public MongoMetadata(DB db,
-                         DBResolver dbResolver,
                          Extensions<BSONObject> parserExtensions,
                          TypeResolver typeResolver,
                          Factory factory) {
-        this(db, DEFAULT_METADATA_COLLECTION, dbResolver, parserExtensions, typeResolver, factory);
+        this(db, DEFAULT_METADATA_COLLECTION, parserExtensions, typeResolver, factory);
     }
 
     @Override
