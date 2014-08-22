@@ -18,17 +18,16 @@
  */
 package com.redhat.lightblue.crud.mongo;
 
-import java.io.IOException;
-
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-
-import com.github.fge.jsonschema.exceptions.ProcessingException;
+import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.mongodb.DBObject;
 import com.redhat.lightblue.crud.Operation;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.query.UpdateExpression;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+
+import java.io.IOException;
 
 /**
  *
