@@ -104,6 +104,9 @@ public final class Merge {
     private final List<IField> invisibleFields = new ArrayList<>();
     private final Map<Path, List<PathAndField>> arrayIdentifiers = new HashMap<>();
 
+    /**
+     * Initialize with the metadata of the new object
+     */
     public Merge(EntityMetadata md) {
         this.md = md;
     }
@@ -163,12 +166,13 @@ public final class Merge {
                     // This is an array
                     // See if we have any identifiers for this array
 
-                    // field points to arrayElement (e.g. x.y.z.1)
+                    Path elemField = field.prefix(segment+1);
+                    Path arrayField = elemField.prefix(segment);
+                    // elemField points to arrayElement (e.g. x.y.z.1)
                     // arrayField points to array (e.g. x.y.z)
-                    Path arrayField = field.prefix(-1);
                     List<PathAndField> identifiers = arrayIdentifiers.get(arrayField);
                     if (identifiers == null) {
-                        identifiers = getArrayIdentifiers(field);
+                        identifiers = getArrayIdentifiers(elemField);
                         if (!identifiers.isEmpty()) {
                             arrayIdentifiers.put(arrayField, identifiers);
                         }
@@ -184,7 +188,7 @@ public final class Merge {
                                 get(field.getIndex(segment)));
                         LOGGER.debug("Identifying content: {}", identifyingContent);
                         // Find the array element in the new copy
-                        DBObject newArrayElement = findArrayElement((DBObject) parent, identifyingContent);
+                        DBObject newArrayElement = findArrayElement((List) parent, identifyingContent);
                         if (newArrayElement != null) {
                             // Found new array element.
                             LOGGER.debug("Found element in newCopy: {} ", newArrayElement);
@@ -303,13 +307,13 @@ public final class Merge {
         }
     }
 
-    private DBObject findArrayElement(DBObject array, List<IField> identifiers) {
+    private DBObject findArrayElement(List array, List<IField> identifiers) {
         int size = ((List) array).size();
         for (int i = 0; i < size; i++) {
             DBObject elem = ((List<DBObject>) array).get(i);
             boolean found = true;
             for (IField ifld : identifiers) {
-                Object value = getValue(array, ifld.getPath());
+                Object value = getValue(elem, ifld.getPath());
                 if (!((value == null && ifld.getValue() == null)
                         || (value != null && ifld.getValue() != null && value.equals(ifld.getValue())))) {
                     found = false;

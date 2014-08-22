@@ -59,9 +59,9 @@ public class MongoMetadataConfiguration extends AbstractMetadataConfiguration {
 
             try {
                 if (collection == null) {
-                    return new MongoMetadata(dbresolver.get(mdstore), dbresolver, parserExtensions, typeResolver, factory.getFactory());
+                    return new MongoMetadata(dbresolver.get(mdstore), parserExtensions, typeResolver, factory.getFactory());
                 } else {
-                    return new MongoMetadata(dbresolver.get(mdstore), collection, dbresolver, parserExtensions, typeResolver, factory.getFactory());
+                    return new MongoMetadata(dbresolver.get(mdstore), collection, parserExtensions, typeResolver, factory.getFactory());
                 }
             } catch (RuntimeException re) {
                 throw re;
