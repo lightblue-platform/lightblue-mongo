@@ -26,8 +26,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.JsonNode;
-
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
+
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import com.mongodb.WriteResult;
@@ -35,7 +35,6 @@ import com.redhat.lightblue.crud.Operation;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.JsonUtils;
-import com.redhat.lightblue.util.JsonDoc;
 
 /**
  *
