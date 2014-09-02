@@ -451,7 +451,7 @@ public class MongoMetadata extends AbstractMetadata {
     @Override
     protected void checkDataStoreIsValid(EntityInfo md) {
         DataStore store = md.getDataStore();
-        if (!(store instanceof MongoDataStore)) {
+        if (!(store instanceof MongoDataStore) && !(store instanceof com.redhat.lightblue.common.rdbms.RDBMSDataStore)) {
             throw new IllegalArgumentException(MongoMetadataConstants.ERR_INVALID_DATASTORE);
         }
     }
