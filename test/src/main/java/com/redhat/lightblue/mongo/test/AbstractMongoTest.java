@@ -130,8 +130,12 @@ public abstract class AbstractMongoTest {
     @After
     public void teardown() throws Exception {
         if (mongod != null) {
-            mongo.dropDatabase(DB_NAME);
+            dropDatabase(DB_NAME);
         }
+    }
+    
+    protected void dropDatabase(String databaseName) {
+        mongo.dropDatabase(databaseName);
     }
 
     public static class FileStreamProcessor implements IStreamProcessor {
