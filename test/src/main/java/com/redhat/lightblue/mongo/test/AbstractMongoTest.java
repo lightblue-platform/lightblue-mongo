@@ -105,7 +105,8 @@ public abstract class AbstractMongoTest {
             Runtime.getRuntime().addShutdownHook(new Thread() {
                 @Override
                 public void run() {
-                    super.start();
+                    // use run(), do not use start()
+                    super.run();
                     clearDatabase();
                 }
 
