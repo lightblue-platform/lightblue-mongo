@@ -432,7 +432,7 @@ public class Translator {
                 }
                 Object valueObject = ftn.getType().cast(value.getValue());
                 if (field.equals(ID_PATH)) {
-                    valueObject = new ObjectId(valueObject.toString());
+                    valueObject = createIdFrom(valueObject);
                 }
                 obj.put(translatePath(field), valueObject);
             } else {
@@ -557,7 +557,7 @@ public class Translator {
         }
         Object valueObject = t.cast(expr.getRvalue().getValue());
         if (expr.getField().equals(ID_PATH)) {
-            valueObject = new ObjectId(valueObject.toString());
+            valueObject = createIdFrom(valueObject);
         }
         if (expr.getOp() == BinaryComparisonOperator._eq) {
             return new BasicDBObject(translatePath(expr.getField()), valueObject);
@@ -876,7 +876,7 @@ public class Translator {
         if (value != null) {
             LOGGER.debug("{} = {}", path, value);
             if (path.equals(ID_PATH)) {
-                value = new ObjectId(value.toString());
+                value = createIdFrom(value);
             }
             // Store big values as string. Mongo does not support big values
             if (value instanceof BigDecimal || value instanceof BigInteger) {
@@ -975,4 +975,20 @@ public class Translator {
         return l;
     }
 
+    /**
+     * Creates appropriate identifier object given source data. If the source
+     * can be converted to an ObjectId it is, else it is returned as a String.
+     *
+     * @param source input data
+     * @return ObjectId if possible else String
+     */
+    public Object createIdFrom(Object source) {
+        if (source == null) {
+            return null;
+        } else if (ObjectId.isValid(source.toString())) {
+            return new ObjectId(source.toString());
+        } else {
+            return source.toString();
+        }
+    }
 }

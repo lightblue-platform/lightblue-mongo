@@ -28,6 +28,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.IOException;
+import org.bson.types.ObjectId;
 
 /**
  *
@@ -156,4 +157,35 @@ public class TranslatorTest extends AbstractMongoTest {
                 + "if(this.field7[0].elemf1==this.field7[i0].elemf2) {return true;}}return false;}",
                 obj.get("$where").toString());
     }
+
+    @Test
+    public void createIdFrom_null() {
+        Object idObj = translator.createIdFrom(null);
+        Assert.assertNull(idObj);
+    }
+
+    @Test
+    public void createIdFrom_isValid() {
+        Object idObj = translator.createIdFrom("abcdefABCDEF012345678912");
+        Assert.assertTrue(idObj instanceof ObjectId);
+    }
+
+    @Test
+    public void createIdFrom_notValid() {
+        Object idObj = translator.createIdFrom("abcdefABCDEF01234567891|");
+        Assert.assertTrue(idObj instanceof String);
+    }
+
+    @Test
+    public void createIdFrom_integer() {
+        Object idObj = translator.createIdFrom(1234);
+        Assert.assertTrue(idObj instanceof String);
+    }
+
+    @Test
+    public void createIdFrom_double() {
+        Object idObj = translator.createIdFrom(12.34);
+        Assert.assertTrue(idObj instanceof String);
+    }
+
 }
