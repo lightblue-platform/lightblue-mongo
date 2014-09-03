@@ -130,6 +130,11 @@
                 <artifactId>hystrix-servo-metrics-publisher</artifactId>
                 <version>1.3.16</version>
             </dependency>
+            <dependency>
+                <groupId>com.redhat.lightblue</groupId>
+                <artifactId>metadata</artifactId>
+                <version>${lightblue-core.version}</version>
+            </dependency>
          </dependencies>
     </dependencyManagement>
     <dependencies>
@@ -186,6 +191,7 @@
         <module>hystrix</module>
         <module>config</module>
         <module>common</module>
+        <module>test</module>
     </modules>
     <properties>
         <sonar.exclusions>**/*Test.java,**/*Exception.java</sonar.exclusions>
