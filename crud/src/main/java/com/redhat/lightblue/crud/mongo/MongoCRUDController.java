@@ -150,9 +150,8 @@ public class MongoCRUDController implements CRUDController {
         Error.push(operation);
         Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
         try {
-            FieldAccessRoleEvaluator roleEval
-                    = new FieldAccessRoleEvaluator(ctx.getEntityMetadata(ctx.getEntityName()),
-                            ctx.getCallerRoles());
+            FieldAccessRoleEvaluator roleEval = new FieldAccessRoleEvaluator(ctx.getEntityMetadata(ctx.getEntityName()),
+                    ctx.getCallerRoles());
             LOGGER.debug("saveOrInsert: Translating docs");
             EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
             DBObject[] dbObjects = translator.toBson(documents);
@@ -254,17 +253,7 @@ public class MongoCRUDController implements CRUDController {
 
                 // If there are any constraints for updated fields, or if we're updating arrays, we have to use iterate-update
                 Updater updater = Updater.getInstance(ctx.getFactory().getNodeFactory(), md, update);
-                // Set<Path> updatedFields = updater.getUpdateFields();
-                // LOGGER.debug("Fields to be updated:{}", updatedFields);
-                // boolean constrainedFieldUpdated = false;
-                // for (Path x : updatedFields) {
-                //     FieldTreeNode ftn = md.resolve(x);
-                //     if (hasArray(ftn)||(ftn instanceof Field  && !((Field) ftn).getConstraints().isEmpty())) {
-                //         LOGGER.debug("Field {} either has constraints, or goes through an array, can't run direct mongo update", ftn);
-                //         constrainedFieldUpdated = true;
-                //         break;
-                //     }
-                // }
+
                 DocUpdater docUpdater = new IterateAndUpdate(ctx.getFactory().getNodeFactory(), validator, roleEval, translator, updater,
                         projector, errorProjector);
                 ctx.setProperty(PROP_UPDATER, docUpdater);
@@ -288,14 +277,6 @@ public class MongoCRUDController implements CRUDController {
         return response;
     }
 
-    // private boolean hasArray(FieldTreeNode ftn) {
-    //     do {
-    //         if(ftn instanceof ArrayNode)
-    //             return true;
-    //         ftn=ftn.getParent();
-    //     } while(ftn!=null);
-    //     return false;
-    // }
     @Override
     public CRUDDeleteResponse delete(CRUDOperationContext ctx,
                                      QueryExpression query) {
