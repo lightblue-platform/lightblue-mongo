@@ -23,6 +23,7 @@ import java.util.Iterator;
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -190,7 +191,7 @@ public class MongoCRUDController implements CRUDController {
                         LOGGER.debug("Translated doc: {}", jsonDoc);
                         inputDoc.setOutputDocument(projector.project(jsonDoc, ctx.getFactory().getNodeFactory()));
                     } else {
-                        inputDoc.setOutputDocument(new JsonDoc(null));
+                        inputDoc.setOutputDocument(new JsonDoc(new ObjectNode(ctx.getFactory().getNodeFactory())));
                     }
                     LOGGER.debug("projected doc: {}", inputDoc.getOutputDocument());
                     if (!inputDoc.hasErrors()) {
