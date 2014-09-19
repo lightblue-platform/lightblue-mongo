@@ -56,11 +56,6 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.redhat.lightblue.rdbms</groupId>
-            <artifactId>rdbms-metadata</artifactId>
-            <version>${lightblue-core.version}</version>
-        </dependency>
-        <dependency>
             <groupId>com.netflix.hystrix</groupId>
             <artifactId>hystrix-core</artifactId>
         </dependency>
