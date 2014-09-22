@@ -88,6 +88,26 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
     }
 
     @Test
+    public void insertTest_nullProjection() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        Projection projection = null;
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        // basic checks
+        Assert.assertEquals(1, ctx.getDocuments().size());
+        Assert.assertTrue(ctx.getErrors() == null || ctx.getErrors().isEmpty());
+        Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
+        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+
+        // verify there is nothing projected
+        Assert.assertNotNull(ctx.getDocuments().get(0).getOutputDocument());
+    }
+
+    @Test
     public void saveTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
