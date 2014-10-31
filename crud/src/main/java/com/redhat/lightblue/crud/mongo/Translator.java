@@ -982,7 +982,7 @@ public class Translator {
      * @param source input data
      * @return ObjectId if possible else String
      */
-    public Object createIdFrom(Object source) {
+    public static Object createIdFrom(Object source) {
         if (source == null) {
             return null;
         } else if (ObjectId.isValid(source.toString())) {
