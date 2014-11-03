@@ -85,7 +85,7 @@ public class BasicDocSaver implements DocSaver {
         } else if (op == DocSaver.Op.save && id != null) {
             // Updating
             LOGGER.debug("Updating doc {}" + id);
-            BasicDBObject q = new BasicDBObject(MongoCRUDController.ID_STR, new ObjectId(id.toString()));
+            BasicDBObject q = new BasicDBObject(MongoCRUDController.ID_STR, Translator.createIdFrom(id));
             DBObject oldDBObject = new FindOneCommand(collection, q).execute();
             if (oldDBObject != null) {
                 if (md.getAccess().getUpdate().hasAccess(ctx.getCallerRoles())) {

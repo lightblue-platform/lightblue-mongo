@@ -84,7 +84,27 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
         String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
-        Assert.assertEquals(1, coll.find(new BasicDBObject("_id", new ObjectId(id))).count());
+        Assert.assertEquals(1, coll.find(new BasicDBObject("_id", Translator.createIdFrom(id))).count());
+    }
+
+    @Test
+    public void insertTest_nullProjection() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        Projection projection = null;
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        // basic checks
+        Assert.assertEquals(1, ctx.getDocuments().size());
+        Assert.assertTrue(ctx.getErrors() == null || ctx.getErrors().isEmpty());
+        Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
+        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+
+        // verify there is nothing projected
+        Assert.assertNotNull(ctx.getDocuments().get(0).getOutputDocument());
     }
 
     @Test
@@ -93,6 +113,46 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        System.out.println("Write doc:" + doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
+                projection("{'field':'*','recursive':1}"), null, null, null);
+        JsonDoc readDoc = ctx.getDocuments().get(0);
+        // Change some fields
+        System.out.println("Read doc:" + readDoc);
+        readDoc.modify(new Path("field1"), nodeFactory.textNode("updated"), false);
+        readDoc.modify(new Path("field7.0.elemf1"), nodeFactory.textNode("updated too"), false);
+        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+
+        // Save it back
+        ctx = new TestCRUDOperationContext(Operation.SAVE);
+        ctx.add(md);
+        ctx.addDocument(readDoc);
+        CRUDSaveResponse saveResponse = controller.save(ctx, false, projection);
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        // Read it back
+        controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
+                projection("{'field':'*','recursive':1}"), null, null, null);
+        JsonDoc r2doc = ctx.getDocuments().get(0);
+        Assert.assertEquals(readDoc.get(new Path("field1")).asText(), r2doc.get(new Path("field1")).asText());
+        Assert.assertEquals(readDoc.get(new Path("field7.0.elemf1")).asText(), r2doc.get(new Path("field7.0.elemf1")).asText());
+        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), saveResponse.getNumSaved());
+    }
+
+
+    @Test
+    public void saveIdTypeUidTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadata4.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata4.json"));
         Projection projection = projection("{'field':'_id'}");
         ctx.addDocument(doc);
         System.out.println("Write doc:" + doc);
@@ -143,7 +203,7 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         coll.find();
 
         // Read doc using mongo
-        DBObject dbdoc = coll.findOne(new BasicDBObject("_id", new ObjectId(id)));
+        DBObject dbdoc = coll.findOne(new BasicDBObject("_id", Translator.createIdFrom(id)));
         Assert.assertNotNull(dbdoc);
         // Add some fields
         dbdoc.put("invisibleField", "invisibleValue");
@@ -167,7 +227,7 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         controller.save(ctx, false, projection);
 
         // Make sure doc is modified, and invisible field is there
-        dbdoc = coll.findOne(new BasicDBObject("_id", new ObjectId(id)));
+        dbdoc = coll.findOne(new BasicDBObject("_id", Translator.createIdFrom(id)));
         System.out.println("Loaded doc:" + dbdoc);
         Assert.assertEquals("updated", dbdoc.get("field1"));
         Assert.assertEquals("invisibleValue", dbdoc.get("invisibleField"));
