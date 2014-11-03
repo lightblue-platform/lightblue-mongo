@@ -27,6 +27,8 @@ public class MongoDataStore implements DataStore, Serializable {
 
     private static final long serialVersionUID = 1l;
 
+    public static final String BACKEND = "mongo";
+
     private String datasourceName;
     private String databaseName;
     private String collectionName;
@@ -44,7 +46,7 @@ public class MongoDataStore implements DataStore, Serializable {
 
     @Override
     public String getBackend() {
-        return "mongo";
+        return BACKEND;
     }
 
     /**
