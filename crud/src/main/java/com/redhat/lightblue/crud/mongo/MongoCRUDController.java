@@ -391,7 +391,6 @@ public class MongoCRUDController implements CRUDController {
 
     @Override
     public void newSchema(Metadata md, EntityMetadata emd) {
-        createUpdateEntityInfoIndexes(emd.getEntityInfo());
     }
 
     private void createUpdateEntityInfoIndexes(EntityInfo ei) {

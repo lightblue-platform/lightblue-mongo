@@ -329,6 +329,8 @@ public class MongoMetadata extends AbstractMetadata {
                     }
 
                     factory.getCRUDController(md.getEntityInfo().getDataStore().getBackend()).
+                        updateEntityInfo(this,md.getEntityInfo());
+                    factory.getCRUDController(md.getEntityInfo().getDataStore().getBackend()).
                             newSchema(this, md);
 
                 } catch (MongoException.DuplicateKey dke) {
@@ -434,6 +436,8 @@ public class MongoMetadata extends AbstractMetadata {
             if (error != null) {
                 throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, error);
             }
+            factory.getCRUDController(md.getEntityInfo().getDataStore().getBackend()).
+                newSchema(this, md);
         } catch (MongoException.DuplicateKey dke) {
             throw Error.get(MongoMetadataConstants.ERR_DUPLICATE_METADATA, ver.getValue());
         } catch (Error e) {

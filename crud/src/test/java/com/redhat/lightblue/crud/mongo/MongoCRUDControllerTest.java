@@ -441,7 +441,7 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
-        controller.newSchema(null, e);
+        controller.updateEntityInfo(null, e.getEntityInfo());
 
         DBCollection entityCollection = db.getCollection("testCollectionIndex1");
 
