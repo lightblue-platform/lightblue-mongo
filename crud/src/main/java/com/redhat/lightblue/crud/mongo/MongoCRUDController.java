@@ -54,6 +54,7 @@ import com.redhat.lightblue.metadata.Indexes;
 import com.redhat.lightblue.metadata.EntityInfo;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.MetadataConstants;
+import com.redhat.lightblue.metadata.MetadataListener;
 import com.redhat.lightblue.query.FieldProjection;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
@@ -64,7 +65,7 @@ import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
 
-public class MongoCRUDController implements CRUDController {
+public class MongoCRUDController implements CRUDController, MetadataListener {
 
     public static final String ID_STR = "_id";
 
@@ -385,12 +386,21 @@ public class MongoCRUDController implements CRUDController {
     }
 
     @Override
-    public void updateEntityInfo(Metadata md, EntityInfo ei) {
+    public MetadataListener getMetadataListener() {
+        return this;
+    }
+    
+    public void afterUpdateEntityInfo(Metadata md, EntityInfo ei,boolean newEntity) {
         createUpdateEntityInfoIndexes(ei);
     }
 
-    @Override
-    public void newSchema(Metadata md, EntityMetadata emd) {
+    public void beforeUpdateEntityInfo(Metadata md, EntityInfo ei,boolean newEntity) {
+    }
+
+    public void afterCreateNewSchema(Metadata md, EntityMetadata emd) {
+    }
+
+    public void beforeCreateNewSchema(Metadata md, EntityMetadata emd) {
     }
 
     private void createUpdateEntityInfoIndexes(EntityInfo ei) {
