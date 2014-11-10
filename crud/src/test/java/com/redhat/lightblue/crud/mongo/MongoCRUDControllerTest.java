@@ -441,7 +441,7 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
-        controller.updateEntityInfo(null, e.getEntityInfo());
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         DBCollection entityCollection = db.getCollection("testCollectionIndex1");
 
@@ -478,7 +478,7 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
-        controller.updateEntityInfo(null, e.getEntityInfo());
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         DBCollection entityCollection = db.getCollection("testCollectionIndex2");
 
@@ -493,7 +493,7 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
 
-        controller.updateEntityInfo(null, e.getEntityInfo());
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         boolean foundIndex = false;
 

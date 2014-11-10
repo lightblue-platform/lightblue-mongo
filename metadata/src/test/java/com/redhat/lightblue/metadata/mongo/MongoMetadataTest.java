@@ -104,11 +104,7 @@ public class MongoMetadataTest {
             return null;
         }
 
-        public void updateEntityInfo(Metadata md, EntityInfo ei) {
-        }
-
-        public void newSchema(Metadata md, EntityMetadata emd) {
-        }
+        public MetadataListener getMetadataListener() {return null;}
     }
 
     public static class FileStreamProcessor implements IStreamProcessor {
