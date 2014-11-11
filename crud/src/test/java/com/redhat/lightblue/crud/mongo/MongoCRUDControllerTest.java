@@ -44,6 +44,7 @@ import com.redhat.lightblue.metadata.MetadataStatus;
 import com.redhat.lightblue.metadata.Index;
 import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.metadata.types.IntegerType;
+import com.redhat.lightblue.metadata.constraints.IdentityConstraint;
 
 import com.redhat.lightblue.common.mongo.MongoDataStore;
 import com.redhat.lightblue.common.mongo.DBResolver;
@@ -441,7 +442,7 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
-        controller.updateEntityInfo(null, e.getEntityInfo());
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         DBCollection entityCollection = db.getCollection("testCollectionIndex1");
 
@@ -478,7 +479,7 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
-        controller.updateEntityInfo(null, e.getEntityInfo());
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         DBCollection entityCollection = db.getCollection("testCollectionIndex2");
 
@@ -493,7 +494,7 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
 
-        controller.updateEntityInfo(null, e.getEntityInfo());
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         boolean foundIndex = false;
 
@@ -516,5 +517,46 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
             }
         }
         Assert.assertTrue(!foundIndex);
+    }
+
+    @Test
+    public void ensureIdFieldTest() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex2"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+
+        Assert.assertNull(e.getFields().getField("_id"));
+        controller.beforeCreateNewSchema(null,e);
+
+        SimpleField id=(SimpleField)e.getFields().getField("_id");
+        Assert.assertNotNull(id);
+        Assert.assertEquals(StringType.TYPE,id.getType());
+        Assert.assertEquals(1,id.getConstraints().size());
+        Assert.assertTrue(id.getConstraints().get(0) instanceof IdentityConstraint);
+    }
+
+    @Test
+    public void ensureIdIndexTest() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex2"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+
+        Assert.assertEquals(0,e.getEntityInfo().getIndexes().getIndexes().size());
+        controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
+
+        Assert.assertEquals(1,e.getEntityInfo().getIndexes().getIndexes().size());
+        Assert.assertEquals("_id",e.getEntityInfo().getIndexes().getIndexes().get(0).getFields().get(0).getField().toString());
     }
 }
