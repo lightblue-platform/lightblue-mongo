@@ -19,6 +19,7 @@
 package com.redhat.lightblue.crud.mongo;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -52,9 +53,16 @@ import com.redhat.lightblue.metadata.Metadata;
 import com.redhat.lightblue.metadata.Index;
 import com.redhat.lightblue.metadata.Indexes;
 import com.redhat.lightblue.metadata.EntityInfo;
+import com.redhat.lightblue.metadata.EntitySchema;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.MetadataConstants;
 import com.redhat.lightblue.metadata.MetadataListener;
+import com.redhat.lightblue.metadata.SimpleField;
+import com.redhat.lightblue.metadata.FieldConstraint;
+import com.redhat.lightblue.metadata.FieldTreeNode;
+import com.redhat.lightblue.metadata.types.StringType;
+import com.redhat.lightblue.metadata.constraints.IdentityConstraint;
+import com.redhat.lightblue.metadata.mongo.MongoMetadataConstants;
 import com.redhat.lightblue.query.FieldProjection;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
@@ -395,12 +403,88 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     public void beforeUpdateEntityInfo(Metadata md, EntityInfo ei,boolean newEntity) {
+        ensureIdIndex(ei);
     }
 
     public void afterCreateNewSchema(Metadata md, EntityMetadata emd) {
     }
 
     public void beforeCreateNewSchema(Metadata md, EntityMetadata emd) {
+        ensureIdField(emd);
+    }
+
+    private void ensureIdField(EntityMetadata md) {
+        ensureIdField(md.getEntitySchema());
+    }
+
+    private void ensureIdField(EntitySchema schema) {
+        LOGGER.debug("ensureIdField: begin");
+
+        SimpleField idField;
+
+        FieldTreeNode field;
+        try {
+            field=schema.resolve(Translator.ID_PATH);
+        } catch(Error e) {
+            field=null;
+        }
+        if(field==null) {
+            LOGGER.debug("Adding _id field");
+            idField=new SimpleField(ID_STR, StringType.TYPE);
+            schema.getFields().addNew(idField);
+        } else {
+            if(field instanceof SimpleField)
+                idField=(SimpleField)field;
+            else
+                throw Error.get(MongoMetadataConstants.ERR_INVALID_ID);
+        }
+                
+        // Make sure _id has identity constrain
+        List<FieldConstraint> constraints=idField.getConstraints();
+        boolean identityConstraintFound=false;
+        for(FieldConstraint x:constraints) {
+            if(x instanceof IdentityConstraint) {
+                identityConstraintFound=true;
+                break;
+            }
+        }
+        if(!identityConstraintFound) {
+            LOGGER.debug("Adding identity constraint to _id field");
+            constraints.add(new IdentityConstraint());
+            idField.setConstraints(constraints);
+        }
+
+        LOGGER.debug("ensureIdField: end");
+    }
+
+    private void ensureIdIndex(EntityInfo ei) {
+        LOGGER.debug("ensureIdIndex: begin");
+        
+        Indexes indexes=ei.getIndexes();
+        // We are looking for a unique index on _id
+        boolean found=false;
+        for(Index ix:indexes.getIndexes()) {
+            List<SortKey> fields=ix.getFields();
+            if(fields.size()==1&&fields.get(0).getField().equals(Translator.ID_PATH)&&
+               ix.isUnique()) {
+                found=true;
+                break;
+            }
+        }
+        if(!found) {
+            LOGGER.debug("Adding _id index");
+            Index idIndex=new Index();
+            idIndex.setUnique(true);
+            List<SortKey> fields=new ArrayList<>();
+            fields.add(new SortKey(Translator.ID_PATH,false));
+            idIndex.setFields(fields);
+            List<Index> ix=indexes.getIndexes();
+            ix.add(idIndex);
+            indexes.setIndexes(ix);
+        } else {
+            LOGGER.debug("_id index exists");
+        }
+        LOGGER.debug("ensureIdIndex: end");
     }
 
     private void createUpdateEntityInfoIndexes(EntityInfo ei) {
