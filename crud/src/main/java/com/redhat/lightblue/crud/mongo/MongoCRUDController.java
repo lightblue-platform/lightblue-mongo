@@ -23,8 +23,10 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.NullNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +35,7 @@ import com.mongodb.DBCollection;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import com.mongodb.MongoException;
+import org.bson.types.ObjectId;
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.common.mongo.DBResolver;
 import com.redhat.lightblue.common.mongo.MongoDataStore;
@@ -391,6 +394,16 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_FIND, ctx);
         LOGGER.debug("find end: query: {} results: {}", response.getSize());
         return response;
+    }
+
+    @Override
+    public void updatePredefinedFields(CRUDOperationContext ctx,JsonDoc doc) {
+        JsonNode idNode=doc.get(Translator.ID_PATH);
+        if(idNode==null||idNode instanceof NullNode) {
+            doc.modify(Translator.ID_PATH,
+                       ctx.getFactory().getNodeFactory().textNode(ObjectId.get().toString()),
+                       false);
+        }
     }
 
     @Override

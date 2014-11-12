@@ -41,6 +41,7 @@ import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.Path;
+import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.test.AbstractJsonNodeTest;
 import de.flapdoodle.embed.mongo.Command;
 import de.flapdoodle.embed.mongo.MongodExecutable;
@@ -105,6 +106,7 @@ public class MongoMetadataTest {
         }
 
         public MetadataListener getMetadataListener() {return null;}
+        public void updatePredefinedFields(CRUDOperationContext ctx,JsonDoc doc) {}
     }
 
     public static class FileStreamProcessor implements IStreamProcessor {
