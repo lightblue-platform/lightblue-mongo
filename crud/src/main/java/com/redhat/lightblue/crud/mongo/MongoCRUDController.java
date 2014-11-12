@@ -513,29 +513,30 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
             List<DBObject> existingIndexes = entityCollection.getIndexInfo();
             LOGGER.debug("Existing indexes: {}", existingIndexes);
             for (Index index : indexes.getIndexes()) {
-                boolean createIx = true;
-                LOGGER.debug("Processing index {}", index);
-
-                for (DBObject existingIndex : existingIndexes) {
-                    if (indexFieldsMatch(index, existingIndex)
+                boolean createIx = !isIdIndex(index);
+                if(createIx) {
+                    LOGGER.debug("Processing index {}", index);
+                    for (DBObject existingIndex : existingIndexes) {
+                        if (indexFieldsMatch(index, existingIndex)
                             && indexOptionsMatch(index, existingIndex)) {
-                        LOGGER.debug("Same index exists, not creating");
-                        createIx = false;
-                        break;
+                            LOGGER.debug("Same index exists, not creating");
+                            createIx = false;
+                            break;
+                        }
                     }
                 }
-
+                
                 if (createIx) {
                     for (DBObject existingIndex : existingIndexes) {
                         if (indexFieldsMatch(index, existingIndex)
-                                && !indexOptionsMatch(index, existingIndex)) {
+                            && !indexOptionsMatch(index, existingIndex)) {
                             LOGGER.debug("Same index exists with different options, dropping index:{}", existingIndex);
                             // Changing index options, drop the index using its name, recreate with new options
                             entityCollection.dropIndex(existingIndex.get("name").toString());
                         }
                     }
                 }
-
+                
                 if (createIx) {
                     DBObject newIndex = new BasicDBObject();
                     for (SortKey p : index.getFields()) {
@@ -565,6 +566,12 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         }
 
         LOGGER.debug("createUpdateEntityInfoIndexes: end");
+    }
+
+    private boolean isIdIndex(Index index) {
+        List<SortKey> fields=index.getFields();
+        return fields.size()==1&&
+            fields.get(0).getField().equals(Translator.ID_PATH);
     }
 
     private boolean compareSortKeys(SortKey sortKey, String fieldName, Object dir) {
