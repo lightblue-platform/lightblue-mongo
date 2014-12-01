@@ -52,6 +52,7 @@ import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.SortKey;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
+import com.redhat.lightblue.util.Error;
 
 public class MongoCRUDControllerTest extends AbstractMongoTest {
 
@@ -558,5 +559,53 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
 
         Assert.assertEquals(1,e.getEntityInfo().getIndexes().getIndexes().size());
         Assert.assertEquals("_id",e.getEntityInfo().getIndexes().getIndexes().get(0).getFields().get(0).getField().toString());
+    }
+
+    @Test
+    public void indexFieldValidationTest() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex2"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+
+        List<Index> indexes=new ArrayList<Index>();
+        Index ix=new Index();
+        List<SortKey> fields=new ArrayList<SortKey>();
+        fields.add(new SortKey(new Path("x.*.y"),false));
+        ix.setFields(fields);
+        indexes.add(ix);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+
+        controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
+        Assert.assertEquals("x.y",e.getEntityInfo().getIndexes().getIndexes().get(0).getFields().get(0).getField().toString());
+
+        indexes=new ArrayList<Index>();
+        ix=new Index();
+        fields=new ArrayList<SortKey>();
+        fields.add(new SortKey(new Path("x.1.y"),false));
+        ix.setFields(fields);
+        indexes.add(ix);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        
+        try {
+            controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
+            Assert.fail();
+        } catch (Error x) {}
+
+        indexes=new ArrayList<Index>();
+        ix=new Index();
+        fields=new ArrayList<SortKey>();
+        fields.add(new SortKey(new Path("x.y"),false));
+        ix.setFields(fields);
+        indexes.add(ix);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
+        Assert.assertEquals("x.y",e.getEntityInfo().getIndexes().getIndexes().get(0).getFields().get(0).getField().toString());
+        
     }
 }
