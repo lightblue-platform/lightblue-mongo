@@ -75,6 +75,7 @@ import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
+import com.redhat.lightblue.util.MutablePath;
 
 public class MongoCRUDController implements CRUDController, MetadataListener {
 
@@ -416,6 +417,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     public void beforeUpdateEntityInfo(Metadata md, EntityInfo ei,boolean newEntity) {
+        validateIndexFields(ei);
         ensureIdIndex(ei);
     }
 
@@ -423,7 +425,49 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     public void beforeCreateNewSchema(Metadata md, EntityMetadata emd) {
+        validateIndexFields(emd.getEntityInfo());
         ensureIdField(emd);
+    }
+
+    private Path translateIndexPath(Path p) {
+        MutablePath newPath=new MutablePath();
+        int n=p.numSegments();
+        for(int i=0;i<n;i++) {
+            String x=p.head(i);
+            if(!x.equals(Path.ANY)) {
+                if(p.isIndex(i)) {
+                    throw Error.get(MongoCrudConstants.ERR_INVALID_INDEX_FIELD,p.toString());
+                }
+                newPath.push(x);
+            }
+        }
+        return newPath.immutableCopy();
+    }
+
+    private void validateIndexFields(EntityInfo ei) {
+        for(Index ix:ei.getIndexes().getIndexes()) {
+            List<SortKey> fields=ix.getFields();
+            List<SortKey> newFields=null;
+            boolean copied=false;
+            int i=0;
+            for(SortKey key:fields) {
+                Path p=key.getField();
+                Path newPath=translateIndexPath(p);
+                if(!p.equals(newPath)) {
+                    SortKey newKey=new SortKey(newPath,key.isDesc());
+                    if(!copied) {
+                        newFields=new ArrayList<SortKey>();
+                        newFields.addAll(fields);
+                        copied=true;
+                    }
+                    newFields.set(i,newKey);
+                }
+            }
+            if(copied) {
+                ix.setFields(newFields);
+                LOGGER.debug("Index rewritten as {}",ix);
+            }
+        }
     }
 
     private void ensureIdField(EntityMetadata md) {
