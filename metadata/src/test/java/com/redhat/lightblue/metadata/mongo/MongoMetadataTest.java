@@ -297,6 +297,25 @@ public class MongoMetadataTest {
     }
 
     @Test
+    public void testCollectionName() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "test-Collection"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        try {
+            md.createNewMetadata(e);
+            Assert.fail();
+        } catch (Error x) {}
+
+        e.setDataStore(new MongoDataStore(null, null, "testCollection"));
+        md.createNewMetadata(e);
+    }
+
+    @Test
     public void updateStatusTest() throws Exception {
         EntityMetadata e2 = new EntityMetadata("testEntity");
         e2.setVersion(new Version("1.1.0", null, "some text blah blah"));
