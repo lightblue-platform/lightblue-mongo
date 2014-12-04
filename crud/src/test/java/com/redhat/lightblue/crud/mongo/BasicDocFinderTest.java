@@ -94,6 +94,8 @@ public class BasicDocFinderTest extends AbstractMongoTest {
                 coll,
                 // DBObject (query)
                 null,
+                // DBObject (Projection)
+                null,
                 // DBObject (sort)
                 null,
                 // Long (from)
@@ -126,6 +128,8 @@ public class BasicDocFinderTest extends AbstractMongoTest {
                 coll,
                 // DBObject (query)
                 mongoQuery,
+                // DBObject (projection)
+                null,
                 // DBObject (sort)
                 null,
                 // Long (from)
@@ -155,6 +159,7 @@ public class BasicDocFinderTest extends AbstractMongoTest {
                 coll,
                 // DBObject (query)
                 null, // all
+                null,
                 // DBObject (sort)
                 null,
                 // Long (from)
@@ -187,6 +192,7 @@ public class BasicDocFinderTest extends AbstractMongoTest {
                 coll,
                 // DBObject (query)
                 null, // all
+                null,
                 // DBObject (sort)
                 sort,
                 // Long (from)
@@ -224,6 +230,7 @@ public class BasicDocFinderTest extends AbstractMongoTest {
                 coll,
                 // DBObject (query)
                 null, // all
+                null,
                 // DBObject (sort)
                 sort,
                 // Long (from)
@@ -257,6 +264,7 @@ public class BasicDocFinderTest extends AbstractMongoTest {
                 coll,
                 // DBObject (query)
                 null, // all
+                null,
                 // DBObject (sort)
                 null,
                 // Long (from)
@@ -293,6 +301,7 @@ public class BasicDocFinderTest extends AbstractMongoTest {
                 coll,
                 // DBObject (query)
                 null, // all
+                null,
                 // DBObject (sort)
                 sort,
                 // Long (from)
@@ -330,6 +339,7 @@ public class BasicDocFinderTest extends AbstractMongoTest {
                 coll,
                 // DBObject (query)
                 null, // all
+                null,
                 // DBObject (sort)
                 sort,
                 // Long (from)

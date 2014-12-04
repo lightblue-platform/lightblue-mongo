@@ -367,12 +367,14 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                 } else {
                     mongoSort = null;
                 }
+                DBObject mongoProjection=translator.translateProjection(md,projection,query,sort);
+                LOGGER.debug("Translated projection {}",mongoProjection);
                 DB db = dbResolver.get((MongoDataStore) md.getDataStore());
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
                 LOGGER.debug("Retrieve db collection:" + coll);
                 DocFinder finder = new BasicDocFinder(translator);
                 ctx.setProperty(PROP_FINDER, finder);
-                response.setSize(finder.find(ctx, coll, mongoQuery, mongoSort, from, to));
+                response.setSize(finder.find(ctx, coll, mongoQuery, mongoProjection, mongoSort, from, to));
                 // Project results
                 Projector projector = Projector.getInstance(Projection.add(projection, roleEval.getExcludedFields(FieldAccessRoleEvaluator.Operation.find)), md);
                 for (DocCtx document : ctx.getDocuments()) {
