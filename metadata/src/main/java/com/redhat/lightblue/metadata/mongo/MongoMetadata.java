@@ -304,10 +304,10 @@ public class MongoMetadata extends AbstractMetadata {
             LOGGER.debug("createNewMetadata: Default version validated");
             PredefinedFields.ensurePredefinedFields(md);
 
-            MetadataListener listener=factory.getCRUDController(md.getEntityInfo().getDataStore().getBackend()).getMetadataListener();
-            if(listener!=null) {
-                listener.beforeUpdateEntityInfo(this,md.getEntityInfo(),true);
-                listener.beforeCreateNewSchema(this,md);
+            MetadataListener listener = factory.getCRUDController(md.getEntityInfo().getDataStore().getBackend()).getMetadataListener();
+            if (listener != null) {
+                listener.beforeUpdateEntityInfo(this, md.getEntityInfo(), true);
+                listener.beforeCreateNewSchema(this, md);
             }
 
             DBObject infoObj = (DBObject) mdParser.convert(md.getEntityInfo());
@@ -336,9 +336,9 @@ public class MongoMetadata extends AbstractMetadata {
                         throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, error);
                     }
 
-                    if(listener!=null) {
-                        listener.afterUpdateEntityInfo(this,md.getEntityInfo(),true);
-                        listener.afterCreateNewSchema(this,md);
+                    if (listener != null) {
+                        listener.afterUpdateEntityInfo(this, md.getEntityInfo(), true);
+                        listener.afterCreateNewSchema(this, md);
                     }
 
                 } catch (MongoException.DuplicateKey dke) {
@@ -392,16 +392,16 @@ public class MongoMetadata extends AbstractMetadata {
                 validateDefaultVersion(ei);
             }
 
-            MetadataListener listener=factory.getCRUDController(ei.getDataStore().getBackend()).getMetadataListener();
-            if(listener!=null) {
-                listener.beforeUpdateEntityInfo(this,ei,false);
+            MetadataListener listener = factory.getCRUDController(ei.getDataStore().getBackend()).getMetadataListener();
+            if (listener != null) {
+                listener.beforeUpdateEntityInfo(this, ei, false);
             }
 
             try {
                 collection.update(new BasicDBObject(LITERAL_ID, ei.getName() + BSONParser.DELIMITER_ID),
                         (DBObject) mdParser.convert(ei));
-                if(listener!=null) {
-                    listener.afterUpdateEntityInfo(this,ei,false);
+                if (listener != null) {
+                    listener.afterUpdateEntityInfo(this, ei, false);
                 }
             } catch (Exception e) {
                 LOGGER.error("updateEntityInfo", e);
@@ -442,9 +442,9 @@ public class MongoMetadata extends AbstractMetadata {
             }
 
             PredefinedFields.ensurePredefinedFields(md);
-            MetadataListener listener=factory.getCRUDController(md.getEntityInfo().getDataStore().getBackend()).getMetadataListener();
-            if(listener!=null) {
-                listener.beforeCreateNewSchema(this,md);
+            MetadataListener listener = factory.getCRUDController(md.getEntityInfo().getDataStore().getBackend()).getMetadataListener();
+            if (listener != null) {
+                listener.beforeCreateNewSchema(this, md);
             }
             DBObject schemaObj = (DBObject) mdParser.convert(md.getEntitySchema());
 
@@ -453,8 +453,8 @@ public class MongoMetadata extends AbstractMetadata {
             if (error != null) {
                 throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, error);
             }
-            if(listener!=null) {
-                listener.afterCreateNewSchema(this,md);
+            if (listener != null) {
+                listener.afterCreateNewSchema(this, md);
             }
         } catch (MongoException.DuplicateKey dke) {
             throw Error.get(MongoMetadataConstants.ERR_DUPLICATE_METADATA, ver.getValue());

@@ -411,19 +411,23 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     public MetadataListener getMetadataListener() {
         return this;
     }
-    
-    public void afterUpdateEntityInfo(Metadata md, EntityInfo ei,boolean newEntity) {
+
+    @Override
+    public void afterUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
         createUpdateEntityInfoIndexes(ei);
     }
 
-    public void beforeUpdateEntityInfo(Metadata md, EntityInfo ei,boolean newEntity) {
+    @Override
+    public void beforeUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
         validateIndexFields(ei);
         ensureIdIndex(ei);
     }
 
+    @Override
     public void afterCreateNewSchema(Metadata md, EntityMetadata emd) {
     }
 
+    @Override
     public void beforeCreateNewSchema(Metadata md, EntityMetadata emd) {
         validateIndexFields(emd.getEntityInfo());
         ensureIdField(emd);
@@ -481,31 +485,31 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
 
         FieldTreeNode field;
         try {
-            field=schema.resolve(Translator.ID_PATH);
-        } catch(Error e) {
-            field=null;
+            field = schema.resolve(Translator.ID_PATH);
+        } catch (Error e) {
+            field = null;
         }
-        if(field==null) {
+        if (field == null) {
             LOGGER.debug("Adding _id field");
-            idField=new SimpleField(ID_STR, StringType.TYPE);
+            idField = new SimpleField(ID_STR, StringType.TYPE);
             schema.getFields().addNew(idField);
         } else {
-            if(field instanceof SimpleField)
-                idField=(SimpleField)field;
+            if (field instanceof SimpleField)
+                idField = (SimpleField) field;
             else
                 throw Error.get(MongoMetadataConstants.ERR_INVALID_ID);
         }
-                
-        // Make sure _id has identity constrain
-        List<FieldConstraint> constraints=idField.getConstraints();
-        boolean identityConstraintFound=false;
-        for(FieldConstraint x:constraints) {
-            if(x instanceof IdentityConstraint) {
-                identityConstraintFound=true;
+
+        // Make sure _id has identity constraint
+        List<FieldConstraint> constraints = idField.getConstraints();
+        boolean identityConstraintFound = false;
+        for (FieldConstraint x : constraints) {
+            if (x instanceof IdentityConstraint) {
+                identityConstraintFound = true;
                 break;
             }
         }
-        if(!identityConstraintFound) {
+        if (!identityConstraintFound) {
             LOGGER.debug("Adding identity constraint to _id field");
             constraints.add(new IdentityConstraint());
             idField.setConstraints(constraints);
@@ -516,26 +520,26 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
 
     private void ensureIdIndex(EntityInfo ei) {
         LOGGER.debug("ensureIdIndex: begin");
-        
-        Indexes indexes=ei.getIndexes();
+
+        Indexes indexes = ei.getIndexes();
         // We are looking for a unique index on _id
-        boolean found=false;
-        for(Index ix:indexes.getIndexes()) {
-            List<SortKey> fields=ix.getFields();
-            if(fields.size()==1&&fields.get(0).getField().equals(Translator.ID_PATH)&&
-               ix.isUnique()) {
-                found=true;
+        boolean found = false;
+        for (Index ix : indexes.getIndexes()) {
+            List<SortKey> fields = ix.getFields();
+            if (fields.size() == 1 && fields.get(0).getField().equals(Translator.ID_PATH) &&
+                    ix.isUnique()) {
+                found = true;
                 break;
             }
         }
-        if(!found) {
+        if (!found) {
             LOGGER.debug("Adding _id index");
-            Index idIndex=new Index();
+            Index idIndex = new Index();
             idIndex.setUnique(true);
-            List<SortKey> fields=new ArrayList<>();
-            fields.add(new SortKey(Translator.ID_PATH,false));
+            List<SortKey> fields = new ArrayList<>();
+            fields.add(new SortKey(Translator.ID_PATH, false));
             idIndex.setFields(fields);
-            List<Index> ix=indexes.getIndexes();
+            List<Index> ix = indexes.getIndexes();
             ix.add(idIndex);
             indexes.setIndexes(ix);
         } else {
