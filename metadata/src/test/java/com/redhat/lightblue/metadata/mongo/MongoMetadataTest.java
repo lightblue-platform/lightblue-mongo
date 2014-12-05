@@ -41,6 +41,7 @@ import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.Path;
+import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.test.AbstractJsonNodeTest;
 import de.flapdoodle.embed.mongo.Command;
 import de.flapdoodle.embed.mongo.MongodExecutable;
@@ -105,6 +106,7 @@ public class MongoMetadataTest {
         }
 
         public MetadataListener getMetadataListener() {return null;}
+        public void updatePredefinedFields(CRUDOperationContext ctx,JsonDoc doc) {}
     }
 
     public static class FileStreamProcessor implements IStreamProcessor {
@@ -292,6 +294,25 @@ public class MongoMetadataTest {
         } catch (Exception x) {
         }
         Assert.assertNotNull(md.getEntityMetadata("testEntity", "1.0.0"));
+    }
+
+    @Test
+    public void testCollectionName() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "test-Collection"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        try {
+            md.createNewMetadata(e);
+            Assert.fail();
+        } catch (Error x) {}
+
+        e.setDataStore(new MongoDataStore(null, null, "testCollection"));
+        md.createNewMetadata(e);
     }
 
     @Test

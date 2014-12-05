@@ -28,7 +28,7 @@
     <groupId>com.redhat.lightblue.mongo</groupId>
     <artifactId>mongo-pom</artifactId>
     <packaging>pom</packaging>
-    <version>1.1.0-SNAPSHOT</version>
+    <version>1.2.0-SNAPSHOT</version>
     <name>lightblue-mongo: ${project.groupId}|${project.artifactId}</name>
     <description>Lightblue MongoDB implementation</description>
     <licenses>
@@ -133,7 +133,7 @@
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>metadata</artifactId>
-                <version>${lightblue-core.version}</version>
+                <version>1.2.0-SNAPSHOT</version>
             </dependency>
          </dependencies>
     </dependencyManagement>
@@ -141,12 +141,12 @@
         <dependency>
             <groupId>com.redhat.lightblue</groupId>
             <artifactId>util</artifactId>
-            <version>${lightblue-core.version}</version>
+            <version>1.2.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>com.redhat.lightblue</groupId>
             <artifactId>query-api</artifactId>
-            <version>${lightblue-core.version}</version>
+            <version>1.2.0-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>org.mongodb</groupId>
@@ -200,7 +200,7 @@
         <sonar.jdbc.password>sonar</sonar.jdbc.password>
         <sonar.host.url>http://127.0.0.1:8080</sonar.host.url>
         <sonar.projectName>lightblue-mongo</sonar.projectName>
-        <lightblue-core.version>1.1.0-SNAPSHOT</lightblue-core.version>
+        <lightblue-core.version>1.2.0-SNAPSHOT</lightblue-core.version>
     </properties>
     <build>
         <plugins>
@@ -252,7 +252,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
                         <configuration>
-                            <useAgent>true</useAgent>
+                            <useAgent>false</useAgent>
                         </configuration>
                     </plugin>
                     <plugin>

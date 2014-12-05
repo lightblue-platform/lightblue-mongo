@@ -38,6 +38,7 @@ public final class MongoCrudConstants {
     public static final String ERR_TRANSLATION_ERROR = "mongo-crud:TranslationError";
 
     public static final String ERR_ENTITY_INDEX_NOT_CREATED = "mongo-crud:EntityIndexNotCreated";
+    public static final String ERR_INVALID_INDEX_FIELD = "mongo-crud:InvalidIndexField";
 
     private MongoCrudConstants() {
 

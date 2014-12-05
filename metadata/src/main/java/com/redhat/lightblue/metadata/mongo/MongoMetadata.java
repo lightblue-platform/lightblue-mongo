@@ -470,11 +470,17 @@ public class MongoMetadata extends AbstractMetadata {
         }
     }
 
+    private static final char[] INVALID_COLLECTION_CHARS={'-',' ','.'};
+
     @Override
     protected void checkDataStoreIsValid(EntityInfo md) {
         DataStore store = md.getDataStore();
         if (!(store instanceof MongoDataStore)) {
-            throw new IllegalArgumentException(MongoMetadataConstants.ERR_INVALID_DATASTORE);
+            throw Error.get(MongoMetadataConstants.ERR_INVALID_DATASTORE,store.getClass().getName());
+        }
+        for(char c:INVALID_COLLECTION_CHARS) {
+            if( ((MongoDataStore)store).getCollectionName().indexOf(c) >= 0 )
+                throw Error.get(MongoMetadataConstants.ERR_INVALID_DATASTORE,((MongoDataStore)store).getCollectionName());
         }
     }
 
