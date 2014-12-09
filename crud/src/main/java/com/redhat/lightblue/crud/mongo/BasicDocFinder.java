@@ -52,11 +52,12 @@ public class BasicDocFinder implements DocFinder {
     public long find(CRUDOperationContext ctx,
                      DBCollection coll,
                      DBObject mongoQuery,
+                     DBObject mongoProjection,
                      DBObject mongoSort,
                      Long from,
                      Long to) {
         LOGGER.debug("Submitting query");
-        DBCursor cursor = new FindCommand(coll, mongoQuery, null).execute();
+        DBCursor cursor = new FindCommand(coll, mongoQuery, mongoProjection).execute();
         LOGGER.debug("Query evaluated");
         if (mongoSort != null) {
             cursor = cursor.sort(mongoSort);

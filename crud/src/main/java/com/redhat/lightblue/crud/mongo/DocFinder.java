@@ -35,6 +35,7 @@ public interface DocFinder {
      * context.
      * @param coll The collection on which the find operation will be performed
      * @param mongoQuery The MongoDB query
+     * @param mongoProjection The MongoDB projection
      * @param mongoSort Optional sort
      * @param from Optional from index, starting from 0
      * @param to Optional to index, starting from 0
@@ -50,6 +51,7 @@ public interface DocFinder {
     long find(CRUDOperationContext ctx,
               DBCollection coll,
               DBObject mongoQuery,
+              DBObject mongoProjection,
               DBObject mongoSort,
               Long from,
               Long to);
