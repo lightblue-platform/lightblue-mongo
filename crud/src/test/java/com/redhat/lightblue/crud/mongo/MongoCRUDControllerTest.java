@@ -390,6 +390,31 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
     }
 
     @Test
+    public void objectTypeIsAlwaysProjected() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+
+        ctx.add(md);
+        // Generate some docs
+        List<JsonDoc> docs = new ArrayList<>();
+        int numDocs = 20;
+        for (int i = 0; i < numDocs; i++) {
+            JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+            doc.modify(new Path("field1"), nodeFactory.textNode("doc" + i), false);
+            doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
+            docs.add(doc);
+        }
+        ctx.addDocuments(docs);
+        controller.insert(ctx, projection("{'field':'*','recursive':true}"));
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'field':'field3','op':'>=','rvalue':0}"),
+                projection("{'field':'field3'}"),null, null, null);
+        // The fact that there is no exceptions means objectType was included
+    }
+
+    @Test
     public void deleteTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
