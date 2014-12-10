@@ -475,12 +475,16 @@ public class MongoMetadata extends AbstractMetadata {
     @Override
     protected void checkDataStoreIsValid(EntityInfo md) {
         DataStore store = md.getDataStore();
-        if (!(store instanceof MongoDataStore)) {
-            throw Error.get(MongoMetadataConstants.ERR_INVALID_DATASTORE,store.getClass().getName());
+
+        if (factory.getCRUDController(md.getDataStore().getBackend()) == null) {
+            throw new IllegalArgumentException(MongoMetadataConstants.ERR_INVALID_DATASTORE);
         }
+        if (store instanceof MongoDataStore) {
+
         for(char c:INVALID_COLLECTION_CHARS) {
             if( ((MongoDataStore)store).getCollectionName().indexOf(c) >= 0 )
                 throw Error.get(MongoMetadataConstants.ERR_INVALID_DATASTORE,((MongoDataStore)store).getCollectionName());
+            }
         }
     }
 

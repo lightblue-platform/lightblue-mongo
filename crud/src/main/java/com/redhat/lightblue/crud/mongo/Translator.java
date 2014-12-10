@@ -389,9 +389,9 @@ public class Translator {
                 (node instanceof ArrayField &&
                  ((ArrayField)node).getElement() instanceof ObjectArrayElement) ) {
                 // include its member fields
-            } else if( (p!=null&&p.isFieldRequiredToEvaluateProjection(field)) ||
-                       (q!=null&&q.isRequired(field)) ||
-                       (s!=null&&s.isRequired(field)) ) {
+            } else if( (p!=null && p.isFieldRequiredToEvaluateProjection(field)) ||
+                       (q!=null && q.isRequired(field)) ||
+                       (s!=null && s.isRequired(field)) ) {
                 LOGGER.debug("{}: required",field);
                 fields.add(field);
             } else {
@@ -930,7 +930,7 @@ public class Translator {
                         Path path,
                         JsonNode node) {
         Object value = toValue(fieldMd.getType(), node);
-        // Should we add fields with null values to the bson doc? 
+        // Should we add fields with null values to the bson doc?
         if (value != null) {
             LOGGER.debug("{} = {}", path, value);
             if (path.equals(ID_PATH)) {
@@ -999,7 +999,7 @@ public class Translator {
     }
 
     private void convertReferenceFieldToBson() {
-        //TODO  
+        //TODO
         throw new java.lang.UnsupportedOperationException();
     }
 
