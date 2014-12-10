@@ -63,10 +63,12 @@ import com.redhat.lightblue.metadata.MetadataListener;
 import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.FieldConstraint;
 import com.redhat.lightblue.metadata.FieldTreeNode;
+import com.redhat.lightblue.metadata.Field;
 import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.metadata.constraints.IdentityConstraint;
 import com.redhat.lightblue.metadata.mongo.MongoMetadataConstants;
 import com.redhat.lightblue.query.FieldProjection;
+import com.redhat.lightblue.query.ProjectionList;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
@@ -367,7 +369,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                 } else {
                     mongoSort = null;
                 }
-                DBObject mongoProjection=translator.translateProjection(md,projection,query,sort);
+                DBObject mongoProjection=translator.translateProjection(md,getProjectionFields(projection,md),query,sort);
                 LOGGER.debug("Translated projection {}",mongoProjection);
                 DB db = dbResolver.get((MongoDataStore) md.getDataStore());
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
@@ -663,5 +665,25 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
             }
         }
         return false;
+    }
+
+    /**
+     * Returns a projection containing the requested projection, all
+     * identity fields, and the objectType field
+     */
+    private Projection getProjectionFields(Projection requestedProjection,
+                                           EntityMetadata md) {
+        Field[] identityFields=md.getEntitySchema().getIdentityFields();
+        List<Projection> projectFields=new ArrayList<>(identityFields==null?1:identityFields.length+1);
+        if(requestedProjection instanceof ProjectionList) {
+            projectFields.addAll(((ProjectionList)requestedProjection).getItems());
+        } else if(requestedProjection!=null) {
+            projectFields.add(requestedProjection);
+        }
+        for(Field x:identityFields)
+            projectFields.add(new FieldProjection(x.getFullPath(),true,false));
+        projectFields.add(new FieldProjection(Translator.OBJECT_TYPE,true,false));
+            
+        return new ProjectionList(projectFields);
     }
 }
