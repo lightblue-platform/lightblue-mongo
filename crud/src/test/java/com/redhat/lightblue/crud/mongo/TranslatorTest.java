@@ -18,11 +18,13 @@
  */
 package com.redhat.lightblue.crud.mongo;
 
+import java.util.Set;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.mongodb.DBObject;
 import com.redhat.lightblue.crud.Operation;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.query.UpdateExpression;
+import com.redhat.lightblue.util.Path;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -188,4 +190,27 @@ public class TranslatorTest extends AbstractMongoTest {
         Assert.assertTrue(idObj instanceof String);
     }
 
+    @Test
+    public void projectionFields() throws Exception {
+        Set<Path> fields=Translator.getRequiredFields(md,projection("{'field':'*','recursive':1}"),null,null);
+        System.out.println(fields);
+        Assert.assertTrue(fields.contains(new Path("objectType")));
+        Assert.assertTrue(fields.contains(new Path("_id")));
+        Assert.assertTrue(fields.contains(new Path("field1")));
+        Assert.assertTrue(fields.contains(new Path("field2")));
+        Assert.assertTrue(fields.contains(new Path("field3")));
+        Assert.assertTrue(fields.contains(new Path("field4")));
+        Assert.assertTrue(fields.contains(new Path("field5")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf1")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf2")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf3")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf4")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf5")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf6")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf7.nnf1")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf7.nnf2")));
+        Assert.assertTrue(fields.contains(new Path("field7.*.elemf1")));
+        Assert.assertTrue(fields.contains(new Path("field7.*.elemf2")));
+        Assert.assertTrue(fields.contains(new Path("field7.*.elemf3")));
+    }
 }
