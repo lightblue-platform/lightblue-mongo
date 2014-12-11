@@ -34,7 +34,7 @@ public class MongoDBResolver implements DBResolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoDBResolver.class);
 
-    private final Map<String, DataSourceConfiguration> datasources;
+    private final Map<String, MongoConfiguration> datasources;
     private final Map<String, DB> dbMap = new HashMap<>();
     private final Map<String, DB> dsMap = new HashMap<>();
 
