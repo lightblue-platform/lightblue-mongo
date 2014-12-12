@@ -18,16 +18,28 @@
  */
 package com.redhat.lightblue.metadata.mongo;
 
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.bson.BSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.LongNode;
 import com.fasterxml.jackson.databind.node.BigIntegerNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
 import com.fasterxml.jackson.databind.node.DecimalNode;
 import com.fasterxml.jackson.databind.node.DoubleNode;
 import com.fasterxml.jackson.databind.node.FloatNode;
-import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.LongNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ShortNode;
 import com.mongodb.BasicDBObject;
 import com.redhat.lightblue.metadata.EntityInfo;
@@ -41,11 +53,6 @@ import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonUtils;
-import org.bson.BSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class BSONParser extends MetadataParser<BSONObject> {
@@ -54,7 +61,7 @@ public class BSONParser extends MetadataParser<BSONObject> {
     public static final String DELIMITER_ID = "|";
 
     public BSONParser(Extensions<BSONObject> ex,
-                      TypeResolver resolver) {
+            TypeResolver resolver) {
         super(ex, resolver);
     }
 
@@ -258,20 +265,23 @@ public class BSONParser extends MetadataParser<BSONObject> {
 
     @Override
     public void putProjection(BSONObject object,String name,Projection p) {
-        if(p!=null)
+        if(p!=null) {
             object.put(name,toBson(p.toJson()));
+        }
     }
 
     @Override
     public void putQuery(BSONObject object,String name,QueryExpression  q) {
-        if(q!=null)
+        if(q!=null) {
             object.put(name,toBson(q.toJson()));
+        }
     }
 
     @Override
     public void putSort(BSONObject object,String name,Sort  s) {
-        if(s!=null)
+        if(s!=null) {
             object.put(name,toBson(s.toJson()));
+        }
     }
 
     private static Object toBson(JsonNode node) {
@@ -310,13 +320,13 @@ public class BSONParser extends MetadataParser<BSONObject> {
         } else if(node instanceof DecimalNode) {
             return node.decimalValue();
         } else if(node instanceof DoubleNode ||
-                  node instanceof FloatNode) {
+                node instanceof FloatNode) {
             return node.asDouble();
         } else if(node instanceof IntNode||
-                  node instanceof LongNode||
-                  node instanceof ShortNode) {
+                node instanceof LongNode||
+                node instanceof ShortNode) {
             return node.asLong();
-        } 
+        }
         return node.asText();
     }
 
