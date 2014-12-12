@@ -111,9 +111,7 @@ public class BSONParserTest {
         Assert.assertTrue(bsonString.matches(".*\"annotatedValues\" : \\[.*"));
         Assert.assertTrue(bsonString.contains("{ \"name\" : \"" + enumValue1 + "\" , \"description\" : \"" + enumDescription1 + "\"}"));
         Assert.assertTrue(bsonString.contains("{ \"name\" : \"" + enumValue2 + "\" , \"description\" : \"" + enumDescription2 + "\"}"));
-        //Should just be a string element, not a complex object.
-        Assert.assertTrue(bsonString.contains(enumValue3));
-        Assert.assertFalse(bsonString.contains("\"name\" : \"" + enumValue3 + "\""));
+        Assert.assertTrue(bsonString.contains("\"name\" : \"" + enumValue3 + "\""));
     }
 
     @Test
