@@ -598,9 +598,9 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         e.getFields().put(o);
         e.getEntityInfo().setDefaultVersion("1.0.0");
 
-        List<Index> indexes=new ArrayList<Index>();
+        List<Index> indexes=new ArrayList<>();
         Index ix=new Index();
-        List<SortKey> fields=new ArrayList<SortKey>();
+        List<SortKey> fields=new ArrayList<>();
         fields.add(new SortKey(new Path("x.*.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
@@ -609,28 +609,81 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
         Assert.assertEquals("x.y",e.getEntityInfo().getIndexes().getIndexes().get(0).getFields().get(0).getField().toString());
 
-        indexes=new ArrayList<Index>();
+        indexes=new ArrayList<>();
         ix=new Index();
-        fields=new ArrayList<SortKey>();
+        fields=new ArrayList<>();
         fields.add(new SortKey(new Path("x.1.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
-        
+
         try {
             controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
             Assert.fail();
-        } catch (Error x) {}
+        } catch (Error x) {
+            // expected
+        }
 
         indexes=new ArrayList<Index>();
         ix=new Index();
-        fields=new ArrayList<SortKey>();
+        fields=new ArrayList<>();
         fields.add(new SortKey(new Path("x.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
         controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
         Assert.assertEquals("x.y",e.getEntityInfo().getIndexes().getIndexes().get(0).getFields().get(0).getField().toString());
-        
     }
+
+    @Test
+    public void indexFieldsMatch() {
+        // order of keys in an index matters to mongo, this test exists to ensure this is accounted for in the controller
+
+        DBCollection coll = db.getCollection("testIndexFieldMatch");
+        {
+            BasicDBObject dbIndex = new BasicDBObject();
+            dbIndex.append("x", 1);
+            dbIndex.append("y", 1);
+            coll.createIndex(dbIndex);
+        }
+
+        {
+            Index ix = new Index();
+            List<SortKey> fields = new ArrayList<>();
+            fields.add(new SortKey(new Path("x"), false));
+            fields.add(new SortKey(new Path("y"), false));
+            ix.setFields(fields);
+
+            boolean verified = false;
+            for (DBObject dbi: coll.getIndexInfo()) {
+                if (((BasicDBObject)dbi.get("key")).entrySet().iterator().next().getKey().equals("_id")) {
+                    continue;
+                }
+                // non _id index is the one we want to verify with
+                Assert.assertTrue(controller.indexFieldsMatch(ix, dbi));
+                verified = true;
+            }
+            Assert.assertTrue(verified);
+        }
+
+        {
+            Index ix = new Index();
+            List<SortKey> fields = new ArrayList<>();
+            fields.add(new SortKey(new Path("y"), false));
+            fields.add(new SortKey(new Path("x"), false));
+            ix.setFields(fields);
+
+            boolean verified = false;
+            for (DBObject dbi: coll.getIndexInfo()) {
+                if (((BasicDBObject)dbi.get("key")).entrySet().iterator().next().getKey().equals("_id")) {
+                    continue;
+                }
+                // non _id index is the one we want to verify with
+                Assert.assertFalse(controller.indexFieldsMatch(ix, dbi));
+                verified = true;
+            }
+            Assert.assertTrue(verified);
+        }
+    }
+
 }
