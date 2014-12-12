@@ -18,6 +18,16 @@
  */
 package com.redhat.lightblue.metadata.mongo;
 
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.bson.BSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.mongodb.BasicDBObject;
 import com.redhat.lightblue.metadata.EntityInfo;
@@ -31,11 +41,6 @@ import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonUtils;
-import org.bson.BSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class BSONParser extends MetadataParser<BSONObject> {
@@ -44,7 +49,7 @@ public class BSONParser extends MetadataParser<BSONObject> {
     public static final String DELIMITER_ID = "|";
 
     public BSONParser(Extensions<BSONObject> ex,
-                      TypeResolver resolver) {
+            TypeResolver resolver) {
         super(ex, resolver);
     }
 
@@ -244,6 +249,20 @@ public class BSONParser extends MetadataParser<BSONObject> {
     @Override
     public Sort parseSort(BSONObject object) {
         return object == null ? null : Sort.fromJson(toJson(object));
+    }
+
+    @Override
+    public boolean isPrimitive(BSONObject object) {
+        JsonNode node = toJson(object);
+        if(node.isArray() || node.isObject()){
+            return false;
+        }
+        return true;
+    }
+
+    @Override
+    public String getStringValueOf(BSONObject object) {
+        return object.toString();
     }
 
     private JsonNode toJson(BSONObject object) {
