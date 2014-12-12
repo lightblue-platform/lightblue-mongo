@@ -19,6 +19,16 @@
 package com.redhat.lightblue.metadata.mongo;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.LongNode;
+import com.fasterxml.jackson.databind.node.BigIntegerNode;
+import com.fasterxml.jackson.databind.node.DecimalNode;
+import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.FloatNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.ShortNode;
 import com.mongodb.BasicDBObject;
 import com.redhat.lightblue.metadata.EntityInfo;
 import com.redhat.lightblue.metadata.EntitySchema;
@@ -246,7 +256,71 @@ public class BSONParser extends MetadataParser<BSONObject> {
         return object == null ? null : Sort.fromJson(toJson(object));
     }
 
-    private JsonNode toJson(BSONObject object) {
+    @Override
+    public void putProjection(BSONObject object,String name,Projection p) {
+        if(p!=null)
+            object.put(name,toBson(p.toJson()));
+    }
+
+    @Override
+    public void putQuery(BSONObject object,String name,QueryExpression  q) {
+        if(q!=null)
+            object.put(name,toBson(q.toJson()));
+    }
+
+    @Override
+    public void putSort(BSONObject object,String name,Sort  s) {
+        if(s!=null)
+            object.put(name,toBson(s.toJson()));
+    }
+
+    private static Object toBson(JsonNode node) {
+        if(node instanceof ObjectNode) {
+            return toBson((ObjectNode)node);
+        } else if(node instanceof ArrayNode) {
+            return toBson((ArrayNode)node);
+        } else {
+            return convertValue(node);
+        }
+    }
+
+    private static Object toBson(ObjectNode node) {
+        BasicDBObject ret=new BasicDBObject();
+        for(Iterator<Map.Entry<String,JsonNode>> itr=node.fields();itr.hasNext();) {
+            Map.Entry<String,JsonNode> entry=itr.next();
+            ret.put(entry.getKey(),toBson(entry.getValue()));
+        }
+        return ret;
+    }
+
+    private static List toBson(ArrayNode node) {
+        List list=new ArrayList(node.size());
+        for(Iterator<JsonNode> itr=node.elements();itr.hasNext();) {
+            JsonNode n=itr.next();
+            list.add(toBson(n));
+        }
+        return list;
+    }
+
+    private static Object convertValue(JsonNode node) {
+        if(node instanceof BigIntegerNode) {
+            return node.bigIntegerValue();
+        } else if(node instanceof BooleanNode) {
+            return new Boolean(node.asBoolean());
+        } else if(node instanceof DecimalNode) {
+            return node.decimalValue();
+        } else if(node instanceof DoubleNode ||
+                  node instanceof FloatNode) {
+            return node.asDouble();
+        } else if(node instanceof IntNode||
+                  node instanceof LongNode||
+                  node instanceof ShortNode) {
+            return node.asLong();
+        } 
+        return node.asText();
+    }
+
+    private static JsonNode toJson(BSONObject object) {
         try {
             return JsonUtils.json(object.toString());
         } catch (Exception e) {
