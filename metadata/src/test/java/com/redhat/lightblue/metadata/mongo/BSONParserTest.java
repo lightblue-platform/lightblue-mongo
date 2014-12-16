@@ -64,8 +64,8 @@ public class BSONParserTest {
 
         Enum e = new Enum(enumName);
         e.setValues(new HashSet<EnumValue>(Arrays.asList(
-                new EnumValue(enumName, enumValue1, null),
-                new EnumValue(enumName, enumValue2, null))));
+                new EnumValue(enumValue1, null),
+                new EnumValue(enumValue2, null))));
 
         Enums enums = new Enums();
         enums.addEnum(e);
@@ -95,9 +95,9 @@ public class BSONParserTest {
 
         Enum e = new Enum(enumName);
         e.setValues(new HashSet<EnumValue>(Arrays.asList(
-                new EnumValue(enumName, enumValue1, enumDescription1),
-                new EnumValue(enumName, enumValue2, enumDescription2),
-                new EnumValue(enumName, enumValue3, null))));
+                new EnumValue(enumValue1, enumDescription1),
+                new EnumValue(enumValue2, enumDescription2),
+                new EnumValue(enumValue3, null))));
 
         Enums enums = new Enums();
         enums.addEnum(e);
@@ -129,8 +129,8 @@ public class BSONParserTest {
         Assert.assertEquals(enumName, e.getName());
         Set<EnumValue> values = e.getEnumValues();
         Assert.assertEquals(2, values.size());
-        Assert.assertTrue(values.contains(new EnumValue(e.getName(), enumValue1, null)));
-        Assert.assertTrue(values.contains(new EnumValue(e.getName(), enumValue2, null)));
+        Assert.assertTrue(values.contains(new EnumValue(enumValue1, null)));
+        Assert.assertTrue(values.contains(new EnumValue(enumValue2, null)));
     }
 
     @Test
@@ -158,8 +158,8 @@ public class BSONParserTest {
 
         Set<EnumValue> values = e.getEnumValues();
         Assert.assertEquals(2, values.size());
-        Assert.assertTrue(e.getEnumValues().contains(new EnumValue(e.getName(), enumValue1, enumDescription1)));
-        Assert.assertTrue(e.getEnumValues().contains(new EnumValue(e.getName(), enumValue2, enumDescription2)));
+        Assert.assertTrue(e.getEnumValues().contains(new EnumValue(enumValue1, enumDescription1)));
+        Assert.assertTrue(e.getEnumValues().contains(new EnumValue(enumValue2, enumDescription2)));
     }
 
 }
