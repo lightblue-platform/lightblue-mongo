@@ -411,7 +411,6 @@ public class Translator {
         Set<Path> fields=getRequiredFields(md,p,q,s);
         LOGGER.debug("translateProjection, p={}, q={}, s={}, fields={}",p,q,s,fields);
         BasicDBObject ret=new BasicDBObject();
-        Integer one=new Integer(1);
         for(Path f:fields) {
             ret.append(translatePath(f),1);
         }
@@ -844,7 +843,7 @@ public class Translator {
     }
 
     private void convertSimpleFieldToJson(ObjectNode node, FieldTreeNode field, Object value, String fieldName) {
-        JsonNode valueNode = ((SimpleField) field).getType().toJson(factory, value);
+        JsonNode valueNode = field.getType().toJson(factory, value);
         if (valueNode != null) {
             node.set(fieldName, valueNode);
         }
@@ -890,7 +889,7 @@ public class Translator {
         JsonNode ret = null;
         if (el instanceof SimpleArrayElement) {
             if (value != null) {
-                ret = ((SimpleArrayElement) el).getType().toJson(factory, value);
+                ret = el.getType().toJson(factory, value);
             }
         } else {
             if (value != null) {
