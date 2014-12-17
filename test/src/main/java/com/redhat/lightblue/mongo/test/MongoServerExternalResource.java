@@ -77,17 +77,6 @@ public class MongoServerExternalResource extends ExternalResource{
     private MongodExecutable mongodExe;
     private MongodProcess mongod;
 
-    public MongoServerExternalResource(){
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            @Override
-            public void run() {
-                // use run(), do not use start()
-                super.run();
-                after();
-            }
-        });
-    }
-
     @Override
     public Statement apply(Statement base, Description description){
         immsAnnotation = description.getAnnotation(InMemoryMongoServer.class);
@@ -118,9 +107,6 @@ public class MongoServerExternalResource extends ExternalResource{
         if (mongod != null) {
             mongod.stop();
             mongodExe.stop();
-
-            mongod = null;
-            mongodExe = null;
         }
     }
 
