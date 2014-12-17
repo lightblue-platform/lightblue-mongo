@@ -18,24 +18,11 @@
  */
 package com.redhat.lightblue.crud.mongo;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.lang.ref.ReferenceQueue;
-
-import de.flapdoodle.embed.mongo.config.MongodConfigBuilder;
-import de.flapdoodle.embed.mongo.config.Net;
-import de.flapdoodle.embed.process.runtime.Network;
-import org.junit.After;
-import org.junit.BeforeClass;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
-import com.mongodb.Mongo;
 import com.redhat.lightblue.crud.Factory;
 import com.redhat.lightblue.crud.validator.DefaultFieldConstraintValidators;
 import com.redhat.lightblue.crud.validator.EmptyEntityConstraintValidators;
@@ -46,113 +33,49 @@ import com.redhat.lightblue.metadata.mongo.MongoDataStoreParser;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.parser.JSONMetadataParser;
 import com.redhat.lightblue.metadata.types.DefaultTypes;
+import com.redhat.lightblue.mongo.test.EmbeddedMongo;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.JsonUtils;
 import com.redhat.lightblue.util.test.AbstractJsonSchemaTest;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.BeforeClass;
 
-import de.flapdoodle.embed.mongo.Command;
-import de.flapdoodle.embed.mongo.MongodExecutable;
-import de.flapdoodle.embed.mongo.MongodProcess;
-import de.flapdoodle.embed.mongo.MongodStarter;
-import de.flapdoodle.embed.mongo.config.RuntimeConfigBuilder;
-import de.flapdoodle.embed.process.config.IRuntimeConfig;
-import de.flapdoodle.embed.process.config.io.ProcessOutput;
-import de.flapdoodle.embed.process.io.IStreamProcessor;
-import de.flapdoodle.embed.process.io.Processors;
+import java.io.IOException;
 
 /**
- *
  * @author nmalik
  */
 public abstract class AbstractMongoCrudTest extends AbstractJsonSchemaTest {
     protected static final JsonNodeFactory nodeFactory = JsonNodeFactory.withExactBigDecimals(true);
 
-    // Copied from  https://github.com/tommysdk/showcase/blob/master/mongo-in-mem/src/test/java/tommysdk/showcase/mongo/TestInMemoryMongo.java
-    protected static final String MONGO_HOST = "localhost";
-    protected static final int MONGO_PORT = 27777;
-    protected static final String IN_MEM_CONNECTION_URL = MONGO_HOST + ":" + MONGO_PORT;
-
-    protected static final String DB_NAME = "test";
+    private static EmbeddedMongo mongo = EmbeddedMongo.getInstance();
     protected static final String COLL_NAME = "data";
 
-    protected static MongodExecutable mongodExe;
-    protected static MongodProcess mongod;
-    protected static Mongo mongo;
-    protected static DB db;
-    protected static DBCollection coll;
     protected static Factory factory;
-    protected static ReferenceQueue referenceQueue = new ReferenceQueue();
-
-    static {
-        try {
-            IStreamProcessor mongodOutput = Processors.named("[mongod>]",
-                    new FileStreamProcessor(File.createTempFile("mongod", "log")));
-            IStreamProcessor mongodError = new FileStreamProcessor(File.createTempFile("mongod-error", "log"));
-            IStreamProcessor commandsOutput = Processors.namedConsole("[console>]");
-
-            IRuntimeConfig runtimeConfig = new RuntimeConfigBuilder()
-                    .defaults(Command.MongoD)
-                    .processOutput(new ProcessOutput(mongodOutput, mongodError, commandsOutput))
-                    .build();
-
-            MongodStarter runtime = MongodStarter.getInstance(runtimeConfig);
-            mongodExe = runtime.prepare(
-                    new MongodConfigBuilder()
-                    .version(de.flapdoodle.embed.mongo.distribution.Version.V2_6_0)
-                    .net(new Net(MONGO_PORT, Network.localhostIsIPv6()))
-                    .build()
-            );
-
-            try {
-                mongod = mongodExe.start();
-            } catch (Throwable t) {
-                // try again, could be killed breakpoint in IDE
-                mongod = mongodExe.start();
-            }
-            mongo = new Mongo(IN_MEM_CONNECTION_URL);
-            db = mongo.getDB(DB_NAME);
-
-            coll = db.createCollection(COLL_NAME, null);
-
-            Runtime.getRuntime().addShutdownHook(new Thread() {
-                @Override
-                public void run() {
-                    super.run();
-                    clearDatabase();
-                }
-
-            });
-        } catch (IOException e) {
-            throw new Error(e);
-        }
-    }
+    protected DBCollection coll;
+    protected static DB db;
 
     @BeforeClass
     public static void setupClass() throws Exception {
         factory = new Factory();
         factory.addFieldConstraintValidators(new DefaultFieldConstraintValidators());
         factory.addEntityConstraintValidators(new EmptyEntityConstraintValidators());
+        db = mongo.getDB();
     }
 
-    public static void clearDatabase() {
-        if (mongod != null) {
-            mongod.stop();
-            mongodExe.stop();
-        }
-        db = null;
-        mongo = null;
-        mongod = null;
-        mongodExe = null;
+    @Before
+    public void setup() throws Exception {
+        coll = db.getCollection(COLL_NAME);
     }
 
     @After
-    public void teardown() throws Exception {
-        if (mongod != null) {
-            mongo.dropDatabase(DB_NAME);
-        }
+    public void teardown() {
+        mongo.reset();
+        coll = null;
     }
 
     protected Projection projection(String s) throws Exception {
@@ -187,32 +110,4 @@ public abstract class AbstractMongoCrudTest extends AbstractJsonSchemaTest {
         PredefinedFields.ensurePredefinedFields(md);
         return md;
     }
-
-    public static class FileStreamProcessor implements IStreamProcessor {
-        private final FileOutputStream outputStream;
-
-        public FileStreamProcessor(File file) throws FileNotFoundException {
-            outputStream = new FileOutputStream(file);
-        }
-
-        @Override
-        public void process(String block) {
-            try {
-                outputStream.write(block.getBytes());
-            } catch (IOException e) {
-                throw new IllegalStateException(e);
-            }
-        }
-
-        @Override
-        public void onProcessed() {
-            try {
-                outputStream.close();
-            } catch (IOException e) {
-                throw new IllegalStateException(e);
-            }
-        }
-
-    }
-
 }

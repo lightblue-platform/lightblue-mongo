@@ -21,7 +21,6 @@ package com.redhat.lightblue.crud.mongo;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.bson.types.ObjectId;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,12 +53,14 @@ import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.Error;
 
-public class MongoCRUDControllerTest extends AbstractMongoTest {
+public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     private MongoCRUDController controller;
 
     @Before
     public void setup() throws Exception {
+        super.setup();
+
         final DB dbx = db;
         dbx.createCollection(COLL_NAME, null);
 
@@ -598,9 +599,9 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         e.getFields().put(o);
         e.getEntityInfo().setDefaultVersion("1.0.0");
 
-        List<Index> indexes=new ArrayList<Index>();
+        List<Index> indexes=new ArrayList<>();
         Index ix=new Index();
-        List<SortKey> fields=new ArrayList<SortKey>();
+        List<SortKey> fields=new ArrayList<>();
         fields.add(new SortKey(new Path("x.*.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
@@ -609,9 +610,9 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
         Assert.assertEquals("x.y",e.getEntityInfo().getIndexes().getIndexes().get(0).getFields().get(0).getField().toString());
 
-        indexes=new ArrayList<Index>();
+        indexes=new ArrayList<>();
         ix=new Index();
-        fields=new ArrayList<SortKey>();
+        fields=new ArrayList<>();
         fields.add(new SortKey(new Path("x.1.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
@@ -622,9 +623,9 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
             Assert.fail();
         } catch (Error x) {}
 
-        indexes=new ArrayList<Index>();
+        indexes=new ArrayList<>();
         ix=new Index();
-        fields=new ArrayList<SortKey>();
+        fields=new ArrayList<>();
         fields.add(new SortKey(new Path("x.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
