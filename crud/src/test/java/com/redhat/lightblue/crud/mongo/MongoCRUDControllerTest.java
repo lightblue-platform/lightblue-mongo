@@ -21,7 +21,6 @@ package com.redhat.lightblue.crud.mongo;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.bson.types.ObjectId;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,12 +53,14 @@ import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.Error;
 
-public class MongoCRUDControllerTest extends AbstractMongoTest {
+public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     private MongoCRUDController controller;
 
     @Before
     public void setup() throws Exception {
+        super.setup();
+
         final DB dbx = db;
         dbx.createCollection(COLL_NAME, null);
 
@@ -624,7 +625,7 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
             // expected
         }
 
-        indexes=new ArrayList<Index>();
+        indexes=new ArrayList<>();
         ix=new Index();
         fields=new ArrayList<>();
         fields.add(new SortKey(new Path("x.y"),false));

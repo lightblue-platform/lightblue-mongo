@@ -31,7 +31,7 @@ import org.junit.Test;
  *
  * @author nmalik
  */
-public class BasicDocDeleterTest extends AbstractMongoTest {
+public class BasicDocDeleterTest extends AbstractMongoCrudTest {
     @Test
     public void delete() {
         // setup data to delete
