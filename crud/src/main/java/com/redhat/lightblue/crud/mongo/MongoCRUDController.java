@@ -680,8 +680,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         } else if(requestedProjection!=null) {
             projectFields.add(requestedProjection);
         }
-        for(Field x:identityFields)
-            projectFields.add(new FieldProjection(x.getFullPath(),true,false));
+        if (identityFields != null) {
+            for (Field x : identityFields)
+                projectFields.add(new FieldProjection(x.getFullPath(), true, false));
+        }
         projectFields.add(new FieldProjection(Translator.OBJECT_TYPE,true,false));
             
         return new ProjectionList(projectFields);
