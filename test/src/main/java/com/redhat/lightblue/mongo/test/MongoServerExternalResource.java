@@ -13,6 +13,8 @@ import org.junit.rules.ExternalResource;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
+import com.mongodb.MongoClient;
+
 import de.flapdoodle.embed.mongo.MongodExecutable;
 import de.flapdoodle.embed.mongo.MongodProcess;
 import de.flapdoodle.embed.mongo.MongodStarter;
@@ -31,8 +33,8 @@ public class MongoServerExternalResource extends ExternalResource{
     @Inherited
     @Documented
     public @interface InMemoryMongoServer {
-        Version version() default Version.V2_6_1;
         int port() default DEFAULT_PORT;
+        Version version() default Version.V2_6_1;
     }
 
     private InMemoryMongoServer immsAnnotation = null;
@@ -70,6 +72,10 @@ public class MongoServerExternalResource extends ExternalResource{
             mongod.stop();
             mongodExe.stop();
         }
+    }
+
+    public MongoClient getConnection() throws UnknownHostException{
+        return new MongoClient("localhost", immsAnnotation.port());
     }
 
 }
