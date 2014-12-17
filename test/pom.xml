@@ -40,15 +40,6 @@
             <artifactId>de.flapdoodle.embed.mongo</artifactId>
             <scope>compile</scope>
         </dependency>
-        <dependency>
-            <groupId>com.redhat.lightblue</groupId>
-            <artifactId>metadata</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.redhat.lightblue.mongo</groupId>
-            <artifactId>mongo-metadata</artifactId>
-            <version>${project.version}</version>
-        </dependency>
     </dependencies>
     <build>
         <plugins>

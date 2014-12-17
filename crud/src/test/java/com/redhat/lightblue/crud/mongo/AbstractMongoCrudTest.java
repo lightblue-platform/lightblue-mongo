@@ -16,7 +16,7 @@
  You should have received a copy of the GNU General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.redhat.lightblue.mongo.test;
+package com.redhat.lightblue.crud.mongo;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -26,11 +26,32 @@ import java.lang.ref.ReferenceQueue;
 
 import de.flapdoodle.embed.mongo.config.MongodConfigBuilder;
 import de.flapdoodle.embed.mongo.config.Net;
+import de.flapdoodle.embed.process.runtime.Network;
+import org.junit.After;
+import org.junit.BeforeClass;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.Mongo;
+import com.redhat.lightblue.crud.Factory;
+import com.redhat.lightblue.crud.validator.DefaultFieldConstraintValidators;
+import com.redhat.lightblue.crud.validator.EmptyEntityConstraintValidators;
+import com.redhat.lightblue.metadata.EntityMetadata;
+import com.redhat.lightblue.metadata.PredefinedFields;
+import com.redhat.lightblue.metadata.TypeResolver;
+import com.redhat.lightblue.metadata.mongo.MongoDataStoreParser;
+import com.redhat.lightblue.metadata.parser.Extensions;
+import com.redhat.lightblue.metadata.parser.JSONMetadataParser;
+import com.redhat.lightblue.metadata.types.DefaultTypes;
+import com.redhat.lightblue.query.Projection;
+import com.redhat.lightblue.query.QueryExpression;
+import com.redhat.lightblue.query.Sort;
+import com.redhat.lightblue.query.UpdateExpression;
+import com.redhat.lightblue.util.JsonUtils;
+import com.redhat.lightblue.util.test.AbstractJsonSchemaTest;
 
 import de.flapdoodle.embed.mongo.Command;
 import de.flapdoodle.embed.mongo.MongodExecutable;
@@ -41,14 +62,12 @@ import de.flapdoodle.embed.process.config.IRuntimeConfig;
 import de.flapdoodle.embed.process.config.io.ProcessOutput;
 import de.flapdoodle.embed.process.io.IStreamProcessor;
 import de.flapdoodle.embed.process.io.Processors;
-import de.flapdoodle.embed.process.runtime.Network;
-import org.junit.After;
 
 /**
  *
  * @author nmalik
  */
-public abstract class AbstractMongoTest {
+public abstract class AbstractMongoCrudTest extends AbstractJsonSchemaTest {
     protected static final JsonNodeFactory nodeFactory = JsonNodeFactory.withExactBigDecimals(true);
 
     // Copied from  https://github.com/tommysdk/showcase/blob/master/mongo-in-mem/src/test/java/tommysdk/showcase/mongo/TestInMemoryMongo.java
@@ -64,6 +83,7 @@ public abstract class AbstractMongoTest {
     protected static Mongo mongo;
     protected static DB db;
     protected static DBCollection coll;
+    protected static Factory factory;
     protected static ReferenceQueue referenceQueue = new ReferenceQueue();
 
     static {
@@ -79,7 +99,7 @@ public abstract class AbstractMongoTest {
                     .build();
 
             MongodStarter runtime = MongodStarter.getInstance(runtimeConfig);
-            MongodExecutable _mongoExe = runtime.prepare(
+            mongodExe = runtime.prepare(
                     new MongodConfigBuilder()
                     .version(de.flapdoodle.embed.mongo.distribution.Version.V2_6_0)
                     .net(new Net(MONGO_PORT, Network.localhostIsIPv6()))
@@ -87,25 +107,19 @@ public abstract class AbstractMongoTest {
             );
 
             try {
-                mongod = _mongoExe.start();
-            } catch (IOException t) {
+                mongod = mongodExe.start();
+            } catch (Throwable t) {
                 // try again, could be killed breakpoint in IDE
-                mongod = _mongoExe.start();
+                mongod = mongodExe.start();
             }
+            mongo = new Mongo(IN_MEM_CONNECTION_URL);
+            db = mongo.getDB(DB_NAME);
 
-            Mongo _mongo = new Mongo(IN_MEM_CONNECTION_URL);
-            DB _db = _mongo.getDB(DB_NAME);
-
-            coll = _db.createCollection(COLL_NAME, null);
-
-            mongodExe = _mongoExe;
-            mongo = _mongo;
-            db = _db;
+            coll = db.createCollection(COLL_NAME, null);
 
             Runtime.getRuntime().addShutdownHook(new Thread() {
                 @Override
                 public void run() {
-                    // use run(), do not use start()
                     super.run();
                     clearDatabase();
                 }
@@ -114,6 +128,13 @@ public abstract class AbstractMongoTest {
         } catch (IOException e) {
             throw new Error(e);
         }
+    }
+
+    @BeforeClass
+    public static void setupClass() throws Exception {
+        factory = new Factory();
+        factory.addFieldConstraintValidators(new DefaultFieldConstraintValidators());
+        factory.addEntityConstraintValidators(new EmptyEntityConstraintValidators());
     }
 
     public static void clearDatabase() {
@@ -130,12 +151,41 @@ public abstract class AbstractMongoTest {
     @After
     public void teardown() throws Exception {
         if (mongod != null) {
-            dropDatabase(DB_NAME);
+            mongo.dropDatabase(DB_NAME);
         }
     }
-    
-    protected void dropDatabase(String databaseName) {
-        mongo.dropDatabase(databaseName);
+
+    protected Projection projection(String s) throws Exception {
+        return Projection.fromJson(json(s));
+    }
+
+    protected QueryExpression query(String s) throws Exception {
+        return QueryExpression.fromJson(json(s));
+    }
+
+    protected UpdateExpression update(String s) throws Exception {
+        return UpdateExpression.fromJson(json(s));
+    }
+
+    protected Sort sort(String s) throws Exception {
+        return Sort.fromJson(json(s));
+    }
+
+    protected JsonNode json(String s) throws Exception {
+        return JsonUtils.json(s.replace('\'', '\"'));
+    }
+
+    public EntityMetadata getMd(String fname) throws IOException, ProcessingException {
+        runValidJsonTest("json-schema/metadata/metadata.json", fname);
+        JsonNode node = loadJsonNode(fname);
+        Extensions<JsonNode> extensions = new Extensions<>();
+        extensions.addDefaultExtensions();
+        extensions.registerDataStoreParser("mongo", new MongoDataStoreParser<JsonNode>());
+        TypeResolver resolver = new DefaultTypes();
+        JSONMetadataParser parser = new JSONMetadataParser(extensions, resolver, nodeFactory);
+        EntityMetadata md = parser.parseEntityMetadata(node);
+        PredefinedFields.ensurePredefinedFields(md);
+        return md;
     }
 
     public static class FileStreamProcessor implements IStreamProcessor {
@@ -162,5 +212,7 @@ public abstract class AbstractMongoTest {
                 throw new IllegalStateException(e);
             }
         }
+
     }
+
 }
