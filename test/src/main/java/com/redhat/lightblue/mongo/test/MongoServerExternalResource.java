@@ -24,6 +24,22 @@ import de.flapdoodle.embed.mongo.config.Net;
 import de.flapdoodle.embed.mongo.distribution.Version;
 import de.flapdoodle.embed.process.runtime.Network;
 
+/**
+ * <p>JUnit {@link ExternalResource} that will handle standing/shutting down an In-Memory Mongo instance
+ * for testing purposes.</p>
+ * <p>Example Usage:<br>
+ *   Create an instance of MongoServerExternalResource with a {@literal @}Rule annotation.
+ *   <p><code>
+ *      {@literal @}Rule<br>
+ *      public MongoServerExternalResource mongoServer = new MongoServerExternalResource();
+ *   </code></p>
+ *   Then set the <code>{@literal @}InMemoryMongoServer</code> annotation on either the Class or Method
+ *   level. This annotation allows properties of the Mongo instance to be configured, but is required even
+ *   if only using the default values.
+ * </p>
+ *
+ * @author dcrissman
+ */
 public class MongoServerExternalResource extends ExternalResource{
 
     public static final int DEFAULT_PORT = 27777;
@@ -33,7 +49,9 @@ public class MongoServerExternalResource extends ExternalResource{
     @Inherited
     @Documented
     public @interface InMemoryMongoServer {
+        /** Port to run the Mongo instance on.*/
         int port() default DEFAULT_PORT;
+        /** Version of Mongo to use. */
         Version version() default Version.V2_6_1;
     }
 
@@ -74,6 +92,11 @@ public class MongoServerExternalResource extends ExternalResource{
         }
     }
 
+    /**
+     * Provides a {@link MongoClient} for the running in-memory Mongo instance.
+     * @return {@link MongoClient}
+     * @throws UnknownHostException
+     */
     public MongoClient getConnection() throws UnknownHostException{
         return new MongoClient("localhost", immsAnnotation.port());
     }
