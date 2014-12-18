@@ -28,12 +28,14 @@ import com.redhat.lightblue.metadata.EntityMetadata;
 
 import com.redhat.lightblue.crud.MetadataResolver;
 
-public class TranslatorUpdateTest extends AbstractMongoTest {
+public class TranslatorUpdateTest extends AbstractMongoCrudTest {
 
     private Translator translator;
 
     @Before
-    public void init() throws Exception {
+    public void setup() throws Exception {
+        super.setup();
+
         translator = new Translator(new MetadataResolver() {
             @Override
             public EntityMetadata getEntityMetadata(String entityName) {

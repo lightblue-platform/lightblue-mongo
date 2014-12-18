@@ -634,15 +634,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         return false;
     }
 
-    private boolean indexFieldsMatch(Index index, DBObject existingIndex) {
+    protected boolean indexFieldsMatch(Index index, DBObject existingIndex) {
         BasicDBObject keys = (BasicDBObject) existingIndex.get("key");
         if (keys != null) {
             List<SortKey> fields = index.getFields();
             if (keys.size() == fields.size()) {
                 Iterator<SortKey> sortKeyItr = fields.iterator();
-                for (Map.Entry<String, Object> entry : keys.entrySet()) {
+                for (Map.Entry<String, Object> dbKeyEntry : keys.entrySet()) {
                     SortKey sortKey = sortKeyItr.next();
-                    if (!compareSortKeys(sortKey, entry.getKey(), entry.getValue())) {
+                    if (!compareSortKeys(sortKey, dbKeyEntry.getKey(), dbKeyEntry.getValue())) {
                         return false;
                     }
                 }
@@ -680,8 +680,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         } else if(requestedProjection!=null) {
             projectFields.add(requestedProjection);
         }
-        for(Field x:identityFields)
-            projectFields.add(new FieldProjection(x.getFullPath(),true,false));
+        if (identityFields != null) {
+            for (Field x : identityFields)
+                projectFields.add(new FieldProjection(x.getFullPath(), true, false));
+        }
         projectFields.add(new FieldProjection(Translator.OBJECT_TYPE,true,false));
             
         return new ProjectionList(projectFields);

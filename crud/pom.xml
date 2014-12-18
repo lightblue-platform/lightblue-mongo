@@ -55,8 +55,9 @@
             <artifactId>hystrix-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>de.flapdoodle.embed</groupId>
-            <artifactId>de.flapdoodle.embed.mongo</artifactId>
+            <groupId>com.redhat.lightblue.mongo</groupId>
+            <artifactId>mongo-test</artifactId>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
