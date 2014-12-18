@@ -76,6 +76,7 @@ public class MongoServerExternalResource extends ExternalResource{
     private InMemoryMongoServer immsAnnotation = null;
     private MongodExecutable mongodExe;
     private MongodProcess mongod;
+    private MongoClient client;
 
     public MongoServerExternalResource(){
         Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -114,7 +115,7 @@ public class MongoServerExternalResource extends ExternalResource{
             mongod = mongodExe.start();
         }
         catch(IOException e){
-            System.err.println("Mongo failed to start for the previously stated reason. A single retry will be attempted.");
+            //Mongo failed to start for the previously stated reason. A single retry will be attempted.
             mongod = mongodExe.start();
         }
     }
@@ -135,7 +136,10 @@ public class MongoServerExternalResource extends ExternalResource{
      * @throws UnknownHostException
      */
     public MongoClient getConnection() throws UnknownHostException{
-        return new MongoClient("localhost", immsAnnotation.port());
+        if(client == null){
+            client = new MongoClient("localhost", immsAnnotation.port());
+        }
+        return client;
     }
 
 }
