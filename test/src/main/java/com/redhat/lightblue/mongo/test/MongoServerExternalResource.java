@@ -77,6 +77,16 @@ public class MongoServerExternalResource extends ExternalResource{
     private MongodExecutable mongodExe;
     private MongodProcess mongod;
 
+    public MongoServerExternalResource(){
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            @Override
+            public void run() {
+                super.run();
+                after();
+            }
+        });
+    }
+
     @Override
     public Statement apply(Statement base, Description description){
         immsAnnotation = description.getAnnotation(InMemoryMongoServer.class);
@@ -99,7 +109,14 @@ public class MongoServerExternalResource extends ExternalResource{
                 net(new Net(immsAnnotation.port(), Network.localhostIsIPv6())).
                 build();
         mongodExe = runtime.prepare(config);
-        mongod = mongodExe.start();
+
+        try{
+            mongod = mongodExe.start();
+        }
+        catch(IOException e){
+            System.err.println("Mongo failed to start for the previously stated reason. A single retry will be attempted.");
+            mongod = mongodExe.start();
+        }
     }
 
     @Override
@@ -108,6 +125,8 @@ public class MongoServerExternalResource extends ExternalResource{
             mongod.stop();
             mongodExe.stop();
         }
+        mongod = null;
+        mongodExe = null;
     }
 
     /**
