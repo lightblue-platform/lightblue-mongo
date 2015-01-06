@@ -4,7 +4,8 @@
         "defaultVersion": "1.0.0",
         "datastore": {
             "backend":"mongo",
-            "collection":"test"
+            "collection":"test",
+            "datastore": "mongo"
         }
     },
     "schema": {

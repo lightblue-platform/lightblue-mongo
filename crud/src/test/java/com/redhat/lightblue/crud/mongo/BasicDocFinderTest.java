@@ -40,13 +40,15 @@ import com.redhat.lightblue.util.JsonUtils;
  *
  * @author nmalik
  */
-public class BasicDocFinderTest extends AbstractMongoTest {
+public class BasicDocFinderTest extends AbstractMongoCrudTest {
 
     private TestCRUDOperationContext ctx;
     private Translator translator;
 
     @Before
-    public void setup() throws IOException, ProcessingException {
+    public void setup() throws Exception {
+        super.setup();
+
         ctx = new TestCRUDOperationContext(Operation.FIND);
         // load metadata 
         EntityMetadata md = getMd("./testMetadata.json");

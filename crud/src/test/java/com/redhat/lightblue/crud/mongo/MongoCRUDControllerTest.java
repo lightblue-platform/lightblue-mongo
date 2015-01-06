@@ -21,7 +21,6 @@ package com.redhat.lightblue.crud.mongo;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.bson.types.ObjectId;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -54,12 +53,14 @@ import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.Error;
 
-public class MongoCRUDControllerTest extends AbstractMongoTest {
+public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     private MongoCRUDController controller;
 
     @Before
     public void setup() throws Exception {
+        super.setup();
+
         final DB dbx = db;
         dbx.createCollection(COLL_NAME, null);
 
@@ -390,6 +391,31 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
     }
 
     @Test
+    public void objectTypeIsAlwaysProjected() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+
+        ctx.add(md);
+        // Generate some docs
+        List<JsonDoc> docs = new ArrayList<>();
+        int numDocs = 20;
+        for (int i = 0; i < numDocs; i++) {
+            JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+            doc.modify(new Path("field1"), nodeFactory.textNode("doc" + i), false);
+            doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
+            docs.add(doc);
+        }
+        ctx.addDocuments(docs);
+        controller.insert(ctx, projection("{'field':'*','recursive':true}"));
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'field':'field3','op':'>=','rvalue':0}"),
+                projection("{'field':'field3'}"),null, null, null);
+        // The fact that there is no exceptions means objectType was included
+    }
+
+    @Test
     public void deleteTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
@@ -573,9 +599,9 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         e.getFields().put(o);
         e.getEntityInfo().setDefaultVersion("1.0.0");
 
-        List<Index> indexes=new ArrayList<Index>();
+        List<Index> indexes=new ArrayList<>();
         Index ix=new Index();
-        List<SortKey> fields=new ArrayList<SortKey>();
+        List<SortKey> fields=new ArrayList<>();
         fields.add(new SortKey(new Path("x.*.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
@@ -584,28 +610,81 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
         Assert.assertEquals("x.y",e.getEntityInfo().getIndexes().getIndexes().get(0).getFields().get(0).getField().toString());
 
-        indexes=new ArrayList<Index>();
+        indexes=new ArrayList<>();
         ix=new Index();
-        fields=new ArrayList<SortKey>();
+        fields=new ArrayList<>();
         fields.add(new SortKey(new Path("x.1.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
-        
+
         try {
             controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
             Assert.fail();
-        } catch (Error x) {}
+        } catch (Error x) {
+            // expected
+        }
 
-        indexes=new ArrayList<Index>();
+        indexes=new ArrayList<>();
         ix=new Index();
-        fields=new ArrayList<SortKey>();
+        fields=new ArrayList<>();
         fields.add(new SortKey(new Path("x.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
         controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
         Assert.assertEquals("x.y",e.getEntityInfo().getIndexes().getIndexes().get(0).getFields().get(0).getField().toString());
-        
     }
+
+    @Test
+    public void indexFieldsMatch() {
+        // order of keys in an index matters to mongo, this test exists to ensure this is accounted for in the controller
+
+        DBCollection coll = db.getCollection("testIndexFieldMatch");
+        {
+            BasicDBObject dbIndex = new BasicDBObject();
+            dbIndex.append("x", 1);
+            dbIndex.append("y", 1);
+            coll.createIndex(dbIndex);
+        }
+
+        {
+            Index ix = new Index();
+            List<SortKey> fields = new ArrayList<>();
+            fields.add(new SortKey(new Path("x"), false));
+            fields.add(new SortKey(new Path("y"), false));
+            ix.setFields(fields);
+
+            boolean verified = false;
+            for (DBObject dbi: coll.getIndexInfo()) {
+                if (((BasicDBObject)dbi.get("key")).entrySet().iterator().next().getKey().equals("_id")) {
+                    continue;
+                }
+                // non _id index is the one we want to verify with
+                Assert.assertTrue(controller.indexFieldsMatch(ix, dbi));
+                verified = true;
+            }
+            Assert.assertTrue(verified);
+        }
+
+        {
+            Index ix = new Index();
+            List<SortKey> fields = new ArrayList<>();
+            fields.add(new SortKey(new Path("y"), false));
+            fields.add(new SortKey(new Path("x"), false));
+            ix.setFields(fields);
+
+            boolean verified = false;
+            for (DBObject dbi: coll.getIndexInfo()) {
+                if (((BasicDBObject)dbi.get("key")).entrySet().iterator().next().getKey().equals("_id")) {
+                    continue;
+                }
+                // non _id index is the one we want to verify with
+                Assert.assertFalse(controller.indexFieldsMatch(ix, dbi));
+                verified = true;
+            }
+            Assert.assertTrue(verified);
+        }
+    }
+
 }
