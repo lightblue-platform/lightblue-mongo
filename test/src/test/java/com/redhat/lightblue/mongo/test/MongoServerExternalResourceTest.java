@@ -20,19 +20,19 @@ public class MongoServerExternalResourceTest {
     public static final MongoServerExternalResource mongoServer = new MongoServerExternalResource();
 
     @Test(expected = IllegalStateException.class)
-    public void testApply_WithoutAnnotation_onTestLevel(){
+    public void testApply_WithoutAnnotation_onTestLevel() {
         new MongoServerExternalResource().apply(mock(Statement.class), mock(Description.class));
     }
 
     @Test(expected = IllegalStateException.class)
-    public void testApply_WithoutAnnotation_onClassLevel(){
+    public void testApply_WithoutAnnotation_onClassLevel() {
         new MongoServerExternalResource().apply(
                 mock(Statement.class),
                 Description.createSuiteDescription(Object.class));
     }
 
     @Test
-    public void testGetConnection() throws UnknownHostException{
+    public void testGetConnection() throws UnknownHostException {
         MongoClient client = mongoServer.getConnection();
 
         assertNotNull(client);

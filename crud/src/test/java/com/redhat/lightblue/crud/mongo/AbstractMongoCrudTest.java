@@ -33,7 +33,7 @@ import com.redhat.lightblue.metadata.mongo.MongoDataStoreParser;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.parser.JSONMetadataParser;
 import com.redhat.lightblue.metadata.types.DefaultTypes;
-import com.redhat.lightblue.mongo.test.EmbeddedMongo;
+import com.redhat.lightblue.mongo.test.MongoServerExternalResource;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
@@ -43,18 +43,22 @@ import com.redhat.lightblue.util.test.AbstractJsonSchemaTest;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 
 import java.io.IOException;
 
 /**
  * @author nmalik
  */
+@MongoServerExternalResource.InMemoryMongoServer(port=27777)
 public abstract class AbstractMongoCrudTest extends AbstractJsonSchemaTest {
     protected static final JsonNodeFactory nodeFactory = JsonNodeFactory.withExactBigDecimals(true);
 
-    private static EmbeddedMongo mongo = EmbeddedMongo.getInstance();
-    protected static final String COLL_NAME = "data";
+    @ClassRule
+    public static final MongoServerExternalResource mongo = new MongoServerExternalResource();
 
+    protected static final String COLL_NAME = "data";
+    private static final String DATABADSE_NAME = "mongo";
     protected static Factory factory;
     protected DBCollection coll;
     protected static DB db;
@@ -64,7 +68,8 @@ public abstract class AbstractMongoCrudTest extends AbstractJsonSchemaTest {
         factory = new Factory();
         factory.addFieldConstraintValidators(new DefaultFieldConstraintValidators());
         factory.addEntityConstraintValidators(new EmptyEntityConstraintValidators());
-        db = mongo.getDB();
+
+        db = mongo.getConnection().getDB(DATABADSE_NAME);
     }
 
     @Before
@@ -73,8 +78,8 @@ public abstract class AbstractMongoCrudTest extends AbstractJsonSchemaTest {
     }
 
     @After
-    public void teardown() {
-        mongo.reset();
+    public void teardown() throws Exception {
+        mongo.getConnection().dropDatabase(DATABADSE_NAME);
         coll = null;
     }
 
