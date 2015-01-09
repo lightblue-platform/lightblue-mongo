@@ -46,7 +46,7 @@ import de.flapdoodle.embed.process.runtime.Network;
  * <p>JUnit {@link ExternalResource} that will handle standing/shutting down an In-Memory Mongo instance
  * for testing purposes.</p>
  * <p>Example Usage:<br>
- *   Create an instance of MongoServerExternalResource with a {@literal @}Rule annotation.
+ *   Create an instance of MongoServerExternalResource with a {@link org.junit.Rule} or {@link org.junit.ClassRule} annotation.
  *   <p><code>
  *      {@literal @}Rule<br>
  *      public MongoServerExternalResource mongoServer = new MongoServerExternalResource();
@@ -128,6 +128,19 @@ public class MongoServerExternalResource extends ExternalResource{
         }
         mongod = null;
         mongodExe = null;
+
+        /*
+         * There seems to be a race condition with multiple back to back
+         * test cases. Essentially, the mongo instance process must be
+         * still shutting down after the stop method returns. This sleep
+         * builds in some extra time to allow that process to finish.
+         */
+        try {
+            Thread.sleep(5000);
+        }
+        catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
     /**
