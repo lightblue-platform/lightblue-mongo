@@ -23,21 +23,18 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.bson.types.ObjectId;
-
+import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.MongoException;
 import com.mongodb.WriteConcern;
 import com.mongodb.WriteResult;
-import com.mongodb.BasicDBObject;
-
 import com.redhat.lightblue.crud.CRUDOperationContext;
+import com.redhat.lightblue.crud.CrudConstants;
 import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.crud.Operation;
-import com.redhat.lightblue.crud.CrudConstants;
-import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
+import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.mongo.hystrix.FindOneCommand;
 import com.redhat.lightblue.mongo.hystrix.InsertCommand;
@@ -60,19 +57,19 @@ public class BasicDocSaver implements DocSaver {
      * Creates a doc saver with the given translator and role evaluator
      */
     public BasicDocSaver(Translator translator,
-                         FieldAccessRoleEvaluator roleEval) {
+            FieldAccessRoleEvaluator roleEval) {
         this.translator = translator;
         this.roleEval = roleEval;
     }
 
     @Override
     public void saveDoc(CRUDOperationContext ctx,
-                        Op op,
-                        boolean upsert,
-                        DBCollection collection,
-                        EntityMetadata md,
-                        DBObject dbObject,
-                        DocCtx inputDoc) {
+            Op op,
+            boolean upsert,
+            DBCollection collection,
+            EntityMetadata md,
+            DBObject dbObject,
+            DocCtx inputDoc) {
 
         WriteResult result = null;
         String error = null;
@@ -128,10 +125,10 @@ public class BasicDocSaver implements DocSaver {
     }
 
     private WriteResult insertDoc(CRUDOperationContext ctx,
-                                  DBCollection collection,
-                                  EntityMetadata md,
-                                  DBObject dbObject,
-                                  DocCtx inputDoc) {
+            DBCollection collection,
+            EntityMetadata md,
+            DBObject dbObject,
+            DocCtx inputDoc) {
         LOGGER.debug("Inserting doc");
         if (!md.getAccess().getInsert().hasAccess(ctx.getCallerRoles())) {
             inputDoc.addError(Error.get("insert",
@@ -152,7 +149,9 @@ public class BasicDocSaver implements DocSaver {
                     inputDoc.addError(Error.get("insert", MongoCrudConstants.ERR_DUPLICATE, dke));
                 }
             } else {
-                inputDoc.addError(Error.get("insert", CrudConstants.ERR_NO_FIELD_INSERT_ACCESS, paths.toString()));
+                for(Path path : paths){
+                    inputDoc.addError(Error.get("insert", CrudConstants.ERR_NO_FIELD_INSERT_ACCESS, path.toString()));
+                }
             }
         }
         return null;
