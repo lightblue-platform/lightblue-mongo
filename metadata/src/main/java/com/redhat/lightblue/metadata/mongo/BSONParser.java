@@ -269,50 +269,22 @@ public class BSONParser extends MetadataParser<BSONObject> {
     @Override
     public void putProjection(BSONObject object,String name,Projection p) {
         if(p!=null) {
-            object.put(name,toBson(p.toJson()));
+            object.put(name,p.toJson().toString());
         }
     }
 
     @Override
     public void putQuery(BSONObject object,String name,QueryExpression  q) {
         if(q!=null) {
-            object.put(name,toBson(q.toJson()));
+            object.put(name,q.toJson().toString());
         }
     }
 
     @Override
     public void putSort(BSONObject object,String name,Sort  s) {
         if(s!=null) {
-            object.put(name,toBson(s.toJson()));
+            object.put(name,s.toJson().toString());
         }
-    }
-
-    private static Object toBson(JsonNode node) {
-        if(node instanceof ObjectNode) {
-            return toBson((ObjectNode)node);
-        } else if(node instanceof ArrayNode) {
-            return toBson((ArrayNode)node);
-        } else {
-            return convertValue(node);
-        }
-    }
-
-    private static Object toBson(ObjectNode node) {
-        BasicDBObject ret=new BasicDBObject();
-        for(Iterator<Map.Entry<String,JsonNode>> itr=node.fields();itr.hasNext();) {
-            Map.Entry<String,JsonNode> entry=itr.next();
-            ret.put(entry.getKey(),toBson(entry.getValue()));
-        }
-        return ret;
-    }
-
-    private static List toBson(ArrayNode node) {
-        List list=new ArrayList(node.size());
-        for(Iterator<JsonNode> itr=node.elements();itr.hasNext();) {
-            JsonNode n=itr.next();
-            list.add(toBson(n));
-        }
-        return list;
     }
 
     private static Object convertValue(JsonNode node) {
