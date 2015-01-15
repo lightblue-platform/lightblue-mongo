@@ -173,6 +173,25 @@ public class MongoMetadataTest {
         Assert.assertEquals("testEntity", names[0]);
     }
 
+    @Test
+    public void createMdWithAndRefTest() throws Exception {
+        Extensions<JsonNode> extensions = new Extensions<>();
+        extensions.addDefaultExtensions();
+        extensions.registerDataStoreParser("mongo", new MongoDataStoreParser<JsonNode>());
+        JSONMetadataParser parser = new JSONMetadataParser(extensions, new DefaultTypes(), new JsonNodeFactory(true));
+
+        // get JsonNode representing metadata
+        JsonNode jsonMetadata = AbstractJsonNodeTest.loadJsonNode(getClass().getSimpleName() + "-qps-andquery.json");
+
+        // parser into EntityMetadata
+        EntityMetadata e = parser.parseEntityMetadata(jsonMetadata);
+
+        // persist
+        md.createNewMetadata(e);
+        EntityMetadata g = md.getEntityMetadata("test", "1.0.0");
+        // No exception=OK
+    }
+
     /**
      * Issue #13: if you create it twice, the error thrown for the second one
      * cleans up the first
