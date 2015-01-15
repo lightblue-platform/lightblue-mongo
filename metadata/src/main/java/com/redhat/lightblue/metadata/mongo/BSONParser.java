@@ -249,18 +249,21 @@ public class BSONParser extends MetadataParser<BSONObject> {
     }
 
     @Override
-    public Projection parseProjection(BSONObject object) {
-        return object == null ? null : Projection.fromJson(toJson(object));
+    public Projection getProjection(BSONObject object,String name) {
+        String x=(String)object.get(name);
+        return x == null ? null : Projection.fromJson(toJson(x));
     }
 
     @Override
-    public QueryExpression parseQuery(BSONObject object) {
-        return object == null ? null : QueryExpression.fromJson(toJson(object));
+    public QueryExpression getQuery(BSONObject object,String name) {
+        String x=(String)object.get(name);
+        return x == null ? null : QueryExpression.fromJson(toJson(x));
     }
 
     @Override
-    public Sort parseSort(BSONObject object) {
-        return object == null ? null : Sort.fromJson(toJson(object));
+    public Sort getSort(BSONObject object,String name) {
+        String x=(String)object.get(name);
+        return x == null ? null : Sort.fromJson(toJson(x));
     }
 
     @Override
@@ -331,8 +334,12 @@ public class BSONParser extends MetadataParser<BSONObject> {
     }
 
     private static JsonNode toJson(BSONObject object) {
+        return toJson(object.toString());
+    }
+
+    private static JsonNode toJson(String object) {
         try {
-            return JsonUtils.json(object.toString());
+            return JsonUtils.json(object);
         } catch (Exception e) {
             throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, object.toString());
         }
