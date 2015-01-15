@@ -56,10 +56,6 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.netflix.hystrix</groupId>
-            <artifactId>hystrix-core</artifactId>
-        </dependency>
-        <dependency>
             <groupId>com.redhat.lightblue.mongo</groupId>
             <artifactId>mongo-test</artifactId>
             <version>${project.version}</version>
