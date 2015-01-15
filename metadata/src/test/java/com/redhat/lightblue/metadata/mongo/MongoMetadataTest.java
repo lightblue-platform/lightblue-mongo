@@ -47,6 +47,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.Ignore;
 import org.skyscreamer.jsonassert.JSONAssert;
 
 import java.io.IOException;
@@ -173,6 +174,7 @@ public class MongoMetadataTest {
         Assert.assertEquals("testEntity", names[0]);
     }
 
+    @Ignore
     @Test
     public void createMdWithAndRefTest() throws Exception {
         Extensions<JsonNode> extensions = new Extensions<>();
