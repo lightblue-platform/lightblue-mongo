@@ -21,24 +21,20 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>com.redhat.lightblue.mongo</groupId>
-        <artifactId>mongo-pom</artifactId>
+        <artifactId>lightblue-mongo-pom</artifactId>
         <version>1.3.0-SNAPSHOT</version>
     </parent>
     <groupId>com.redhat.lightblue.mongo</groupId>
-    <artifactId>mongo-hystrix</artifactId>
+    <artifactId>lightblue-mongo-hystrix</artifactId>
     <packaging>jar</packaging>
     <version>1.3.0-SNAPSHOT</version>
-    <name>lightblue: ${project.groupId}|${project.artifactId}</name>
+    <name>lightblue-mongo: ${project.groupId}|${project.artifactId}</name>
     <dependencies>
         <dependency>
             <groupId>com.redhat.lightblue.mongo</groupId>
-            <artifactId>mongo-test</artifactId>
+            <artifactId>lightblue-mongo-test</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
-    <build>
-        <plugins>
-        </plugins>
-    </build>
 </project>
