@@ -174,7 +174,6 @@ public class MongoMetadataTest {
         Assert.assertEquals("testEntity", names[0]);
     }
 
-    @Ignore
     @Test
     public void createMdWithAndRefTest() throws Exception {
         Extensions<JsonNode> extensions = new Extensions<>();
