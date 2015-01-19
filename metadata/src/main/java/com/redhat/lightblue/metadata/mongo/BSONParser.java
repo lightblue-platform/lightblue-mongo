@@ -305,10 +305,6 @@ public class BSONParser extends MetadataParser<BSONObject> {
         return node.asText();
     }
 
-    private static JsonNode toJson(BSONObject object) {
-        return toJson(object.toString());
-    }
-
     private static JsonNode toJson(String object) {
         try {
             return JsonUtils.json(object);

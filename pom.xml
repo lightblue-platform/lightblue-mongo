@@ -26,7 +26,7 @@
         <relativePath />
     </parent>
     <groupId>com.redhat.lightblue.mongo</groupId>
-    <artifactId>mongo-pom</artifactId>
+    <artifactId>lightblue-mongo-pom</artifactId>
     <packaging>pom</packaging>
     <version>1.3.0-SNAPSHOT</version>
     <name>lightblue-mongo: ${project.groupId}|${project.artifactId}</name>
@@ -114,15 +114,41 @@
                 <groupId>org.skyscreamer</groupId>
                 <artifactId>jsonassert</artifactId>
                 <version>1.2.3</version>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
-                <artifactId>metadata</artifactId>
+                <artifactId>lightblue-core-metadata</artifactId>
                 <version>1.3.0-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
-                <artifactId>test</artifactId>
+                <artifactId>lightblue-core-crud</artifactId>
+                <version>1.3.0-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>com.redhat.lightblue</groupId>
+                <artifactId>lightblue-core-api</artifactId>
+                <version>1.3.0-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>com.redhat.lightblue</groupId>
+                <artifactId>lightblue-core-util</artifactId>
+                <version>1.3.0-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>com.redhat.lightblue</groupId>
+                <artifactId>lightblue-core-query-api</artifactId>
+                <version>1.3.0-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>com.redhat.lightblue</groupId>
+                <artifactId>lightblue-core-config</artifactId>
+                <version>1.3.0-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>com.redhat.lightblue</groupId>
+                <artifactId>lightblue-core-test</artifactId>
                 <version>1.3.0-SNAPSHOT</version>
                 <scope>test</scope>
             </dependency>
@@ -137,13 +163,16 @@
     <dependencies>
         <dependency>
             <groupId>com.redhat.lightblue</groupId>
-            <artifactId>util</artifactId>
-            <version>1.3.0-SNAPSHOT</version>
+            <artifactId>lightblue-core-util</artifactId>
         </dependency>
         <dependency>
             <groupId>com.redhat.lightblue</groupId>
-            <artifactId>query-api</artifactId>
-            <version>1.3.0-SNAPSHOT</version>
+            <artifactId>lightblue-core-query-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.redhat.lightblue</groupId>
+            <artifactId>lightblue-core-test</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mongodb</groupId>
@@ -182,11 +211,6 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.redhat.lightblue</groupId>
-            <artifactId>test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
@@ -207,7 +231,6 @@
         <sonar.jdbc.password>sonar</sonar.jdbc.password>
         <sonar.host.url>http://127.0.0.1:8080</sonar.host.url>
         <sonar.projectName>lightblue-mongo</sonar.projectName>
-        <lightblue-core.version>1.2.0-SNAPSHOT</lightblue-core.version>
     </properties>
     <build>
         <plugins>
