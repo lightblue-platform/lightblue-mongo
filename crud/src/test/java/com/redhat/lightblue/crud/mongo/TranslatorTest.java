@@ -152,13 +152,13 @@ public class TranslatorTest extends AbstractMongoCrudTest {
     public void transalteJS() throws Exception {
         DBObject obj = translator.translate(md, query("{'field':'field7.*.elemf1','op':'=','rfield':'field7.*.elemf2'}"));
         Assert.assertEquals("function() {for(var r0=0;r0<this.field7.length;r0++) {"
-                + "for(var l0=0;l0<this.field7.length;l0++) {if(this.field7[l0].elemf1==this.field7[r0].elemf2) { return true; }}}return false;}",
-                obj.get("$where").toString());
+                            + "for(var l0=0;l0<this.field7.length;l0++) {if(this.field7[l0].elemf1 == this.field7[r0].elemf2) { return true;}}}return false;}",
+                            obj.get("$where").toString().trim());
 
         obj = translator.translate(md, query("{'field':'field7.0.elemf1','op':'=','rfield':'field7.*.elemf2'}"));
         Assert.assertEquals("function() {for(var i0=0;i0<this.field7.length;i0++) {"
-                + "if(this.field7[0].elemf1==this.field7[i0].elemf2) {return true;}}return false;}",
-                obj.get("$where").toString());
+                            + "if(this.field7[0].elemf1 == this.field7[i0].elemf2) { return true;}}return false;}",
+                            obj.get("$where").toString().trim());
     }
 
     @Test
