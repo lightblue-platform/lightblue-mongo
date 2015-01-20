@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
@@ -65,6 +67,7 @@ import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.RValueExpression;
 import com.redhat.lightblue.query.RegexMatchExpression;
 import com.redhat.lightblue.query.SetExpression;
+import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.query.SortKey;
 import com.redhat.lightblue.query.UnaryLogicalExpression;
@@ -359,6 +362,60 @@ public class Translator {
         } finally {
             Error.pop();
         }
+    }
+
+    /**
+     * Returns all the fields required to evaluate the given projection, query, and sort
+     *
+     * @param md Entity metadata
+     * @param p Projection
+     * @param q Query
+     * @param s Sort
+     *
+     * All arguments are optional. The returned set contains the
+     * fields required to evaluate all the non-null expressions
+     */
+    public static Set<Path> getRequiredFields(EntityMetadata md,
+                                              Projection p,
+                                              QueryExpression q,
+                                              Sort s) {
+        LOGGER.debug("getRequiredFields: p={}, q={}, s={}",p,q,s);
+        Set<Path> fields=new HashSet<>();
+        FieldCursor cursor=md.getFieldCursor();
+        while(cursor.next()) {
+            Path field=cursor.getCurrentPath();
+            FieldTreeNode node=cursor.getCurrentNode();
+            if( (node instanceof ObjectField) ||
+                (node instanceof ArrayField &&
+                 ((ArrayField)node).getElement() instanceof ObjectArrayElement) ) {
+                // include its member fields
+            } else if( (p!=null && p.isFieldRequiredToEvaluateProjection(field)) ||
+                       (q!=null && q.isRequired(field)) ||
+                       (s!=null && s.isRequired(field)) ) {
+                LOGGER.debug("{}: required",field);
+                fields.add(field);
+            } else {
+                LOGGER.debug("{}: not required", field);
+            }
+        }
+        return fields;
+    }
+
+    /**
+     * Writes a MongoDB projection containing fields to evaluate the projection, sort, and query
+     */
+    public DBObject translateProjection(EntityMetadata md,
+                                        Projection p,
+                                        QueryExpression q,
+                                        Sort s) {
+        Set<Path> fields=getRequiredFields(md,p,q,s);
+        LOGGER.debug("translateProjection, p={}, q={}, s={}, fields={}",p,q,s,fields);
+        BasicDBObject ret=new BasicDBObject();
+        for(Path f:fields) {
+            ret.append(translatePath(f),1);
+        }
+        LOGGER.debug("Resulting projection:{}",ret);
+        return ret;
     }
 
     /**
@@ -786,7 +843,7 @@ public class Translator {
     }
 
     private void convertSimpleFieldToJson(ObjectNode node, FieldTreeNode field, Object value, String fieldName) {
-        JsonNode valueNode = ((SimpleField) field).getType().toJson(factory, value);
+        JsonNode valueNode = field.getType().toJson(factory, value);
         if (valueNode != null) {
             node.set(fieldName, valueNode);
         }
@@ -832,7 +889,7 @@ public class Translator {
         JsonNode ret = null;
         if (el instanceof SimpleArrayElement) {
             if (value != null) {
-                ret = ((SimpleArrayElement) el).getType().toJson(factory, value);
+                ret = el.getType().toJson(factory, value);
             }
         } else {
             if (value != null) {
@@ -872,7 +929,7 @@ public class Translator {
                         Path path,
                         JsonNode node) {
         Object value = toValue(fieldMd.getType(), node);
-        // Should we add fields with null values to the bson doc? 
+        // Should we add fields with null values to the bson doc?
         if (value != null) {
             LOGGER.debug("{} = {}", path, value);
             if (path.equals(ID_PATH)) {
@@ -941,7 +998,7 @@ public class Translator {
     }
 
     private void convertReferenceFieldToBson() {
-        //TODO  
+        //TODO
         throw new java.lang.UnsupportedOperationException();
     }
 

@@ -34,7 +34,7 @@ public class MongoDBResolver implements DBResolver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoDBResolver.class);
 
-    private final Map<String, DataSourceConfiguration> datasources;
+    private final Map<String, MongoConfiguration> datasources;
     private final Map<String, DB> dbMap = new HashMap<>();
     private final Map<String, DB> dsMap = new HashMap<>();
 
@@ -51,7 +51,7 @@ public class MongoDBResolver implements DBResolver {
                 LOGGER.debug("datasource:{}", store.getDatasourceName());
                 db = dsMap.get(store.getDatasourceName());
                 if (db == null) {
-                    MongoConfiguration cfg = (MongoConfiguration) datasources.get(store.getDatasourceName());
+                    MongoConfiguration cfg = datasources.get(store.getDatasourceName());
                     if (cfg == null) {
                         throw new IllegalArgumentException("No datasources for " + store.getDatasourceName());
                     }

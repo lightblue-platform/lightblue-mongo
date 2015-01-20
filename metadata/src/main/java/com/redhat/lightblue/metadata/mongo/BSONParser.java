@@ -18,7 +18,29 @@
  */
 package com.redhat.lightblue.metadata.mongo;
 
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.bson.BSONObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.BigIntegerNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.DecimalNode;
+import com.fasterxml.jackson.databind.node.DoubleNode;
+import com.fasterxml.jackson.databind.node.FloatNode;
+import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.LongNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ShortNode;
 import com.mongodb.BasicDBObject;
 import com.redhat.lightblue.metadata.EntityInfo;
 import com.redhat.lightblue.metadata.EntitySchema;
@@ -31,11 +53,6 @@ import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonUtils;
-import org.bson.BSONObject;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class BSONParser extends MetadataParser<BSONObject> {
@@ -44,7 +61,7 @@ public class BSONParser extends MetadataParser<BSONObject> {
     public static final String DELIMITER_ID = "|";
 
     public BSONParser(Extensions<BSONObject> ex,
-                      TypeResolver resolver) {
+            TypeResolver resolver) {
         super(ex, resolver);
     }
 
@@ -232,23 +249,65 @@ public class BSONParser extends MetadataParser<BSONObject> {
     }
 
     @Override
-    public Projection parseProjection(BSONObject object) {
-        return object == null ? null : Projection.fromJson(toJson(object));
+    public Projection getProjection(BSONObject object,String name) {
+        String x=(String)object.get(name);
+        return x == null ? null : Projection.fromJson(toJson(x));
     }
 
     @Override
-    public QueryExpression parseQuery(BSONObject object) {
-        return object == null ? null : QueryExpression.fromJson(toJson(object));
+    public QueryExpression getQuery(BSONObject object,String name) {
+        String x=(String)object.get(name);
+        return x == null ? null : QueryExpression.fromJson(toJson(x));
     }
 
     @Override
-    public Sort parseSort(BSONObject object) {
-        return object == null ? null : Sort.fromJson(toJson(object));
+    public Sort getSort(BSONObject object,String name) {
+        String x=(String)object.get(name);
+        return x == null ? null : Sort.fromJson(toJson(x));
     }
 
-    private JsonNode toJson(BSONObject object) {
+    @Override
+    public void putProjection(BSONObject object,String name,Projection p) {
+        if(p!=null) {
+            object.put(name,p.toJson().toString());
+        }
+    }
+
+    @Override
+    public void putQuery(BSONObject object,String name,QueryExpression  q) {
+        if(q!=null) {
+            object.put(name,q.toJson().toString());
+        }
+    }
+
+    @Override
+    public void putSort(BSONObject object,String name,Sort  s) {
+        if(s!=null) {
+            object.put(name,s.toJson().toString());
+        }
+    }
+
+    private static Object convertValue(JsonNode node) {
+        if(node instanceof BigIntegerNode) {
+            return node.bigIntegerValue();
+        } else if(node instanceof BooleanNode) {
+            return new Boolean(node.asBoolean());
+        } else if(node instanceof DecimalNode) {
+            return node.decimalValue();
+        } else if(node instanceof DoubleNode ||
+                node instanceof FloatNode) {
+            return node.asDouble();
+        } else if(node instanceof IntNode||
+                node instanceof LongNode||
+                node instanceof ShortNode) {
+            return node.asLong();
+        }
+        return node.asText();
+    }
+
+    private static JsonNode toJson(String object) {
         try {
-            return JsonUtils.json(object.toString());
+            return JsonUtils.json(object);
         } catch (Exception e) {
             throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, object.toString());
         }

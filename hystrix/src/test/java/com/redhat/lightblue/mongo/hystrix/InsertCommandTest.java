@@ -37,6 +37,9 @@ public class InsertCommandTest extends AbstractMongoTest {
     public void setup() {
         // override default behavior from abstract test setup
         // don't want what is setup for the rest of tests extending from the abstract test class
+
+        // we do need the collection though:
+        coll = db.getCollection(COLL_NAME);
     }
 
     @Test

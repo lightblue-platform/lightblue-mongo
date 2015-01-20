@@ -3,7 +3,8 @@
         "name": "test",
         "datastore": {
             "backend":"mongo",
-            "collection":"test"
+            "collection":"test",
+            "datastore": "mongo"
         }
     },
     "schema": {

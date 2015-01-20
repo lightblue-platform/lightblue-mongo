@@ -1,6 +1,7 @@
 {
     "entityInfo": {
         "name": "test",
+        "defaultVersion": "1.0.0",
         "datastore": {
             "backend":"mongo",
             "collection":"test",
@@ -31,8 +32,12 @@
                     "insert": ["field.insert"]
                 }
             },
-            "counter": {
-                "type": "integer"
+            "ref": {
+                "type": "reference",
+                "entity" : "test",
+                "versionValue" : "1.0.0",
+                "query": { "$and" : [ {"field":"name","op":"=","rvalue":"x"} ] },
+                "projection": { "field":"*" }
             }
         }
     }
