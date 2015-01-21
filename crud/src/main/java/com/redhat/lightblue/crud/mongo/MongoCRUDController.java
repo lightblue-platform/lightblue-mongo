@@ -24,7 +24,6 @@ import java.util.Iterator;
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 import org.slf4j.Logger;
@@ -78,6 +77,8 @@ import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.MutablePath;
+import java.util.HashSet;
+import java.util.Set;
 
 public class MongoCRUDController implements CRUDController, MetadataListener {
 
@@ -369,8 +370,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                 } else {
                     mongoSort = null;
                 }
-                DBObject mongoProjection=translator.translateProjection(md,getProjectionFields(projection,md),query,sort);
-                LOGGER.debug("Translated projection {}",mongoProjection);
+                DBObject mongoProjection = translator.translateProjection(md, getProjectionFields(projection, md), query, sort);
+                LOGGER.debug("Translated projection {}", mongoProjection);
                 DB db = dbResolver.get((MongoDataStore) md.getDataStore());
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
                 LOGGER.debug("Retrieve db collection:" + coll);
@@ -402,12 +403,12 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     @Override
-    public void updatePredefinedFields(CRUDOperationContext ctx,JsonDoc doc) {
-        JsonNode idNode=doc.get(Translator.ID_PATH);
-        if(idNode==null||idNode instanceof NullNode) {
+    public void updatePredefinedFields(CRUDOperationContext ctx, JsonDoc doc) {
+        JsonNode idNode = doc.get(Translator.ID_PATH);
+        if (idNode == null || idNode instanceof NullNode) {
             doc.modify(Translator.ID_PATH,
-                       ctx.getFactory().getNodeFactory().textNode(ObjectId.get().toString()),
-                       false);
+                    ctx.getFactory().getNodeFactory().textNode(ObjectId.get().toString()),
+                    false);
         }
     }
 
@@ -438,13 +439,13 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     private Path translateIndexPath(Path p) {
-        MutablePath newPath=new MutablePath();
-        int n=p.numSegments();
-        for(int i=0;i<n;i++) {
-            String x=p.head(i);
-            if(!x.equals(Path.ANY)) {
-                if(p.isIndex(i)) {
-                    throw Error.get(MongoCrudConstants.ERR_INVALID_INDEX_FIELD,p.toString());
+        MutablePath newPath = new MutablePath();
+        int n = p.numSegments();
+        for (int i = 0; i < n; i++) {
+            String x = p.head(i);
+            if (!x.equals(Path.ANY)) {
+                if (p.isIndex(i)) {
+                    throw Error.get(MongoCrudConstants.ERR_INVALID_INDEX_FIELD, p.toString());
                 }
                 newPath.push(x);
             }
@@ -453,27 +454,27 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     private void validateIndexFields(EntityInfo ei) {
-        for(Index ix:ei.getIndexes().getIndexes()) {
-            List<SortKey> fields=ix.getFields();
-            List<SortKey> newFields=null;
-            boolean copied=false;
-            int i=0;
-            for(SortKey key:fields) {
-                Path p=key.getField();
-                Path newPath=translateIndexPath(p);
-                if(!p.equals(newPath)) {
-                    SortKey newKey=new SortKey(newPath,key.isDesc());
-                    if(!copied) {
-                        newFields=new ArrayList<SortKey>();
+        for (Index ix : ei.getIndexes().getIndexes()) {
+            List<SortKey> fields = ix.getFields();
+            List<SortKey> newFields = null;
+            boolean copied = false;
+            int i = 0;
+            for (SortKey key : fields) {
+                Path p = key.getField();
+                Path newPath = translateIndexPath(p);
+                if (!p.equals(newPath)) {
+                    SortKey newKey = new SortKey(newPath, key.isDesc());
+                    if (!copied) {
+                        newFields = new ArrayList<>();
                         newFields.addAll(fields);
-                        copied=true;
+                        copied = true;
                     }
-                    newFields.set(i,newKey);
+                    newFields.set(i, newKey);
                 }
             }
-            if(copied) {
+            if (copied) {
                 ix.setFields(newFields);
-                LOGGER.debug("Index rewritten as {}",ix);
+                LOGGER.debug("Index rewritten as {}", ix);
             }
         }
     }
@@ -498,10 +499,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
             idField = new SimpleField(ID_STR, StringType.TYPE);
             schema.getFields().addNew(idField);
         } else {
-            if (field instanceof SimpleField)
+            if (field instanceof SimpleField) {
                 idField = (SimpleField) field;
-            else
+            } else {
                 throw Error.get(MongoMetadataConstants.ERR_INVALID_ID);
+            }
         }
 
         // Make sure _id has identity constraint
@@ -530,8 +532,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         boolean found = false;
         for (Index ix : indexes.getIndexes()) {
             List<SortKey> fields = ix.getFields();
-            if (fields.size() == 1 && fields.get(0).getField().equals(Translator.ID_PATH) &&
-                    ix.isUnique()) {
+            if (fields.size() == 1 && fields.get(0).getField().equals(Translator.ID_PATH)
+                    && ix.isUnique()) {
                 found = true;
                 break;
             }
@@ -563,32 +565,36 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         Error.push("createUpdateIndex");
         try {
             List<DBObject> existingIndexes = entityCollection.getIndexInfo();
+            Set<DBObject> deleteIndexes = new HashSet<>();
+            deleteIndexes.addAll(existingIndexes);
             LOGGER.debug("Existing indexes: {}", existingIndexes);
             for (Index index : indexes.getIndexes()) {
                 boolean createIx = !isIdIndex(index);
-                if(createIx) {
+                if (createIx) {
                     LOGGER.debug("Processing index {}", index);
                     for (DBObject existingIndex : existingIndexes) {
                         if (indexFieldsMatch(index, existingIndex)
-                            && indexOptionsMatch(index, existingIndex)) {
+                                && indexOptionsMatch(index, existingIndex)) {
                             LOGGER.debug("Same index exists, not creating");
                             createIx = false;
+                            deleteIndexes.remove(existingIndex);
                             break;
                         }
                     }
                 }
-                
+
                 if (createIx) {
                     for (DBObject existingIndex : existingIndexes) {
                         if (indexFieldsMatch(index, existingIndex)
-                            && !indexOptionsMatch(index, existingIndex)) {
+                                && !indexOptionsMatch(index, existingIndex)) {
                             LOGGER.debug("Same index exists with different options, dropping index:{}", existingIndex);
                             // Changing index options, drop the index using its name, recreate with new options
                             entityCollection.dropIndex(existingIndex.get("name").toString());
+                            deleteIndexes.remove(existingIndex);
                         }
                     }
                 }
-                
+
                 if (createIx) {
                     DBObject newIndex = new BasicDBObject();
                     for (SortKey p : index.getFields()) {
@@ -603,8 +609,17 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                     entityCollection.createIndex(newIndex, options);
                 }
             }
+
+            // for any indexes that remain in deleteIndexes set, delete them (except _id index!)
+            for (DBObject deleteIndex : deleteIndexes) {
+                if (((BasicDBObject)deleteIndex.get("key")).size() != 1 
+                        || !((BasicDBObject)deleteIndex.get("key")).containsField(ID_STR)) {
+                    // it's a multi-key index or the one key is not _id, delete it
+                    entityCollection.dropIndex(deleteIndex.get("name").toString());
+                }
+            }
         } catch (MongoException me) {
-            LOGGER.error("createUpdateEntityInfoIndexes: {}", ei);
+            LOGGER.error("createUpdateEntityInfoIndexes: {}", ei, me);
             throw Error.get(MongoCrudConstants.ERR_ENTITY_INDEX_NOT_CREATED, me.getMessage());
         } catch (Error e) {
             // rethrow lightblue error
@@ -621,9 +636,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     private boolean isIdIndex(Index index) {
-        List<SortKey> fields=index.getFields();
-        return fields.size()==1&&
-            fields.get(0).getField().equals(Translator.ID_PATH);
+        List<SortKey> fields = index.getFields();
+        return fields.size() == 1
+                && fields.get(0).getField().equals(Translator.ID_PATH);
     }
 
     private boolean compareSortKeys(SortKey sortKey, String fieldName, Object dir) {
@@ -668,24 +683,25 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     /**
-     * Returns a projection containing the requested projection, all
-     * identity fields, and the objectType field
+     * Returns a projection containing the requested projection, all identity
+     * fields, and the objectType field
      */
     private Projection getProjectionFields(Projection requestedProjection,
                                            EntityMetadata md) {
-        Field[] identityFields=md.getEntitySchema().getIdentityFields();
-        List<Projection> projectFields=new ArrayList<>(identityFields==null?1:identityFields.length+1);
-        if(requestedProjection instanceof ProjectionList) {
-            projectFields.addAll(((ProjectionList)requestedProjection).getItems());
-        } else if(requestedProjection!=null) {
+        Field[] identityFields = md.getEntitySchema().getIdentityFields();
+        List<Projection> projectFields = new ArrayList<>(identityFields == null ? 1 : identityFields.length + 1);
+        if (requestedProjection instanceof ProjectionList) {
+            projectFields.addAll(((ProjectionList) requestedProjection).getItems());
+        } else if (requestedProjection != null) {
             projectFields.add(requestedProjection);
         }
         if (identityFields != null) {
-            for (Field x : identityFields)
+            for (Field x : identityFields) {
                 projectFields.add(new FieldProjection(x.getFullPath(), true, false));
+            }
         }
-        projectFields.add(new FieldProjection(Translator.OBJECT_TYPE,true,false));
-            
+        projectFields.add(new FieldProjection(Translator.OBJECT_TYPE, true, false));
+
         return new ProjectionList(projectFields);
     }
 }
