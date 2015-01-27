@@ -18,6 +18,9 @@
  */
 package com.redhat.lightblue.metadata.mongo;
 
+import java.util.Set;
+import java.util.HashSet;
+import java.util.ArrayList;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -26,6 +29,7 @@ import com.redhat.lightblue.OperationStatus;
 import com.redhat.lightblue.Response;
 import com.redhat.lightblue.common.mongo.MongoDataStore;
 import com.redhat.lightblue.crud.*;
+import com.redhat.lightblue.metadata.constraints.EnumConstraint;
 import com.redhat.lightblue.metadata.*;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.parser.JSONMetadataParser;
@@ -346,6 +350,64 @@ public class MongoMetadataTest {
         EntityInfo ei = new EntityInfo("testEntity");
         ei.setDataStore(new MongoDataStore(null, null, "somethingelse"));
         md.updateEntityInfo(ei);
+    }
+
+    @Test
+    public void updateEntityInfo_invalidates() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollection"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        com.redhat.lightblue.metadata.Enum enumdef=new  com.redhat.lightblue.metadata.Enum("en");
+        Set<String> envalues=new HashSet<>();
+        envalues.add("value");
+        enumdef.setValues(envalues);
+        e.getEntityInfo().getEnums().addEnum(enumdef);
+
+        SimpleField s=new SimpleField("z",StringType.TYPE);
+        ArrayList<FieldConstraint> enumsc=new ArrayList<>();
+        EnumConstraint enumc=new EnumConstraint();
+        enumc.setName("en");
+        enumsc.add(enumc);
+        s.setConstraints(enumsc);
+        e.getFields().put(s);
+       
+        md.createNewMetadata(e);
+
+        e.getEntityInfo().getEnums().setEnums(new ArrayList());
+        try {
+            md.updateEntityInfo(e.getEntityInfo());
+            Assert.fail();
+        } catch (Error x) {
+        }
+    }
+
+    @Test
+    public void createEntityInfo_validates() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollection"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        SimpleField s=new SimpleField("z",StringType.TYPE);
+        ArrayList<FieldConstraint> enumsc=new ArrayList<>();
+        EnumConstraint enumc=new EnumConstraint();
+        enumc.setName("en");
+        enumsc.add(enumc);
+        s.setConstraints(enumsc);
+        e.getFields().put(s);
+        try {
+            md.createNewMetadata(e);
+            Assert.fail();
+        } catch (Error x) {
+        }
     }
 
     @Test

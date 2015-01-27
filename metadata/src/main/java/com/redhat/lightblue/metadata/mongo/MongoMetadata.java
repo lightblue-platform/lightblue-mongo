@@ -283,6 +283,7 @@ public class MongoMetadata extends AbstractMetadata {
     @Override
     public void createNewMetadata(EntityMetadata md) {
         LOGGER.debug("createNewMetadata: begin");
+        md.validate();
         checkMetadataHasName(md);
         checkMetadataHasFields(md);
         checkDataStoreIsValid(md);
@@ -381,6 +382,7 @@ public class MongoMetadata extends AbstractMetadata {
     public void updateEntityInfo(EntityInfo ei) {
         checkMetadataHasName(ei);
         checkDataStoreIsValid(ei);
+        validateAllVersions(ei);
         Error.push("updateEntityInfo(" + ei.getName() + ")");
         try {
             // Verify entity info exists
@@ -420,12 +422,39 @@ public class MongoMetadata extends AbstractMetadata {
     }
 
     /**
+     * When EntityInfo is updated, we have to make sure any active/deprecated metadata is still valid
+     */
+    private void validateAllVersions(EntityInfo ei) {
+        LOGGER.debug("Validating all versions of {}",ei.getName());
+        String version=null;
+        try {
+            DBCursor cursor=new FindCommand(collection, 
+                                            new BasicDBObject(LITERAL_NAME, ei.getName()).
+                                            append(LITERAL_VERSION, new BasicDBObject("$exists", 1)).
+                                            append(LITERAL_STATUS_VALUE,new BasicDBObject("$ne",MetadataStatus.DISABLED.toString())),
+                                            null).execute();
+            while(cursor.hasNext()) {
+                DBObject object=cursor.next();
+                EntitySchema schema=mdParser.parseEntitySchema(object);
+                version=schema.getVersion().getValue();
+                LOGGER.debug("Validating {} {}",ei.getName(),version);
+                EntityMetadata md=new EntityMetadata(ei,schema);
+                md.validate();
+            }
+        } catch (Exception e) {
+            throw Error.get(MongoMetadataConstants.ERR_UPDATE_INVALIDATES_METADATA,ei.getName()+":"+version+
+                            e.toString());
+        } 
+    }
+
+    /**
      * Creates a new schema (versioned data) for an existing metadata.
      *
      * @param md
      */
     @Override
     public void createNewSchema(EntityMetadata md) {
+        md.validate();
         checkMetadataHasName(md);
         checkMetadataHasFields(md);
         checkDataStoreIsValid(md);
