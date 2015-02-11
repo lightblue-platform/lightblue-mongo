@@ -713,71 +713,65 @@ public class Translator {
         return arr.toString();
     }
 
-    private static final String ARR_ARR_EQ=
-        "if(this.%s.length==this.%s.length) { "+
+    private static final String ARR_ARR_EQ= "if(this.f1.length==this.f2.length) { "+
         "  var allEq=true;"+
-        "  for(var i=0i<this.%s.length;i++) { "+
-        "     if(this.%s[i] != this.%s[i]) { allEq=false; break; } "+
+        "  for(var i=0;i<this.f1.length;i++) { "+
+        "     if(this.f1[i] != this.f2[i]) { allEq=false; break; } "+
         "  } "+
         "  if(allEq) return true;"+
         "}";
 
-    private static final String ARR_ARR_NEQ=
-        "if(this.%s.length==this.%s.length) { "+
+    private static final String ARR_ARR_NEQ="if(this.f1.length==this.f2.length) { "+
         "  var allEq=true;"+
-        "  for(var i=0i<this.%s.length;i++) { "+
-        "     if(this.%s[i] != this.%s[i]) { allEq=false; break; } "+
+        "  for(var i=0;i<this.f1.length;i++) { "+
+        "     if(this.f1[i] != this.f2[i]) { allEq=false; break; } "+
         "  } "+
         "  if(!allEq) return true;"+
         "} else { return true; }";
 
-    private static final String ARR_ARR_LT=
-        "var n=this.%s.length<this.%s.length?this.%s.length:this.%s.length;"+
+    private static final String ARR_ARR_LT="var n=this.f1.length<this.f2.length?this.f1.length:this.f2.length;"+
         "var allOk=true;"+
         "for(var i=0;i<n;i++) {"+
-        "  if(this.%s[i] >= this.%s[i]) { allOk=false;break;}"+
+        "  if(this.f1[i] >= this.f2[i]) { allOk=false;break;}"+
         "}"+
-        "if(allOk&&(this.%s.length <= this.%s.length) return true;";
+        "if(allOk&&(this.%s.length <= this.%s.length)) return true;";
 
-    private static final String ARR_ARR_GT=
-        "var n=this.%s.length<this.%s.length?this.%s.length:this.%s.length;"+
+    private static final String ARR_ARR_GT="var n=this.f1.length<this.f2.length?this.f1.length:this.f2.length;"+
         "var allOk=true;"+
         "for(var i=0;i<n;i++) {"+
-        "  if(this.%s[i] <= this.%s[i]) { allOk=false;break;}"+
+        "  if(this.f1[i] <= this.f2[i]) { allOk=false;break;}"+
         "}"+
-        "if(allOk&&(this.%s.length >= this.%s.length) return true;";
+        "if(allOk&&(this.f1.length >= this.f2.length)) return true;";
 
-    private static final String ARR_ARR_LTE=
-        "var n=this.%s.length<this.%s.length?this.%s.length:this.%s.length;"+
+    private static final String ARR_ARR_LTE="var n=this.f1.length<this.f2.length?this.f1.length:this.f2.length;"+
         "var allOk=true;"+
         "for(var i=0;i<n;i++) {"+
-        "  if(this.%s[i] > this.%s[i]) { allOk=false;break;}"+
+        "  if(this.f1[i] > this.f2[i]) { allOk=false;break;}"+
         "}"+
-        "if(allOk&&(this.%s.length <= this.%s.length) return true;";
+        "if(allOk&&(this.f1.length <= this.f2.length)) return true;";
 
-    private static final String ARR_ARR_GTE=
-        "var n=this.%s.length<this.%s.length?this.%s.length:this.%s.length;"+
+    private static final String ARR_ARR_GTE="var n=this.f1.length<this.f2.length?this.f1.length:this.f2.length;"+
         "var allOk=true;"+
         "for(var i=0;i<n;i++) {"+
-        "  if(this.%s[i] < this.%s[i]) { allOk=false;break;}"+
+        "  if(this.f1[i] < this.f2[i]) { allOk=false;break;}"+
         "}"+
-        "if(allOk&&(this.%s.length >= this.%s.length) return true;";
+        "if(allOk&&(this.f1.length >= this.f2.length)) return true;";
 
 
     private String writeArrayArrayComparisonJS(String field1,String field2,BinaryComparisonOperator op) {
         switch(op) {
         case _eq:
-            return String.format(ARR_ARR_EQ,field1,field2,field1,field1,field2);
+            return ARR_ARR_EQ.replaceAll("f1",field1).replaceAll("f2",field2);
         case _neq:
-            return String.format(ARR_ARR_NEQ,field1,field2,field1,field1,field2);
+            return ARR_ARR_NEQ.replaceAll("f1",field1).replaceAll("f2",field2);
         case _lt:
-            return String.format(ARR_ARR_LT,field1,field2,field1,field2,field1,field2,field1,field2);
+            return ARR_ARR_LT.replaceAll("f1",field1).replaceAll("f2",field2);
         case _gt:
-            return String.format(ARR_ARR_GT,field1,field2,field1,field2,field1,field2,field1,field2);
+            return ARR_ARR_GT.replaceAll("f1",field1).replaceAll("f2",field2);
         case _lte:
-            return String.format(ARR_ARR_LTE,field1,field2,field1,field2,field1,field2,field1,field2);
+            return ARR_ARR_LTE.replaceAll("f1",field1).replaceAll("f2",field2);
         case _gte:
-            return String.format(ARR_ARR_GTE,field1,field2,field1,field2,field1,field2,field1,field2);
+            return ARR_ARR_GTE.replaceAll("f1",field1).replaceAll("f2",field2);
         }
         return null;
     }
