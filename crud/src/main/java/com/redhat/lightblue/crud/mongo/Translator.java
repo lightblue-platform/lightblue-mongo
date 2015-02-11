@@ -734,7 +734,7 @@ public class Translator {
         "for(var i=0;i<n;i++) {"+
         "  if(this.f1[i] >= this.f2[i]) { allOk=false;break;}"+
         "}"+
-        "if(allOk&&(this.%s.length <= this.%s.length)) return true;";
+        "if(allOk&&(this.f1.length <= this.f2.length)) return true;";
 
     private static final String ARR_ARR_GT="var n=this.f1.length<this.f2.length?this.f1.length:this.f2.length;"+
         "var allOk=true;"+
@@ -777,7 +777,7 @@ public class Translator {
     }
 
     private String writeArrayFieldComparisonJS(String field,String array,String op) {
-        return String.format("for(var i=0;i<this.%s.length;i++) { if(!(this.%s %s this.%s[i])) return false; } return true;}",array,field,op,array);
+        return String.format("for(var i=0;i<this.%s.length;i++) { if(!(this.%s %s this.%s[i])) return false; } return true;",array,field,op,array);
     }
 
     private String writeComparisonJS(Path field1,boolean field1IsArray,

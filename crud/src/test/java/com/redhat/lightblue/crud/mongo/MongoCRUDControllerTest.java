@@ -391,6 +391,83 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void fieldArrayComparisonTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf3','op':'=','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf3','op':'!=','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf3','op':'<','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+       
+    }
+
+    @Test
+    public void arrayArrayComparisonTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'=','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'!=','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'<=','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'<','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'>=','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'>','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+    }
+
+    @Test
     public void objectTypeIsAlwaysProjected() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
