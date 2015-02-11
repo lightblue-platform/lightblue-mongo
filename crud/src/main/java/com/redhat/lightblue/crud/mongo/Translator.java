@@ -777,7 +777,7 @@ public class Translator {
     }
 
     private String writeArrayFieldComparisonJS(String field,String array,String op) {
-        return String.format("for(var i=0;i<this.%s.length;i++) { if(this.%s %s this.%s[i]) return true;}",array,field,op,array);
+        return String.format("for(var i=0;i<this.%s.length;i++) { if(!(this.%s %s this.%s[i])) {return false;} else {return true;}}",array,field,op,array);
     }
 
     private String writeComparisonJS(Path field1,boolean field1IsArray,
