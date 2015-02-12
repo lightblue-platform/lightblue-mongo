@@ -18,6 +18,8 @@
  */
 package com.redhat.lightblue.crud.mongo;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -88,6 +90,27 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
         String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
         Assert.assertEquals(1, coll.find(new BasicDBObject("_id", Translator.createIdFrom(id))).count());
+    }
+    
+    @Test
+    public void insertTest_empty_array() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata_empty_array.json"));
+        Projection projection = projection("{'field':'field7'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+        System.out.println(ctx.getDataErrors());
+        Assert.assertEquals(1, ctx.getDocuments().size());
+        Assert.assertTrue(ctx.getErrors() == null || ctx.getErrors().isEmpty());
+        Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
+        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+        JsonNode field7Node = ctx.getDocuments().get(0).getOutputDocument().get(new Path("field7"));
+        Assert.assertNotNull("empty array was not inserted", field7Node);
+        Assert.assertTrue("field7 should be type ArrayNode", field7Node instanceof ArrayNode);
+        String field7 = field7Node.asText();
+        Assert.assertNotNull("field7");
     }
 
     @Test
