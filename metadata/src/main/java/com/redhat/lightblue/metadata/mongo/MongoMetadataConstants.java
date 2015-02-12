@@ -32,6 +32,8 @@ public final class MongoMetadataConstants {
     public static final String ERR_CANNOT_DELETE = "mongo-metadata:CannotDeleteEntity";
     public static final String ERR_INVALID_ID= "mongo-metadata:Invalid_id_defn";
 
+    public static final String ERR_UPDATE_INVALIDATES_METADATA = "mongo-metadata:UpdateInvalidatesMetadata";
+
     private MongoMetadataConstants() {
 
     }
