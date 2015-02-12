@@ -586,7 +586,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         controller.find(ctx,query("{'field':'field6.nf5','op':'<=','rfield':'field6.nf10'}"),
                         projection("{'field':'*','recursive':1}"),null,null,null);
-        Assert.assertEquals(1,ctx.getDocuments().size());
+        Assert.assertEquals(0,ctx.getDocuments().size());
         ctx = new TestCRUDOperationContext(Operation.FIND);
         ctx.add(md);
         controller.find(ctx,query("{'field':'field6.nf5','op':'=','rfield':'field6.nf10'}"),
@@ -601,7 +601,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         controller.find(ctx,query("{'field':'field6.nf10','op':'>=','rfield':'field6.nf5'}"),
                         projection("{'field':'*','recursive':1}"),null,null,null);
-        Assert.assertEquals(1,ctx.getDocuments().size());
+        Assert.assertEquals(0,ctx.getDocuments().size());
     }
 
     @Test
