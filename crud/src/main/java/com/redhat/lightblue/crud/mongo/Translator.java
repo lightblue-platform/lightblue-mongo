@@ -1085,6 +1085,9 @@ public class Translator {
                 if (cursor.firstChild()) {
                     ret.append(path.tail(0), arrayToBson(cursor, ((ArrayField) fieldMdNode).getElement(), md));
                     cursor.parent();
+                } else {
+                    // empty array! add an empty list.
+                    ret.append(path.tail(0), new ArrayList());
                 }
             } else {
                 throw Error.get(ERR_INVALID_FIELD, path.toString());
