@@ -34,6 +34,11 @@ import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.parser.JSONMetadataParser;
 import com.redhat.lightblue.metadata.types.DefaultTypes;
 
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.util.List;
+import java.util.Map;
+
 public class MongoMetadataConfiguration extends AbstractMetadataConfiguration {
 
     private String datasource;
@@ -53,16 +58,31 @@ public class MongoMetadataConfiguration extends AbstractMetadataConfiguration {
             // register any of the common configuration bits from abstract parent
             registerWithExtensions(parserExtensions);
 
+            try {
+                factory.
+                        getJSONParser().
+                        getExtensions().
+                        mergeWith(parserExtensions);
+
+            } catch (Exception e) {
+                throw new IllegalArgumentException(e);
+            }
+
             DefaultTypes typeResolver = new DefaultTypes();
             MongoDataStore mdstore = new MongoDataStore();
             mdstore.setDatasourceName(datasource);
 
             try {
+                MongoMetadata mongoMetadata = null;
                 if (collection == null) {
-                    return new MongoMetadata(dbresolver.get(mdstore), parserExtensions, typeResolver, factory.getFactory());
+                    mongoMetadata = new MongoMetadata(dbresolver.get(mdstore), parserExtensions, typeResolver, factory.getFactory());
                 } else {
-                    return new MongoMetadata(dbresolver.get(mdstore), collection, parserExtensions, typeResolver, factory.getFactory());
+                    mongoMetadata = new MongoMetadata(dbresolver.get(mdstore), collection, parserExtensions, typeResolver, factory.getFactory());
                 }
+
+                mongoMetadata.setRoleMap(getMappedRoles());
+
+                return mongoMetadata;
             } catch (RuntimeException re) {
                 throw re;
             } catch (Exception e) {

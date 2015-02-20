@@ -18,10 +18,11 @@
  */
 package com.redhat.lightblue.crud.mongo;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.bson.types.ObjectId;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -44,6 +45,7 @@ import com.redhat.lightblue.metadata.MetadataStatus;
 import com.redhat.lightblue.metadata.Index;
 import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.metadata.types.IntegerType;
+import com.redhat.lightblue.metadata.constraints.IdentityConstraint;
 
 import com.redhat.lightblue.common.mongo.MongoDataStore;
 import com.redhat.lightblue.common.mongo.DBResolver;
@@ -51,13 +53,16 @@ import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.SortKey;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
+import com.redhat.lightblue.util.Error;
 
-public class MongoCRUDControllerTest extends AbstractMongoTest {
+public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     private MongoCRUDController controller;
 
     @Before
     public void setup() throws Exception {
+        super.setup();
+
         final DB dbx = db;
         dbx.createCollection(COLL_NAME, null);
 
@@ -85,6 +90,27 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
         String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
         Assert.assertEquals(1, coll.find(new BasicDBObject("_id", Translator.createIdFrom(id))).count());
+    }
+    
+    @Test
+    public void insertTest_empty_array() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata_empty_array.json"));
+        Projection projection = projection("{'field':'field7'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+        System.out.println(ctx.getDataErrors());
+        Assert.assertEquals(1, ctx.getDocuments().size());
+        Assert.assertTrue(ctx.getErrors() == null || ctx.getErrors().isEmpty());
+        Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
+        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+        JsonNode field7Node = ctx.getDocuments().get(0).getOutputDocument().get(new Path("field7"));
+        Assert.assertNotNull("empty array was not inserted", field7Node);
+        Assert.assertTrue("field7 should be type ArrayNode", field7Node instanceof ArrayNode);
+        String field7 = field7Node.asText();
+        Assert.assertNotNull("field7");
     }
 
     @Test
@@ -388,6 +414,245 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
     }
 
     @Test
+    public void fieldArrayComparisonTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf3','op':'=','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf3','op':'!=','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf3','op':'<','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+       
+    }
+
+    @Test
+    public void arrayArrayComparisonTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'=','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'!=','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'<=','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'<','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'>=','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'>','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+    }
+
+    @Test
+    public void arrayArrayComparisonTest_gt() throws Exception {
+        EntityMetadata md = getMd("./testMetadata5.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata5.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'>','rfield':'field6.nf8'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'>=','rfield':'field6.nf8'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'<','rfield':'field6.nf8'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'<=','rfield':'field6.nf8'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'=','rfield':'field6.nf8'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'!=','rfield':'field6.nf8'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+    }
+
+    @Test
+    public void arrayArrayComparisonTest_ne() throws Exception {
+        EntityMetadata md = getMd("./testMetadata5.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata5.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'>','rfield':'field6.nf9'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'>=','rfield':'field6.nf9'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'<','rfield':'field6.nf9'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'<=','rfield':'field6.nf9'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'=','rfield':'field6.nf9'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'!=','rfield':'field6.nf9'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+    }
+
+    @Test
+    public void arrayArrayComparisonTest_lt() throws Exception {
+        EntityMetadata md = getMd("./testMetadata5.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata5.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'>','rfield':'field6.nf10'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'>=','rfield':'field6.nf10'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'<','rfield':'field6.nf10'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'<=','rfield':'field6.nf10'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'=','rfield':'field6.nf10'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf5','op':'!=','rfield':'field6.nf10'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field6.nf10','op':'>=','rfield':'field6.nf5'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(0,ctx.getDocuments().size());
+    }
+
+    @Test
+    public void objectTypeIsAlwaysProjected() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+
+        ctx.add(md);
+        // Generate some docs
+        List<JsonDoc> docs = new ArrayList<>();
+        int numDocs = 20;
+        for (int i = 0; i < numDocs; i++) {
+            JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+            doc.modify(new Path("field1"), nodeFactory.textNode("doc" + i), false);
+            doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
+            docs.add(doc);
+        }
+        ctx.addDocuments(docs);
+        controller.insert(ctx, projection("{'field':'*','recursive':true}"));
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'field':'field3','op':'>=','rvalue':0}"),
+                projection("{'field':'field3'}"),null, null, null);
+        // The fact that there is no exceptions means objectType was included
+    }
+
+    @Test
     public void deleteTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
@@ -441,7 +706,7 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
-        controller.newSchema(null, e);
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         DBCollection entityCollection = db.getCollection("testCollectionIndex1");
 
@@ -478,7 +743,7 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
-        controller.updateEntityInfo(null, e.getEntityInfo());
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         DBCollection entityCollection = db.getCollection("testCollectionIndex2");
 
@@ -493,7 +758,7 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
 
-        controller.updateEntityInfo(null, e.getEntityInfo());
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         boolean foundIndex = false;
 
@@ -517,4 +782,146 @@ public class MongoCRUDControllerTest extends AbstractMongoTest {
         }
         Assert.assertTrue(!foundIndex);
     }
+
+    @Test
+    public void ensureIdFieldTest() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex2"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+
+        Assert.assertNull(e.getFields().getField("_id"));
+        controller.beforeCreateNewSchema(null,e);
+
+        SimpleField id=(SimpleField)e.getFields().getField("_id");
+        Assert.assertNotNull(id);
+        Assert.assertEquals(StringType.TYPE,id.getType());
+        Assert.assertEquals(1,id.getConstraints().size());
+        Assert.assertTrue(id.getConstraints().get(0) instanceof IdentityConstraint);
+    }
+
+    @Test
+    public void ensureIdIndexTest() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex2"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+
+        Assert.assertEquals(0,e.getEntityInfo().getIndexes().getIndexes().size());
+        controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
+
+        Assert.assertEquals(1,e.getEntityInfo().getIndexes().getIndexes().size());
+        Assert.assertEquals("_id",e.getEntityInfo().getIndexes().getIndexes().get(0).getFields().get(0).getField().toString());
+    }
+
+    @Test
+    public void indexFieldValidationTest() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex2"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+
+        List<Index> indexes=new ArrayList<>();
+        Index ix=new Index();
+        List<SortKey> fields=new ArrayList<>();
+        fields.add(new SortKey(new Path("x.*.y"),false));
+        ix.setFields(fields);
+        indexes.add(ix);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+
+        controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
+        Assert.assertEquals("x.y",e.getEntityInfo().getIndexes().getIndexes().get(0).getFields().get(0).getField().toString());
+
+        indexes=new ArrayList<>();
+        ix=new Index();
+        fields=new ArrayList<>();
+        fields.add(new SortKey(new Path("x.1.y"),false));
+        ix.setFields(fields);
+        indexes.add(ix);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+
+        try {
+            controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
+            Assert.fail();
+        } catch (Error x) {
+            // expected
+        }
+
+        indexes=new ArrayList<>();
+        ix=new Index();
+        fields=new ArrayList<>();
+        fields.add(new SortKey(new Path("x.y"),false));
+        ix.setFields(fields);
+        indexes.add(ix);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
+        Assert.assertEquals("x.y",e.getEntityInfo().getIndexes().getIndexes().get(0).getFields().get(0).getField().toString());
+    }
+
+    @Test
+    public void indexFieldsMatch() {
+        // order of keys in an index matters to mongo, this test exists to ensure this is accounted for in the controller
+
+        DBCollection coll = db.getCollection("testIndexFieldMatch");
+        {
+            BasicDBObject dbIndex = new BasicDBObject();
+            dbIndex.append("x", 1);
+            dbIndex.append("y", 1);
+            coll.createIndex(dbIndex);
+        }
+
+        {
+            Index ix = new Index();
+            List<SortKey> fields = new ArrayList<>();
+            fields.add(new SortKey(new Path("x"), false));
+            fields.add(new SortKey(new Path("y"), false));
+            ix.setFields(fields);
+
+            boolean verified = false;
+            for (DBObject dbi: coll.getIndexInfo()) {
+                if (((BasicDBObject)dbi.get("key")).entrySet().iterator().next().getKey().equals("_id")) {
+                    continue;
+                }
+                // non _id index is the one we want to verify with
+                Assert.assertTrue(controller.indexFieldsMatch(ix, dbi));
+                verified = true;
+            }
+            Assert.assertTrue(verified);
+        }
+
+        {
+            Index ix = new Index();
+            List<SortKey> fields = new ArrayList<>();
+            fields.add(new SortKey(new Path("y"), false));
+            fields.add(new SortKey(new Path("x"), false));
+            ix.setFields(fields);
+
+            boolean verified = false;
+            for (DBObject dbi: coll.getIndexInfo()) {
+                if (((BasicDBObject)dbi.get("key")).entrySet().iterator().next().getKey().equals("_id")) {
+                    continue;
+                }
+                // non _id index is the one we want to verify with
+                Assert.assertFalse(controller.indexFieldsMatch(ix, dbi));
+                verified = true;
+            }
+            Assert.assertTrue(verified);
+        }
+    }
+
 }

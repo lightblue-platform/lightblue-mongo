@@ -1,20 +1,26 @@
 language: java
 jdk:
-- openjdk7
-- oraclejdk8
+    - openjdk7
+    - oraclejdk8
 before_install:
-- cp ./settings.xml ~/.m2/
-after_success:
-- '[[ $TRAVIS_BRANCH == "master" ]] && [[ $TRAVIS_JDK_VERSION == "openjdk7" ]] &&
-  { mvn clean deploy -DskipTests; };'
-- mvn clean cobertura:cobertura coveralls:cobertura
+    - cp ./etc/settings.xml ~/.m2/
+    - cp ./etc/onFailure.sh  ~/
+    - cp ./etc/onSuccess.sh  ~/
+    - chmod 777 ~/onFailure.sh
+    - chmod 777 ~/onSuccess.sh
+script:
+    - mvn -B clean verify
+after_failure: ~/onFailure.sh
+after_success: ~/onSuccess.sh
+after_script:
+    - mvn -B cobertura:cobertura coveralls:report
 notifications:
-  email: false
-  irc:
-    channels:
-    - chat.freenode.net#lightblue
+    email: false
+    irc:
+        channels:
+            - chat.freenode.net#lightblue
     on_success: always
 env:
-  global:
-  - secure: cc9eQGqRWd6GM67kL+w+CtpV/ZF3Ct6kcmyeWirbZh3qlGvZNtbbuFEw6jgaaQ9+hxRn1is5zV3IM1EINB/A3ehr2CSp2IeRDGdzTPWSPqfy2+iB6OEr4wKNJpCvZQTHva/9pGXu06SEatG7QJWjfXNCTSNB4nBLYwa58viH1cY=
-  - secure: C8ugnA+GjXKFzXQ2lqhV90sBckvH8PZFNqPI7jNXfm0yucLMQZqvtw1qDUMX4X+nDJru/4BwbqrH3M6f+u+znmWo/zsS6Y7JizhoRsORA7M4Dg40PKfzMxCHyQupTGxEdQuDFw4THT5LXjYHA75YZl3qXeopEjS6qinNVxAvv/Q=
+    global:
+        - secure: cc9eQGqRWd6GM67kL+w+CtpV/ZF3Ct6kcmyeWirbZh3qlGvZNtbbuFEw6jgaaQ9+hxRn1is5zV3IM1EINB/A3ehr2CSp2IeRDGdzTPWSPqfy2+iB6OEr4wKNJpCvZQTHva/9pGXu06SEatG7QJWjfXNCTSNB4nBLYwa58viH1cY=
+        - secure: C8ugnA+GjXKFzXQ2lqhV90sBckvH8PZFNqPI7jNXfm0yucLMQZqvtw1qDUMX4X+nDJru/4BwbqrH3M6f+u+znmWo/zsS6Y7JizhoRsORA7M4Dg40PKfzMxCHyQupTGxEdQuDFw4THT5LXjYHA75YZl3qXeopEjS6qinNVxAvv/Q=

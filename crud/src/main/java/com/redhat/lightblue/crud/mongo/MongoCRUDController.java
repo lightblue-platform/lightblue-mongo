@@ -19,11 +19,13 @@
 package com.redhat.lightblue.crud.mongo;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Map;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.NullNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,6 +34,7 @@ import com.mongodb.DBCollection;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import com.mongodb.MongoException;
+import org.bson.types.ObjectId;
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.common.mongo.DBResolver;
 import com.redhat.lightblue.common.mongo.MongoDataStore;
@@ -52,9 +55,19 @@ import com.redhat.lightblue.metadata.Metadata;
 import com.redhat.lightblue.metadata.Index;
 import com.redhat.lightblue.metadata.Indexes;
 import com.redhat.lightblue.metadata.EntityInfo;
+import com.redhat.lightblue.metadata.EntitySchema;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.MetadataConstants;
+import com.redhat.lightblue.metadata.MetadataListener;
+import com.redhat.lightblue.metadata.SimpleField;
+import com.redhat.lightblue.metadata.FieldConstraint;
+import com.redhat.lightblue.metadata.FieldTreeNode;
+import com.redhat.lightblue.metadata.Field;
+import com.redhat.lightblue.metadata.types.StringType;
+import com.redhat.lightblue.metadata.constraints.IdentityConstraint;
+import com.redhat.lightblue.metadata.mongo.MongoMetadataConstants;
 import com.redhat.lightblue.query.FieldProjection;
+import com.redhat.lightblue.query.ProjectionList;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
@@ -63,8 +76,11 @@ import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
+import com.redhat.lightblue.util.MutablePath;
+import java.util.HashSet;
+import java.util.Set;
 
-public class MongoCRUDController implements CRUDController {
+public class MongoCRUDController implements CRUDController, MetadataListener {
 
     public static final String ID_STR = "_id";
 
@@ -354,12 +370,14 @@ public class MongoCRUDController implements CRUDController {
                 } else {
                     mongoSort = null;
                 }
+                DBObject mongoProjection = translator.translateProjection(md, getProjectionFields(projection, md), query, sort);
+                LOGGER.debug("Translated projection {}", mongoProjection);
                 DB db = dbResolver.get((MongoDataStore) md.getDataStore());
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
                 LOGGER.debug("Retrieve db collection:" + coll);
                 DocFinder finder = new BasicDocFinder(translator);
                 ctx.setProperty(PROP_FINDER, finder);
-                response.setSize(finder.find(ctx, coll, mongoQuery, mongoSort, from, to));
+                response.setSize(finder.find(ctx, coll, mongoQuery, mongoProjection, mongoSort, from, to));
                 // Project results
                 Projector projector = Projector.getInstance(Projection.add(projection, roleEval.getExcludedFields(FieldAccessRoleEvaluator.Operation.find)), md);
                 for (DocCtx document : ctx.getDocuments()) {
@@ -385,13 +403,155 @@ public class MongoCRUDController implements CRUDController {
     }
 
     @Override
-    public void updateEntityInfo(Metadata md, EntityInfo ei) {
+    public void updatePredefinedFields(CRUDOperationContext ctx, JsonDoc doc) {
+        JsonNode idNode = doc.get(Translator.ID_PATH);
+        if (idNode == null || idNode instanceof NullNode) {
+            doc.modify(Translator.ID_PATH,
+                    ctx.getFactory().getNodeFactory().textNode(ObjectId.get().toString()),
+                    false);
+        }
+    }
+
+    @Override
+    public MetadataListener getMetadataListener() {
+        return this;
+    }
+
+    @Override
+    public void afterUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
         createUpdateEntityInfoIndexes(ei);
     }
 
     @Override
-    public void newSchema(Metadata md, EntityMetadata emd) {
-        createUpdateEntityInfoIndexes(emd.getEntityInfo());
+    public void beforeUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
+        validateIndexFields(ei);
+        ensureIdIndex(ei);
+    }
+
+    @Override
+    public void afterCreateNewSchema(Metadata md, EntityMetadata emd) {
+    }
+
+    @Override
+    public void beforeCreateNewSchema(Metadata md, EntityMetadata emd) {
+        validateIndexFields(emd.getEntityInfo());
+        ensureIdField(emd);
+    }
+
+    private Path translateIndexPath(Path p) {
+        MutablePath newPath = new MutablePath();
+        int n = p.numSegments();
+        for (int i = 0; i < n; i++) {
+            String x = p.head(i);
+            if (!x.equals(Path.ANY)) {
+                if (p.isIndex(i)) {
+                    throw Error.get(MongoCrudConstants.ERR_INVALID_INDEX_FIELD, p.toString());
+                }
+                newPath.push(x);
+            }
+        }
+        return newPath.immutableCopy();
+    }
+
+    private void validateIndexFields(EntityInfo ei) {
+        for (Index ix : ei.getIndexes().getIndexes()) {
+            List<SortKey> fields = ix.getFields();
+            List<SortKey> newFields = null;
+            boolean copied = false;
+            int i = 0;
+            for (SortKey key : fields) {
+                Path p = key.getField();
+                Path newPath = translateIndexPath(p);
+                if (!p.equals(newPath)) {
+                    SortKey newKey = new SortKey(newPath, key.isDesc());
+                    if (!copied) {
+                        newFields = new ArrayList<>();
+                        newFields.addAll(fields);
+                        copied = true;
+                    }
+                    newFields.set(i, newKey);
+                }
+            }
+            if (copied) {
+                ix.setFields(newFields);
+                LOGGER.debug("Index rewritten as {}", ix);
+            }
+        }
+    }
+
+    private void ensureIdField(EntityMetadata md) {
+        ensureIdField(md.getEntitySchema());
+    }
+
+    private void ensureIdField(EntitySchema schema) {
+        LOGGER.debug("ensureIdField: begin");
+
+        SimpleField idField;
+
+        FieldTreeNode field;
+        try {
+            field = schema.resolve(Translator.ID_PATH);
+        } catch (Error e) {
+            field = null;
+        }
+        if (field == null) {
+            LOGGER.debug("Adding _id field");
+            idField = new SimpleField(ID_STR, StringType.TYPE);
+            schema.getFields().addNew(idField);
+        } else {
+            if (field instanceof SimpleField) {
+                idField = (SimpleField) field;
+            } else {
+                throw Error.get(MongoMetadataConstants.ERR_INVALID_ID);
+            }
+        }
+
+        // Make sure _id has identity constraint
+        List<FieldConstraint> constraints = idField.getConstraints();
+        boolean identityConstraintFound = false;
+        for (FieldConstraint x : constraints) {
+            if (x instanceof IdentityConstraint) {
+                identityConstraintFound = true;
+                break;
+            }
+        }
+        if (!identityConstraintFound) {
+            LOGGER.debug("Adding identity constraint to _id field");
+            constraints.add(new IdentityConstraint());
+            idField.setConstraints(constraints);
+        }
+
+        LOGGER.debug("ensureIdField: end");
+    }
+
+    private void ensureIdIndex(EntityInfo ei) {
+        LOGGER.debug("ensureIdIndex: begin");
+
+        Indexes indexes = ei.getIndexes();
+        // We are looking for a unique index on _id
+        boolean found = false;
+        for (Index ix : indexes.getIndexes()) {
+            List<SortKey> fields = ix.getFields();
+            if (fields.size() == 1 && fields.get(0).getField().equals(Translator.ID_PATH)
+                    && ix.isUnique()) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            LOGGER.debug("Adding _id index");
+            Index idIndex = new Index();
+            idIndex.setUnique(true);
+            List<SortKey> fields = new ArrayList<>();
+            fields.add(new SortKey(Translator.ID_PATH, false));
+            idIndex.setFields(fields);
+            List<Index> ix = indexes.getIndexes();
+            ix.add(idIndex);
+            indexes.setIndexes(ix);
+        } else {
+            LOGGER.debug("_id index exists");
+        }
+        LOGGER.debug("ensureIdIndex: end");
     }
 
     private void createUpdateEntityInfoIndexes(EntityInfo ei) {
@@ -405,17 +565,21 @@ public class MongoCRUDController implements CRUDController {
         Error.push("createUpdateIndex");
         try {
             List<DBObject> existingIndexes = entityCollection.getIndexInfo();
+            Set<DBObject> deleteIndexes = new HashSet<>();
+            deleteIndexes.addAll(existingIndexes);
             LOGGER.debug("Existing indexes: {}", existingIndexes);
             for (Index index : indexes.getIndexes()) {
-                boolean createIx = true;
-                LOGGER.debug("Processing index {}", index);
-
-                for (DBObject existingIndex : existingIndexes) {
-                    if (indexFieldsMatch(index, existingIndex)
-                            && indexOptionsMatch(index, existingIndex)) {
-                        LOGGER.debug("Same index exists, not creating");
-                        createIx = false;
-                        break;
+                boolean createIx = !isIdIndex(index);
+                if (createIx) {
+                    LOGGER.debug("Processing index {}", index);
+                    for (DBObject existingIndex : existingIndexes) {
+                        if (indexFieldsMatch(index, existingIndex)
+                                && indexOptionsMatch(index, existingIndex)) {
+                            LOGGER.debug("Same index exists, not creating");
+                            createIx = false;
+                            deleteIndexes.remove(existingIndex);
+                            break;
+                        }
                     }
                 }
 
@@ -426,6 +590,7 @@ public class MongoCRUDController implements CRUDController {
                             LOGGER.debug("Same index exists with different options, dropping index:{}", existingIndex);
                             // Changing index options, drop the index using its name, recreate with new options
                             entityCollection.dropIndex(existingIndex.get("name").toString());
+                            deleteIndexes.remove(existingIndex);
                         }
                     }
                 }
@@ -444,8 +609,17 @@ public class MongoCRUDController implements CRUDController {
                     entityCollection.createIndex(newIndex, options);
                 }
             }
+
+            // for any indexes that remain in deleteIndexes set, delete them (except _id index!)
+            for (DBObject deleteIndex : deleteIndexes) {
+                if (((BasicDBObject)deleteIndex.get("key")).size() != 1 
+                        || !((BasicDBObject)deleteIndex.get("key")).containsField(ID_STR)) {
+                    // it's a multi-key index or the one key is not _id, delete it
+                    entityCollection.dropIndex(deleteIndex.get("name").toString());
+                }
+            }
         } catch (MongoException me) {
-            LOGGER.error("createUpdateEntityInfoIndexes: {}", ei);
+            LOGGER.error("createUpdateEntityInfoIndexes: {}", ei, me);
             throw Error.get(MongoCrudConstants.ERR_ENTITY_INDEX_NOT_CREATED, me.getMessage());
         } catch (Error e) {
             // rethrow lightblue error
@@ -461,6 +635,12 @@ public class MongoCRUDController implements CRUDController {
         LOGGER.debug("createUpdateEntityInfoIndexes: end");
     }
 
+    private boolean isIdIndex(Index index) {
+        List<SortKey> fields = index.getFields();
+        return fields.size() == 1
+                && fields.get(0).getField().equals(Translator.ID_PATH);
+    }
+
     private boolean compareSortKeys(SortKey sortKey, String fieldName, Object dir) {
         if (sortKey.getField().toString().equals(fieldName)) {
             int direction = ((Number) dir).intValue();
@@ -469,15 +649,15 @@ public class MongoCRUDController implements CRUDController {
         return false;
     }
 
-    private boolean indexFieldsMatch(Index index, DBObject existingIndex) {
+    protected boolean indexFieldsMatch(Index index, DBObject existingIndex) {
         BasicDBObject keys = (BasicDBObject) existingIndex.get("key");
         if (keys != null) {
             List<SortKey> fields = index.getFields();
             if (keys.size() == fields.size()) {
                 Iterator<SortKey> sortKeyItr = fields.iterator();
-                for (Map.Entry<String, Object> entry : keys.entrySet()) {
+                for (Map.Entry<String, Object> dbKeyEntry : keys.entrySet()) {
                     SortKey sortKey = sortKeyItr.next();
-                    if (!compareSortKeys(sortKey, entry.getKey(), entry.getValue())) {
+                    if (!compareSortKeys(sortKey, dbKeyEntry.getKey(), dbKeyEntry.getValue())) {
                         return false;
                     }
                 }
@@ -500,5 +680,28 @@ public class MongoCRUDController implements CRUDController {
             }
         }
         return false;
+    }
+
+    /**
+     * Returns a projection containing the requested projection, all identity
+     * fields, and the objectType field
+     */
+    private Projection getProjectionFields(Projection requestedProjection,
+                                           EntityMetadata md) {
+        Field[] identityFields = md.getEntitySchema().getIdentityFields();
+        List<Projection> projectFields = new ArrayList<>(identityFields == null ? 1 : identityFields.length + 1);
+        if (requestedProjection instanceof ProjectionList) {
+            projectFields.addAll(((ProjectionList) requestedProjection).getItems());
+        } else if (requestedProjection != null) {
+            projectFields.add(requestedProjection);
+        }
+        if (identityFields != null) {
+            for (Field x : identityFields) {
+                projectFields.add(new FieldProjection(x.getFullPath(), true, false));
+            }
+        }
+        projectFields.add(new FieldProjection(Translator.OBJECT_TYPE, true, false));
+
+        return new ProjectionList(projectFields);
     }
 }

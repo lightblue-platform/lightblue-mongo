@@ -24,6 +24,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
@@ -57,7 +59,8 @@ import com.redhat.lightblue.query.FieldAndRValue;
 import com.redhat.lightblue.query.FieldComparisonExpression;
 import com.redhat.lightblue.query.NaryLogicalExpression;
 import com.redhat.lightblue.query.NaryLogicalOperator;
-import com.redhat.lightblue.query.NaryRelationalExpression;
+import com.redhat.lightblue.query.NaryValueRelationalExpression;
+import com.redhat.lightblue.query.NaryFieldRelationalExpression;
 import com.redhat.lightblue.query.NaryRelationalOperator;
 import com.redhat.lightblue.query.PartialUpdateExpression;
 import com.redhat.lightblue.query.PrimitiveUpdateExpression;
@@ -65,6 +68,7 @@ import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.RValueExpression;
 import com.redhat.lightblue.query.RegexMatchExpression;
 import com.redhat.lightblue.query.SetExpression;
+import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.query.SortKey;
 import com.redhat.lightblue.query.UnaryLogicalExpression;
@@ -362,6 +366,60 @@ public class Translator {
     }
 
     /**
+     * Returns all the fields required to evaluate the given projection, query, and sort
+     *
+     * @param md Entity metadata
+     * @param p Projection
+     * @param q Query
+     * @param s Sort
+     *
+     * All arguments are optional. The returned set contains the
+     * fields required to evaluate all the non-null expressions
+     */
+    public static Set<Path> getRequiredFields(EntityMetadata md,
+                                              Projection p,
+                                              QueryExpression q,
+                                              Sort s) {
+        LOGGER.debug("getRequiredFields: p={}, q={}, s={}",p,q,s);
+        Set<Path> fields=new HashSet<>();
+        FieldCursor cursor=md.getFieldCursor();
+        while(cursor.next()) {
+            Path field=cursor.getCurrentPath();
+            FieldTreeNode node=cursor.getCurrentNode();
+            if( (node instanceof ObjectField) ||
+                (node instanceof ArrayField &&
+                 ((ArrayField)node).getElement() instanceof ObjectArrayElement) ) {
+                // include its member fields
+            } else if( (p!=null && p.isFieldRequiredToEvaluateProjection(field)) ||
+                       (q!=null && q.isRequired(field)) ||
+                       (s!=null && s.isRequired(field)) ) {
+                LOGGER.debug("{}: required",field);
+                fields.add(field);
+            } else {
+                LOGGER.debug("{}: not required", field);
+            }
+        }
+        return fields;
+    }
+
+    /**
+     * Writes a MongoDB projection containing fields to evaluate the projection, sort, and query
+     */
+    public DBObject translateProjection(EntityMetadata md,
+                                        Projection p,
+                                        QueryExpression q,
+                                        Sort s) {
+        Set<Path> fields=getRequiredFields(md,p,q,s);
+        LOGGER.debug("translateProjection, p={}, q={}, s={}, fields={}",p,q,s,fields);
+        BasicDBObject ret=new BasicDBObject();
+        for(Path f:fields) {
+            ret.append(translatePath(f),1);
+        }
+        LOGGER.debug("Resulting projection:{}",ret);
+        return ret;
+    }
+
+    /**
      * Translate update expression list and primitive updates. Anything else
      * causes an exception.
      */
@@ -502,11 +560,13 @@ public class Translator {
         } else if (query instanceof ArrayMatchExpression) {
             ret = translateArrayElemMatch(context, (ArrayMatchExpression) query);
         } else if (query instanceof FieldComparisonExpression) {
-            ret = translateFieldComparison((FieldComparisonExpression) query);
+            ret = translateFieldComparison(context, (FieldComparisonExpression) query);
         } else if (query instanceof NaryLogicalExpression) {
             ret = translateNaryLogicalExpression(context, (NaryLogicalExpression) query);
-        } else if (query instanceof NaryRelationalExpression) {
-            ret = translateNaryRelationalExpression(context, (NaryRelationalExpression) query);
+        } else if (query instanceof NaryValueRelationalExpression) {
+            ret = translateNaryValueRelationalExpression(context, (NaryValueRelationalExpression) query);
+        } else if (query instanceof NaryFieldRelationalExpression) {
+            ret = translateNaryFieldRelationalExpression(context, (NaryFieldRelationalExpression) query);
         } else if (query instanceof RegexMatchExpression) {
             ret = translateRegexMatchExpression((RegexMatchExpression) query);
         } else if (query instanceof UnaryLogicalExpression) {
@@ -589,13 +649,30 @@ public class Translator {
         return new BasicDBObject(translatePath(expr.getField()), regex);
     }
 
-    private DBObject translateNaryRelationalExpression(FieldTreeNode context, NaryRelationalExpression expr) {
+    private DBObject translateNaryValueRelationalExpression(FieldTreeNode context, NaryValueRelationalExpression expr) {
         Type t = resolve(context, expr.getField()).getType();
         if (t.supportsEq()) {
             List<Object> values = translateValueList(t, expr.getValues());
             return new BasicDBObject(translatePath(expr.getField()),
                     new BasicDBObject(NARY_RELATIONAL_OPERATOR_MAP.get(expr.getOp()),
                             values));
+        } else {
+            throw Error.get(ERR_INVALID_FIELD, expr.toString());
+        }
+    }
+
+    private DBObject translateNaryFieldRelationalExpression(FieldTreeNode context, NaryFieldRelationalExpression expr) {
+        Type t = resolve(context, expr.getField()).getType();
+        if (t.supportsEq()) {
+            FieldTreeNode arr=resolve(context,expr.getRfield());
+            boolean in=expr.getOp()==NaryRelationalOperator._in;
+            return new BasicDBObject("$where",
+                                     String.format("function() for(var nfr=0;nfr<this.%s.length;nfr++) {if ( %s == %s[nfr] ) return %s;} return %s;}",
+                                                   translateJsPath(expr.getRfield()),
+                                                   translateJsPath(expr.getField()),
+                                                   translateJsPath(expr.getRfield()),
+                                                   in?"true":"false",
+                                                   in?"false":"true"));
         } else {
             throw Error.get(ERR_INVALID_FIELD, expr.toString());
         }
@@ -636,45 +713,120 @@ public class Translator {
         return arr.toString();
     }
 
-    private DBObject translateFieldComparison(FieldComparisonExpression expr) {
-        StringBuilder str = new StringBuilder(128);
+    private static final String ARR_ARR_EQ= "if(this.f1.length==this.f2.length) { "+
+        "  var allEq=true;"+
+        "  for(var i=0;i<this.f1.length;i++) { "+
+        "     if(this.f1[i] != this.f2[i]) { allEq=false; break; } "+
+        "  } "+
+        "  if(allEq) return true;"+
+        "}";
+
+    private static final String ARR_ARR_NEQ="if(this.f1.length==this.f2.length) { "+
+        "  var allEq=true;"+
+        "  for(var i=0;i<this.f1.length;i++) { "+
+        "     if(this.f1[i] != this.f2[i]) { allEq=false; break; } "+
+        "  } "+
+        "  if(!allEq) return true;"+
+        "} else { return true; }";
+
+    private static final String ARR_ARR_CMP="if(this.f1.length==this.f2.length) {"+
+        "  var allOk=true;"+
+        "  for(var i=0;i<this.f1.length;i++) {"+
+        "    if(!(this.f1[i] op this.f2[i])) {allOk=false; break;} "+
+        "  }"+
+        " if(allOk) return true;}";
+
+
+    private String writeArrayArrayComparisonJS(String field1,String field2,BinaryComparisonOperator op) {
+        switch(op) {
+        case _eq:
+            return ARR_ARR_EQ.replaceAll("f1",field1).replaceAll("f2",field2);
+        case _neq:
+            return ARR_ARR_NEQ.replaceAll("f1",field1).replaceAll("f2",field2);
+        default:
+            return ARR_ARR_CMP.replaceAll("f1",field1).replaceAll("f2",field2).replace("op",BINARY_COMPARISON_OPERATOR_JS_MAP.get(op));
+        }
+    }
+
+    private String writeArrayFieldComparisonJS(String field,String array,String op) {
+        return String.format("for(var i=0;i<this.%s.length;i++) { if(!(this.%s %s this.%s[i])) return false; } return true;",array,field,op,array);
+    }
+
+    private String writeComparisonJS(Path field1,boolean field1IsArray,
+                                     Path field2,boolean field2IsArray,
+                                     BinaryComparisonOperator op) {
+        return writeComparisonJS(translateJsPath(field1),field1IsArray,translateJsPath(field2),field2IsArray,op);
+    }
+
+    private String writeComparisonJS(String field1,boolean field1IsArray,
+                                     String field2,boolean field2IsArray,
+                                     BinaryComparisonOperator op) {
+        if(field1IsArray) {
+            if(field2IsArray) {
+                return writeArrayArrayComparisonJS(field1,field2,op);
+            } else {
+                return writeArrayFieldComparisonJS(field2,field1,BINARY_COMPARISON_OPERATOR_JS_MAP.get(op.invert()));
+            } 
+        } else if(field2IsArray) {
+            return writeArrayFieldComparisonJS(field1,field2,BINARY_COMPARISON_OPERATOR_JS_MAP.get(op));
+        } else {
+            return String.format("if(this.%s %s this.%s) { return true;}",field1,BINARY_COMPARISON_OPERATOR_JS_MAP.get(op),field2);
+        }
+    }
+
+    private DBObject translateFieldComparison(FieldTreeNode context,FieldComparisonExpression expr) {
+        StringBuilder str = new StringBuilder(256);
         // We have to deal with array references here
         Path rField = expr.getRfield();
+        boolean rIsArray=context.resolve(rField) instanceof ArrayField;
         Path lField = expr.getField();
+        boolean lIsArray=context.resolve(lField) instanceof ArrayField;
         int rn = rField.nAnys();
         int ln = lField.nAnys();
+        str.append("function() {");
         if (rn > 0 && ln > 0) {
             // Write a function with nested for loops
-            str.append("function() {");
+            // function() {
+            //   for(var x1=0;x1<a.b.length;x1++) {
+            //     for(var x2=0;x2<a.b[x1].c.d.length;x2++) {
+            //        for(var y1=y1<m.n.length;y1++) {
+            //        ...
+            //       if(this.a.b[x1].x.d[x2] = this.m.n[y1]) return true;
+            //      }
+            //     }
+            //    }
+            // return false; }
             String rJSField = writeJSForLoop(str, rField, "r");
             String lJSField = writeJSForLoop(str, lField, "l");
-            str.append("if(this.").append(lJSField).
-                    append(BINARY_COMPARISON_OPERATOR_JS_MAP.get(expr.getOp())).
-                    append(LITERAL_THIS_DOT).append(rJSField).append(") { return true; }");
+            str.append(writeComparisonJS(lJSField,lIsArray,rJSField,rIsArray,expr.getOp()));
             for (int i = 0; i < rn + ln; i++) {
                 str.append('}');
             }
             str.append("return false;}");
         } else if (rn > 0 || ln > 0) {
             // Only one of them has ANY, write a single for loop
-            str.append("function() {");
+            // function() {
+            //   for(var x1=0;x1<a.b.length;x1++) {
+            //     for(var x2=0;x2<a.b[x1].c.d.length;x2++) {
+            //      if(this.a.b[x1].c.d[x2]==this.rfield) return true;
+            //     }
+            //   }
+            //  return false; }
             String jsField = writeJSForLoop(str, rn > 0 ? rField : lField, "i");
-            str.append("if(this.").append(ln > 0 ? jsField : translateJsPath(lField)).
-                    append(BINARY_COMPARISON_OPERATOR_JS_MAP.get(expr.getOp())).
-                    append(LITERAL_THIS_DOT).append(rn > 0 ? jsField : translateJsPath(rField)).append(") {return true;}");
+            str.append(writeComparisonJS(ln > 0 ? jsField : translateJsPath(lField),lIsArray,
+                                         rn > 0 ? jsField : translateJsPath(rField),rIsArray,
+                                         expr.getOp()));
             for (int i = 0; i < rn + ln; i++) {
                 str.append('}');
             }
             str.append("return false;}");
         } else {
             // No ANYs, direct comparison
-            str.append(LITERAL_THIS_DOT).
-                    append(translateJsPath(expr.getField())).
-                    append(BINARY_COMPARISON_OPERATOR_JS_MAP.get(expr.getOp())).
-                    append(LITERAL_THIS_DOT).
-                    append(translateJsPath(expr.getRfield()));
+            //  function() {return this.lfield = this.rfield}
+            str.append(writeComparisonJS(lField,lIsArray,rField,rIsArray,expr.getOp()));
+            str.append("return false;}");
         }
-
+        
         return new BasicDBObject("$where", str.toString());
     }
 
@@ -786,7 +938,7 @@ public class Translator {
     }
 
     private void convertSimpleFieldToJson(ObjectNode node, FieldTreeNode field, Object value, String fieldName) {
-        JsonNode valueNode = ((SimpleField) field).getType().toJson(factory, value);
+        JsonNode valueNode = field.getType().toJson(factory, value);
         if (valueNode != null) {
             node.set(fieldName, valueNode);
         }
@@ -832,7 +984,7 @@ public class Translator {
         JsonNode ret = null;
         if (el instanceof SimpleArrayElement) {
             if (value != null) {
-                ret = ((SimpleArrayElement) el).getType().toJson(factory, value);
+                ret = el.getType().toJson(factory, value);
             }
         } else {
             if (value != null) {
@@ -872,7 +1024,7 @@ public class Translator {
                         Path path,
                         JsonNode node) {
         Object value = toValue(fieldMd.getType(), node);
-        // Should we add fields with null values to the bson doc? 
+        // Should we add fields with null values to the bson doc?
         if (value != null) {
             LOGGER.debug("{} = {}", path, value);
             if (path.equals(ID_PATH)) {
@@ -933,6 +1085,9 @@ public class Translator {
                 if (cursor.firstChild()) {
                     ret.append(path.tail(0), arrayToBson(cursor, ((ArrayField) fieldMdNode).getElement(), md));
                     cursor.parent();
+                } else {
+                    // empty array! add an empty list.
+                    ret.append(path.tail(0), new ArrayList());
                 }
             } else {
                 throw Error.get(ERR_INVALID_FIELD, path.toString());
@@ -941,7 +1096,7 @@ public class Translator {
     }
 
     private void convertReferenceFieldToBson() {
-        //TODO  
+        //TODO
         throw new java.lang.UnsupportedOperationException();
     }
 

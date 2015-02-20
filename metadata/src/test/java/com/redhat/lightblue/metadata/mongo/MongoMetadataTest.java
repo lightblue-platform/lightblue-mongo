@@ -18,71 +18,85 @@
  */
 package com.redhat.lightblue.metadata.mongo;
 
+import java.util.Set;
+import java.util.HashSet;
+import java.util.ArrayList;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.mongodb.BasicDBObject;
-import com.mongodb.DB;
-import com.mongodb.Mongo;
 import com.redhat.lightblue.OperationStatus;
 import com.redhat.lightblue.Response;
-import com.redhat.lightblue.common.mongo.DBResolver;
 import com.redhat.lightblue.common.mongo.MongoDataStore;
 import com.redhat.lightblue.crud.*;
+import com.redhat.lightblue.metadata.constraints.EnumConstraint;
 import com.redhat.lightblue.metadata.*;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.parser.JSONMetadataParser;
 import com.redhat.lightblue.metadata.types.DefaultTypes;
 import com.redhat.lightblue.metadata.types.IntegerType;
 import com.redhat.lightblue.metadata.types.StringType;
+import com.redhat.lightblue.mongo.test.EmbeddedMongo;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Error;
+import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.test.AbstractJsonNodeTest;
-import de.flapdoodle.embed.mongo.Command;
-import de.flapdoodle.embed.mongo.MongodExecutable;
-import de.flapdoodle.embed.mongo.MongodProcess;
-import de.flapdoodle.embed.mongo.MongodStarter;
-import de.flapdoodle.embed.mongo.config.MongodConfigBuilder;
-import de.flapdoodle.embed.mongo.config.Net;
-import de.flapdoodle.embed.mongo.config.RuntimeConfigBuilder;
-import de.flapdoodle.embed.process.config.IRuntimeConfig;
-import de.flapdoodle.embed.process.config.io.ProcessOutput;
-import de.flapdoodle.embed.process.io.IStreamProcessor;
-import de.flapdoodle.embed.process.io.Processors;
-import de.flapdoodle.embed.process.runtime.Network;
 import org.bson.BSONObject;
 import org.json.JSONException;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.Ignore;
 import org.skyscreamer.jsonassert.JSONAssert;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
 
 public class MongoMetadataTest {
 
+    private static final EmbeddedMongo mongo = EmbeddedMongo.getInstance();
+
+    private MongoMetadata md;
+
+    @Before
+    public void setup() {
+        Factory factory = new Factory();
+        factory.addCRUDController("mongo", new TestCRUDController());
+        Extensions<BSONObject> x = new Extensions<>();
+        x.addDefaultExtensions();
+        x.registerDataStoreParser("mongo", new MongoDataStoreParser<BSONObject>());
+        md = new MongoMetadata(mongo.getDB(), x, new DefaultTypes(), factory);
+        BasicDBObject index = new BasicDBObject("name", 1);
+        index.put("version.value", 1);
+        mongo.getDB().getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION).ensureIndex(index, "name", true);
+    }
+
+    @After
+    public void teardown() {
+        mongo.reset();
+    }
+
     public class TestCRUDController implements CRUDController {
 
+        @Override
         public CRUDInsertionResponse insert(CRUDOperationContext ctx,
                                             Projection projection) {
             return null;
         }
 
+        @Override
         public CRUDSaveResponse save(CRUDOperationContext ctx,
                                      boolean upsert,
                                      Projection projection) {
             return null;
         }
 
+        @Override
         public CRUDUpdateResponse update(CRUDOperationContext ctx,
                                          QueryExpression query,
                                          UpdateExpression update,
@@ -90,11 +104,13 @@ public class MongoMetadataTest {
             return null;
         }
 
+        @Override
         public CRUDDeleteResponse delete(CRUDOperationContext ctx,
                                          QueryExpression query) {
             return null;
         }
 
+        @Override
         public CRUDFindResponse find(CRUDOperationContext ctx,
                                      QueryExpression query,
                                      Projection projection,
@@ -104,126 +120,14 @@ public class MongoMetadataTest {
             return null;
         }
 
-        public void updateEntityInfo(Metadata md, EntityInfo ei) {
-        }
-
-        public void newSchema(Metadata md, EntityMetadata emd) {
-        }
-    }
-
-    public static class FileStreamProcessor implements IStreamProcessor {
-        private final FileOutputStream outputStream;
-
-        public FileStreamProcessor(File file) throws FileNotFoundException {
-            outputStream = new FileOutputStream(file);
+        @Override
+        public MetadataListener getMetadataListener() {
+            return null;
         }
 
         @Override
-        public void process(String block) {
-            try {
-                outputStream.write(block.getBytes());
-            } catch (IOException e) {
-                throw new IllegalStateException(e);
-            }
+        public void updatePredefinedFields(CRUDOperationContext ctx, JsonDoc doc) {
         }
-
-        @Override
-        public void onProcessed() {
-            try {
-                outputStream.close();
-            } catch (IOException e) {
-                throw new IllegalStateException(e);
-            }
-        }
-
-    }
-
-    // Copied from  https://github.com/tommysdk/showcase/blob/master/mongo-in-mem/src/test/java/tommysdk/showcase/mongo/TestInMemoryMongo.java
-    private static final String MONGO_HOST = "localhost";
-    private static final int MONGO_PORT = 27777;
-    private static final String IN_MEM_CONNECTION_URL = MONGO_HOST + ":" + MONGO_PORT;
-
-    private static final String DB_NAME = "testmetadata";
-
-    private static MongodExecutable mongodExe;
-    private static MongodProcess mongod;
-    private static Mongo mongo;
-    private static DB db;
-
-    private MongoMetadata md;
-
-    static {
-        try {
-            IStreamProcessor mongodOutput = Processors.named("[mongod>]",
-                    new FileStreamProcessor(File.createTempFile("mongod", "log")));
-            IStreamProcessor mongodError = new FileStreamProcessor(File.createTempFile("mongod-error", "log"));
-            IStreamProcessor commandsOutput = Processors.namedConsole("[console>]");
-
-            IRuntimeConfig runtimeConfig = new RuntimeConfigBuilder()
-                    .defaults(Command.MongoD)
-                    .processOutput(new ProcessOutput(mongodOutput, mongodError, commandsOutput))
-                    .build();
-
-            MongodStarter runtime = MongodStarter.getInstance(runtimeConfig);
-            mongodExe = runtime.prepare(
-                    new MongodConfigBuilder()
-                    .version(de.flapdoodle.embed.mongo.distribution.Version.V2_6_0)
-                    .net(new Net(MONGO_PORT, Network.localhostIsIPv6()))
-                    .build()
-            );
-            try {
-                mongod = mongodExe.start();
-            } catch (Throwable t) {
-                // try again, could be killed breakpoint in IDE
-                mongod = mongodExe.start();
-            }
-            mongo = new Mongo(IN_MEM_CONNECTION_URL);
-            db = mongo.getDB(DB_NAME);
-
-            db.createCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION, null);
-
-            Runtime.getRuntime().addShutdownHook(new Thread() {
-                @Override
-                public void run() {
-                    super.run();
-                    clearDatabase();
-                }
-
-            });
-        } catch (IOException e) {
-            throw new java.lang.Error(e);
-        }
-    }
-
-    @Before
-    public void setup() {
-        Factory factory = new Factory();
-        factory.addCRUDController("mongo", new TestCRUDController());
-        Extensions<BSONObject> x = new Extensions<>();
-        x.addDefaultExtensions();
-        x.registerDataStoreParser("mongo", new MongoDataStoreParser<BSONObject>());
-        md = new MongoMetadata(db, x, new DefaultTypes(), factory);
-        BasicDBObject index = new BasicDBObject("name", 1);
-        index.put("version.value", 1);
-        db.getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION).ensureIndex(index, "name", true);
-    }
-
-    @After
-    public void teardown() {
-        if (mongo != null) {
-            mongo.dropDatabase(DB_NAME);
-        }
-    }
-
-    public static void clearDatabase() {
-        if (mongod != null) {
-            mongod.stop();
-            mongodExe.stop();
-        }
-        db = null;
-        mongo = null;
-        mongod = null;
-        mongodExe = null;
     }
 
     @Test
@@ -261,10 +165,10 @@ public class MongoMetadataTest {
         Assert.assertEquals(e.getVersion().getValue(), g.getVersion().getValue());
         Assert.assertEquals(e.getVersion().getChangelog(), g.getVersion().getChangelog());
         Assert.assertEquals(e.getStatus(), g.getStatus());
-        Assert.assertEquals(((SimpleField) e.resolve(new Path("field1"))).getType(),
-                ((SimpleField) g.resolve(new Path("field1"))).getType());
-        Assert.assertEquals(((SimpleField) e.resolve(new Path("field2.x"))).getType(),
-                ((SimpleField) g.resolve(new Path("field2.x"))).getType());
+        Assert.assertEquals((e.resolve(new Path("field1"))).getType(),
+                (g.resolve(new Path("field1"))).getType());
+        Assert.assertEquals((e.resolve(new Path("field2.x"))).getType(),
+                (g.resolve(new Path("field2.x"))).getType());
         Version[] v = md.getEntityVersions("testEntity");
         Assert.assertEquals(1, v.length);
         Assert.assertEquals("1.0.0", v[0].getValue());
@@ -272,6 +176,25 @@ public class MongoMetadataTest {
         String[] names = md.getEntityNames();
         Assert.assertEquals(1, names.length);
         Assert.assertEquals("testEntity", names[0]);
+    }
+
+    @Test
+    public void createMdWithAndRefTest() throws Exception {
+        Extensions<JsonNode> extensions = new Extensions<>();
+        extensions.addDefaultExtensions();
+        extensions.registerDataStoreParser("mongo", new MongoDataStoreParser<JsonNode>());
+        JSONMetadataParser parser = new JSONMetadataParser(extensions, new DefaultTypes(), new JsonNodeFactory(true));
+
+        // get JsonNode representing metadata
+        JsonNode jsonMetadata = AbstractJsonNodeTest.loadJsonNode(getClass().getSimpleName() + "-qps-andquery.json");
+
+        // parser into EntityMetadata
+        EntityMetadata e = parser.parseEntityMetadata(jsonMetadata);
+
+        // persist
+        md.createNewMetadata(e);
+        EntityMetadata g = md.getEntityMetadata("test", "1.0.0");
+        // No exception=OK
     }
 
     /**
@@ -296,6 +219,26 @@ public class MongoMetadataTest {
         } catch (Exception x) {
         }
         Assert.assertNotNull(md.getEntityMetadata("testEntity", "1.0.0"));
+    }
+
+    @Test
+    public void testCollectionName() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "test-Collection"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        try {
+            md.createNewMetadata(e);
+            Assert.fail();
+        } catch (Error x) {
+        }
+
+        e.setDataStore(new MongoDataStore(null, null, "testCollection"));
+        md.createNewMetadata(e);
     }
 
     @Test
@@ -407,6 +350,64 @@ public class MongoMetadataTest {
         EntityInfo ei = new EntityInfo("testEntity");
         ei.setDataStore(new MongoDataStore(null, null, "somethingelse"));
         md.updateEntityInfo(ei);
+    }
+
+    @Test
+    public void updateEntityInfo_invalidates() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollection"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        com.redhat.lightblue.metadata.Enum enumdef=new  com.redhat.lightblue.metadata.Enum("en");
+        Set<String> envalues=new HashSet<>();
+        envalues.add("value");
+        enumdef.setValues(envalues);
+        e.getEntityInfo().getEnums().addEnum(enumdef);
+
+        SimpleField s=new SimpleField("z",StringType.TYPE);
+        ArrayList<FieldConstraint> enumsc=new ArrayList<>();
+        EnumConstraint enumc=new EnumConstraint();
+        enumc.setName("en");
+        enumsc.add(enumc);
+        s.setConstraints(enumsc);
+        e.getFields().put(s);
+       
+        md.createNewMetadata(e);
+
+        e.getEntityInfo().getEnums().setEnums(new ArrayList());
+        try {
+            md.updateEntityInfo(e.getEntityInfo());
+            Assert.fail();
+        } catch (Error x) {
+        }
+    }
+
+    @Test
+    public void createEntityInfo_validates() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollection"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        SimpleField s=new SimpleField("z",StringType.TYPE);
+        ArrayList<FieldConstraint> enumsc=new ArrayList<>();
+        EnumConstraint enumc=new EnumConstraint();
+        enumc.setName("en");
+        enumsc.add(enumc);
+        s.setConstraints(enumsc);
+        e.getFields().put(s);
+        try {
+            md.createNewMetadata(e);
+            Assert.fail();
+        } catch (Error x) {
+        }
     }
 
     @Test
@@ -593,7 +594,7 @@ public class MongoMetadataTest {
         // verify data
         Assert.assertNotNull(response.getEntityData());
         String jsonEntityData = response.getEntityData().toString();
-        String jsonExpected = "[{\"role\":\"field.find\",\"find\":[\"test.name\"]},{\"role\":\"field.update\",\"update\":[\"test.name\"]},{\"role\":\"noone\",\"update\":[\"test.objectType\"]},{\"role\":\"anyone\",\"find\":[\"test.objectType\"]},{\"role\":\"entity.insert\",\"insert\":[\"test\"]},{\"role\":\"entity.update\",\"update\":[\"test\"]},{\"role\":\"entity.find\",\"find\":[\"test\"]},{\"role\":\"entity.delete\",\"delete\":[\"test\"]}]";
+        String jsonExpected = "[{\"role\":\"field.find\",\"find\":[\"test.name\"]},{\"role\":\"field.insert\",\"insert\":[\"test.name\"]},{\"role\":\"noone\",\"update\":[\"test.objectType\"]},{\"role\":\"field.update\",\"update\":[\"test.name\"]},{\"role\":\"anyone\",\"find\":[\"test.objectType\"]},{\"role\":\"entity.insert\",\"insert\":[\"test\"]},{\"role\":\"entity.update\",\"update\":[\"test\"]},{\"role\":\"entity.find\",\"find\":[\"test\"]},{\"role\":\"entity.delete\",\"delete\":[\"test\"]}]";
         JSONAssert.assertEquals(jsonExpected, jsonEntityData, false);
     }
 
@@ -663,7 +664,7 @@ public class MongoMetadataTest {
         // verify data
         Assert.assertNotNull(response.getEntityData());
         String jsonEntityData = response.getEntityData().toString();
-        String jsonExpected = "[{\"role\":\"field.find\",\"find\":[\"test.name\"]},{\"role\":\"field.update\",\"update\":[\"test.name\"]},{\"role\":\"noone\",\"update\":[\"test.objectType\"]},{\"role\":\"anyone\",\"find\":[\"test.objectType\"]},{\"role\":\"entity.insert\",\"insert\":[\"test\"]},{\"role\":\"entity.update\",\"update\":[\"test\"]},{\"role\":\"entity.find\",\"find\":[\"test\"]},{\"role\":\"entity.delete\",\"delete\":[\"test\"]}]";
+        String jsonExpected = "[{\"role\":\"field.find\",\"find\":[\"test.name\"]},{\"role\":\"field.insert\",\"insert\":[\"test.name\"]},{\"role\":\"field.update\",\"update\":[\"test.name\"]},{\"role\":\"noone\",\"update\":[\"test.objectType\"]},{\"role\":\"anyone\",\"find\":[\"test.objectType\"]},{\"role\":\"entity.insert\",\"insert\":[\"test\"]},{\"role\":\"entity.update\",\"update\":[\"test\"]},{\"role\":\"entity.find\",\"find\":[\"test\"]},{\"role\":\"entity.delete\",\"delete\":[\"test\"]}]";
         JSONAssert.assertEquals(jsonExpected, jsonEntityData, false);
     }
 
@@ -702,7 +703,7 @@ public class MongoMetadataTest {
         // verify data
         Assert.assertNotNull(response.getEntityData());
         String jsonEntityData = response.getEntityData().toString();
-        String jsonExpected = "[{\"role\":\"field.find\",\"find\":[\"test.name\"]},{\"role\":\"field.update\",\"update\":[\"test.name\"]},{\"role\":\"noone\",\"update\":[\"test.objectType\"]},{\"role\":\"anyone\",\"find\":[\"test.objectType\"]},{\"role\":\"entity.insert\",\"insert\":[\"test\"]},{\"role\":\"entity.update\",\"update\":[\"test\"]},{\"role\":\"entity.find\",\"find\":[\"test\"]},{\"role\":\"entity.delete\",\"delete\":[\"test\"]}]";
+        String jsonExpected = "[{\"role\":\"field.find\",\"find\":[\"test.name\"]},{\"role\":\"field.insert\",\"insert\":[\"test.name\"]},{\"role\":\"field.update\",\"update\":[\"test.name\"]},{\"role\":\"noone\",\"update\":[\"test.objectType\"]},{\"role\":\"anyone\",\"find\":[\"test.objectType\"]},{\"role\":\"entity.insert\",\"insert\":[\"test\"]},{\"role\":\"entity.update\",\"update\":[\"test\"]},{\"role\":\"entity.find\",\"find\":[\"test\"]},{\"role\":\"entity.delete\",\"delete\":[\"test\"]}]";
         JSONAssert.assertEquals(jsonExpected, jsonEntityData, false);
     }
 
@@ -749,7 +750,7 @@ public class MongoMetadataTest {
         // verify data
         Assert.assertNotNull(response.getEntityData());
         String jsonEntityData = response.getEntityData().toString();
-        String jsonExpected = "[{\"role\":\"field.find\",\"find\":[\"test1.name\",\"test3.name\"]},{\"role\":\"noone\",\"update\":[\"test1.objectType\",\"test3.objectType\"]},{\"role\":\"field.update\",\"update\":[\"test1.name\",\"test3.name\"]},{\"role\":\"anyone\",\"find\":[\"test1.objectType\",\"test3.objectType\"]},{\"role\":\"entity.insert\",\"insert\":[\"test1\",\"test3\"]},{\"role\":\"entity.update\",\"update\":[\"test1\",\"test3\"]},{\"role\":\"entity.find\",\"find\":[\"test1\",\"test3\"]},{\"role\":\"entity.delete\",\"delete\":[\"test1\",\"test3\"]}]";
+        String jsonExpected = "[{\"role\":\"field.find\",\"find\":[\"test1.name\",\"test3.name\"]},{\"role\":\"field.insert\",\"insert\":[\"test1.name\",\"test3.name\"]},{\"role\":\"noone\",\"update\":[\"test1.objectType\",\"test3.objectType\"]},{\"role\":\"field.update\",\"update\":[\"test1.name\",\"test3.name\"]},{\"role\":\"anyone\",\"find\":[\"test1.objectType\",\"test3.objectType\"]},{\"role\":\"entity.insert\",\"insert\":[\"test1\",\"test3\"]},{\"role\":\"entity.update\",\"update\":[\"test1\",\"test3\"]},{\"role\":\"entity.find\",\"find\":[\"test1\",\"test3\"]},{\"role\":\"entity.delete\",\"delete\":[\"test1\",\"test3\"]}]";
         JSONAssert.assertEquals(jsonExpected, jsonEntityData, false);
     }
 

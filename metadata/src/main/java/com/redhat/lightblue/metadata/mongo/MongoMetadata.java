@@ -66,6 +66,7 @@ import com.redhat.lightblue.metadata.StatusChange;
 import com.redhat.lightblue.metadata.TypeResolver;
 import com.redhat.lightblue.metadata.Version;
 import com.redhat.lightblue.metadata.VersionInfo;
+import com.redhat.lightblue.metadata.MetadataListener;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.parser.MetadataParser;
 import com.redhat.lightblue.crud.Factory;
@@ -282,6 +283,7 @@ public class MongoMetadata extends AbstractMetadata {
     @Override
     public void createNewMetadata(EntityMetadata md) {
         LOGGER.debug("createNewMetadata: begin");
+        md.validate();
         checkMetadataHasName(md);
         checkMetadataHasFields(md);
         checkDataStoreIsValid(md);
@@ -302,6 +304,13 @@ public class MongoMetadata extends AbstractMetadata {
             }
             LOGGER.debug("createNewMetadata: Default version validated");
             PredefinedFields.ensurePredefinedFields(md);
+
+            MetadataListener listener = factory.getCRUDController(md.getEntityInfo().getDataStore().getBackend()).getMetadataListener();
+            if (listener != null) {
+                listener.beforeUpdateEntityInfo(this, md.getEntityInfo(), true);
+                listener.beforeCreateNewSchema(this, md);
+            }
+
             DBObject infoObj = (DBObject) mdParser.convert(md.getEntityInfo());
             DBObject schemaObj = (DBObject) mdParser.convert(md.getEntitySchema());
 
@@ -328,8 +337,10 @@ public class MongoMetadata extends AbstractMetadata {
                         throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, error);
                     }
 
-                    factory.getCRUDController(md.getEntityInfo().getDataStore().getBackend()).
-                            newSchema(this, md);
+                    if (listener != null) {
+                        listener.afterUpdateEntityInfo(this, md.getEntityInfo(), true);
+                        listener.afterCreateNewSchema(this, md);
+                    }
 
                 } catch (MongoException.DuplicateKey dke) {
                     LOGGER.error("createNewMetadata: duplicateKey {}", dke);
@@ -371,6 +382,7 @@ public class MongoMetadata extends AbstractMetadata {
     public void updateEntityInfo(EntityInfo ei) {
         checkMetadataHasName(ei);
         checkDataStoreIsValid(ei);
+        validateAllVersions(ei);
         Error.push("updateEntityInfo(" + ei.getName() + ")");
         try {
             // Verify entity info exists
@@ -382,12 +394,17 @@ public class MongoMetadata extends AbstractMetadata {
                 validateDefaultVersion(ei);
             }
 
+            MetadataListener listener = factory.getCRUDController(ei.getDataStore().getBackend()).getMetadataListener();
+            if (listener != null) {
+                listener.beforeUpdateEntityInfo(this, ei, false);
+            }
+
             try {
                 collection.update(new BasicDBObject(LITERAL_ID, ei.getName() + BSONParser.DELIMITER_ID),
                         (DBObject) mdParser.convert(ei));
-                factory.getCRUDController(ei.getDataStore().getBackend()).
-                        updateEntityInfo(this, ei);
-
+                if (listener != null) {
+                    listener.afterUpdateEntityInfo(this, ei, false);
+                }
             } catch (Exception e) {
                 LOGGER.error("updateEntityInfo", e);
                 throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, e.toString());
@@ -405,12 +422,39 @@ public class MongoMetadata extends AbstractMetadata {
     }
 
     /**
+     * When EntityInfo is updated, we have to make sure any active/deprecated metadata is still valid
+     */
+    private void validateAllVersions(EntityInfo ei) {
+        LOGGER.debug("Validating all versions of {}",ei.getName());
+        String version=null;
+        try {
+            DBCursor cursor=new FindCommand(collection, 
+                                            new BasicDBObject(LITERAL_NAME, ei.getName()).
+                                            append(LITERAL_VERSION, new BasicDBObject("$exists", 1)).
+                                            append(LITERAL_STATUS_VALUE,new BasicDBObject("$ne",MetadataStatus.DISABLED.toString())),
+                                            null).execute();
+            while(cursor.hasNext()) {
+                DBObject object=cursor.next();
+                EntitySchema schema=mdParser.parseEntitySchema(object);
+                version=schema.getVersion().getValue();
+                LOGGER.debug("Validating {} {}",ei.getName(),version);
+                EntityMetadata md=new EntityMetadata(ei,schema);
+                md.validate();
+            }
+        } catch (Exception e) {
+            throw Error.get(MongoMetadataConstants.ERR_UPDATE_INVALIDATES_METADATA,ei.getName()+":"+version+
+                            e.toString());
+        } 
+    }
+
+    /**
      * Creates a new schema (versioned data) for an existing metadata.
      *
      * @param md
      */
     @Override
     public void createNewSchema(EntityMetadata md) {
+        md.validate();
         checkMetadataHasName(md);
         checkMetadataHasFields(md);
         checkDataStoreIsValid(md);
@@ -427,12 +471,19 @@ public class MongoMetadata extends AbstractMetadata {
             }
 
             PredefinedFields.ensurePredefinedFields(md);
+            MetadataListener listener = factory.getCRUDController(md.getEntityInfo().getDataStore().getBackend()).getMetadataListener();
+            if (listener != null) {
+                listener.beforeCreateNewSchema(this, md);
+            }
             DBObject schemaObj = (DBObject) mdParser.convert(md.getEntitySchema());
 
             WriteResult result = new InsertCommand(collection, schemaObj, WriteConcern.SAFE).execute();
             String error = result.getError();
             if (error != null) {
                 throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, error);
+            }
+            if (listener != null) {
+                listener.afterCreateNewSchema(this, md);
             }
         } catch (MongoException.DuplicateKey dke) {
             throw Error.get(MongoMetadataConstants.ERR_DUPLICATE_METADATA, ver.getValue());
@@ -448,11 +499,21 @@ public class MongoMetadata extends AbstractMetadata {
         }
     }
 
+    private static final char[] INVALID_COLLECTION_CHARS={'-',' ','.'};
+
     @Override
     protected void checkDataStoreIsValid(EntityInfo md) {
         DataStore store = md.getDataStore();
-        if (!(store instanceof MongoDataStore)) {
+
+        if (factory.getCRUDController(md.getDataStore().getBackend()) == null) {
             throw new IllegalArgumentException(MongoMetadataConstants.ERR_INVALID_DATASTORE);
+        }
+        if (store instanceof MongoDataStore) {
+
+        for(char c:INVALID_COLLECTION_CHARS) {
+            if( ((MongoDataStore)store).getCollectionName().indexOf(c) >= 0 )
+                throw Error.get(MongoMetadataConstants.ERR_INVALID_DATASTORE,((MongoDataStore)store).getCollectionName());
+            }
         }
     }
 
@@ -566,7 +627,7 @@ public class MongoMetadata extends AbstractMetadata {
         }
 
         // initialize response, assume will be completely successful
-        Response response = new Response();
+        Response response = new Response(JsonNodeFactory.instance);
         response.setStatus(OperationStatus.COMPLETE);
 
         // for each name get metadata

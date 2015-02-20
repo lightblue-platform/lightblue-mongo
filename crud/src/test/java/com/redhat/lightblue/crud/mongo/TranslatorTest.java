@@ -18,11 +18,13 @@
  */
 package com.redhat.lightblue.crud.mongo;
 
+import java.util.Set;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.mongodb.DBObject;
 import com.redhat.lightblue.crud.Operation;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.query.UpdateExpression;
+import com.redhat.lightblue.util.Path;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,14 +36,15 @@ import org.bson.types.ObjectId;
  *
  * @author nmalik
  */
-public class TranslatorTest extends AbstractMongoTest {
-    private TestCRUDOperationContext ctx;
+public class TranslatorTest extends AbstractMongoCrudTest {
     private Translator translator;
     private EntityMetadata md;
 
     @Before
-    public void setup() throws IOException, ProcessingException {
-        ctx = new TestCRUDOperationContext(Operation.FIND);
+    public void setup() throws Exception {
+        super.setup();
+
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.FIND);
         // load metadata 
         md = getMd("./testMetadata.json");
         // and add it to metadata resolver (the context)
@@ -149,43 +152,66 @@ public class TranslatorTest extends AbstractMongoTest {
     public void transalteJS() throws Exception {
         DBObject obj = translator.translate(md, query("{'field':'field7.*.elemf1','op':'=','rfield':'field7.*.elemf2'}"));
         Assert.assertEquals("function() {for(var r0=0;r0<this.field7.length;r0++) {"
-                + "for(var l0=0;l0<this.field7.length;l0++) {if(this.field7[l0].elemf1==this.field7[r0].elemf2) { return true; }}}return false;}",
-                obj.get("$where").toString());
+                            + "for(var l0=0;l0<this.field7.length;l0++) {if(this.field7[l0].elemf1 == this.field7[r0].elemf2) { return true;}}}return false;}",
+                            obj.get("$where").toString().trim());
 
         obj = translator.translate(md, query("{'field':'field7.0.elemf1','op':'=','rfield':'field7.*.elemf2'}"));
         Assert.assertEquals("function() {for(var i0=0;i0<this.field7.length;i0++) {"
-                + "if(this.field7[0].elemf1==this.field7[i0].elemf2) {return true;}}return false;}",
-                obj.get("$where").toString());
+                            + "if(this.field7[0].elemf1 == this.field7[i0].elemf2) { return true;}}return false;}",
+                            obj.get("$where").toString().trim());
     }
 
     @Test
     public void createIdFrom_null() {
-        Object idObj = translator.createIdFrom(null);
+        Object idObj = Translator.createIdFrom(null);
         Assert.assertNull(idObj);
     }
 
     @Test
     public void createIdFrom_isValid() {
-        Object idObj = translator.createIdFrom("abcdefABCDEF012345678912");
+        Object idObj = Translator.createIdFrom("abcdefABCDEF012345678912");
         Assert.assertTrue(idObj instanceof ObjectId);
     }
 
     @Test
     public void createIdFrom_notValid() {
-        Object idObj = translator.createIdFrom("abcdefABCDEF01234567891|");
+        Object idObj = Translator.createIdFrom("abcdefABCDEF01234567891|");
         Assert.assertTrue(idObj instanceof String);
     }
 
     @Test
     public void createIdFrom_integer() {
-        Object idObj = translator.createIdFrom(1234);
+        Object idObj = Translator.createIdFrom(1234);
         Assert.assertTrue(idObj instanceof String);
     }
 
     @Test
     public void createIdFrom_double() {
-        Object idObj = translator.createIdFrom(12.34);
+        Object idObj = Translator.createIdFrom(12.34);
         Assert.assertTrue(idObj instanceof String);
     }
 
+    @Test
+    public void projectionFields() throws Exception {
+        Set<Path> fields=Translator.getRequiredFields(md,projection("{'field':'*','recursive':1}"),null,null);
+        System.out.println(fields);
+        Assert.assertTrue(fields.contains(new Path("objectType")));
+        Assert.assertTrue(fields.contains(new Path("_id")));
+        Assert.assertTrue(fields.contains(new Path("field1")));
+        Assert.assertTrue(fields.contains(new Path("field2")));
+        Assert.assertTrue(fields.contains(new Path("field3")));
+        Assert.assertTrue(fields.contains(new Path("field4")));
+        Assert.assertTrue(fields.contains(new Path("field5")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf1")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf2")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf3")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf4")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf5")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf6")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf7.nnf1")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf7.nnf2")));
+        Assert.assertTrue(fields.contains(new Path("field7.*.elemf1")));
+        Assert.assertTrue(fields.contains(new Path("field7.*.elemf2")));
+        Assert.assertTrue(fields.contains(new Path("field7.*.elemf3")));
+    }
 }
