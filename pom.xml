@@ -231,6 +231,11 @@
         <sonar.jdbc.password>sonar</sonar.jdbc.password>
         <sonar.host.url>http://127.0.0.1:8080</sonar.host.url>
         <sonar.projectName>lightblue-mongo</sonar.projectName>
+
+        <maven.compiler.showWarnings>true</maven.compiler.showWarnings>
+        <maven.compiler.showDeprecation>true</maven.compiler.showDeprecation>
+        <maven.compiler.debuglevel>lines,vars,source</maven.compiler.debuglevel>
+        <maven.compiler.verbose>true</maven.compiler.verbose>
     </properties>
     <build>
         <plugins>

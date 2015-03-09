@@ -57,18 +57,6 @@ public abstract class AbstractMongoCommand<T> extends HystrixCommand<T> {
         return collection;
     }
 
-    /**
-     * Unwrap hystrix exception
-     */
-    @Override
-    public T execute() {
-        try {
-            return super.execute();
-        } catch (HystrixBadRequestException br) {
-            throw (RuntimeException) br.getCause();
-        }
-    }
-
     @Override
     protected T run() {
         try {
