@@ -135,7 +135,7 @@ public class Translator {
         NARY_LOGICAL_OPERATOR_MAP.put(NaryLogicalOperator._or, "$or");
 
         UNARY_LOGICAL_OPERATOR_MAP = new HashMap<>();
-        UNARY_LOGICAL_OPERATOR_MAP.put(UnaryLogicalOperator._not, "$not");
+        UNARY_LOGICAL_OPERATOR_MAP.put(UnaryLogicalOperator._not, "$nor"); // Note: _not maps to $nor, not $not. $not applies to operator expression
 
         NARY_RELATIONAL_OPERATOR_MAP = new HashMap<>();
         NARY_RELATIONAL_OPERATOR_MAP.put(NaryRelationalOperator._in, "$in");
@@ -679,7 +679,9 @@ public class Translator {
     }
 
     private DBObject translateUnaryLogicalExpression(FieldTreeNode context, UnaryLogicalExpression expr) {
-        return new BasicDBObject(UNARY_LOGICAL_OPERATOR_MAP.get(expr.getOp()), translate(context, expr.getQuery()));
+        List<DBObject> l=new ArrayList<>(1);
+        l.add(translate(context,expr.getQuery()));
+        return new BasicDBObject(UNARY_LOGICAL_OPERATOR_MAP.get(expr.getOp()), l);
     }
 
     private DBObject translateNaryLogicalExpression(FieldTreeNode context, NaryLogicalExpression expr) {

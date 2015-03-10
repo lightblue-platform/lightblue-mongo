@@ -686,6 +686,23 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void elemMatchTest_Not() throws Exception {
+        EntityMetadata md = getMd("./testMetadata5.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata5.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'array':'field7','elemMatch':{'$not':{'field':'elemf3','op':'$eq','rvalue':0}}}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+     }
+
+   @Test
     public void entityIndexCreationTest() throws Exception {
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
