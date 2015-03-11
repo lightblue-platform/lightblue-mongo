@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.HashSet;
 import java.util.regex.Pattern;
 
+import com.mongodb.*;
 import org.bson.BSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,14 +37,6 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.mongodb.BasicDBObject;
-import com.mongodb.DB;
-import com.mongodb.DBCollection;
-import com.mongodb.DBCursor;
-import com.mongodb.DBObject;
-import com.mongodb.MongoException;
-import com.mongodb.WriteConcern;
-import com.mongodb.WriteResult;
 import com.redhat.lightblue.DataError;
 import com.redhat.lightblue.OperationStatus;
 import com.redhat.lightblue.Response;
@@ -223,6 +216,15 @@ public class MongoMetadata extends AbstractMetadata {
         } catch (Error e) {
             // rethrow lightblue error
             throw e;
+
+        } catch (CommandFailureException e) {
+            // give a better exception in case auth failed
+            LOGGER.error(e.getMessage(), e);
+            if(e.getCode() == 18){
+                throw Error.get(MetadataConstants.ERR_AUTH_FAILED, e.getMessage());
+            } else {
+                throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, e.getMessage());
+            }
         } catch (Exception e) {
             // throw new Error (preserves current error context)
             LOGGER.error(e.getMessage(), e);
@@ -428,11 +430,11 @@ public class MongoMetadata extends AbstractMetadata {
         LOGGER.debug("Validating all versions of {}",ei.getName());
         String version=null;
         try {
-            DBCursor cursor=new FindCommand(collection, 
-                                            new BasicDBObject(LITERAL_NAME, ei.getName()).
-                                            append(LITERAL_VERSION, new BasicDBObject("$exists", 1)).
-                                            append(LITERAL_STATUS_VALUE,new BasicDBObject("$ne",MetadataStatus.DISABLED.toString())),
-                                            null).execute();
+            DBCursor cursor=new FindCommand(collection,
+                    new BasicDBObject(LITERAL_NAME, ei.getName()).
+                            append(LITERAL_VERSION, new BasicDBObject("$exists", 1)).
+                            append(LITERAL_STATUS_VALUE,new BasicDBObject("$ne",MetadataStatus.DISABLED.toString())),
+                    null).execute();
             while(cursor.hasNext()) {
                 DBObject object=cursor.next();
                 EntitySchema schema=mdParser.parseEntitySchema(object);
@@ -443,8 +445,8 @@ public class MongoMetadata extends AbstractMetadata {
             }
         } catch (Exception e) {
             throw Error.get(MongoMetadataConstants.ERR_UPDATE_INVALIDATES_METADATA,ei.getName()+":"+version+
-                            e.toString());
-        } 
+                    e.toString());
+        }
     }
 
     /**
@@ -510,9 +512,9 @@ public class MongoMetadata extends AbstractMetadata {
         }
         if (store instanceof MongoDataStore) {
 
-        for(char c:INVALID_COLLECTION_CHARS) {
-            if( ((MongoDataStore)store).getCollectionName().indexOf(c) >= 0 )
-                throw Error.get(MongoMetadataConstants.ERR_INVALID_DATASTORE,((MongoDataStore)store).getCollectionName());
+            for(char c:INVALID_COLLECTION_CHARS) {
+                if( ((MongoDataStore)store).getCollectionName().indexOf(c) >= 0 )
+                    throw Error.get(MongoMetadataConstants.ERR_INVALID_DATASTORE,((MongoDataStore)store).getCollectionName());
             }
         }
     }

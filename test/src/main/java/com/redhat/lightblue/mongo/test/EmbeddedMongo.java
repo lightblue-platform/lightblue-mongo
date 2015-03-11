@@ -1,8 +1,6 @@
 package com.redhat.lightblue.mongo.test;
 
-import com.mongodb.DB;
-import com.mongodb.DBCollection;
-import com.mongodb.MongoClient;
+import com.mongodb.*;
 import de.flapdoodle.embed.mongo.Command;
 import de.flapdoodle.embed.mongo.MongodExecutable;
 import de.flapdoodle.embed.mongo.MongodProcess;
@@ -20,6 +18,8 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Test class that encapsulates the in memory mongo DB used for unit tests.
@@ -27,6 +27,29 @@ import java.io.IOException;
  * Created by nmalik on 12/16/14.
  */
 public final class EmbeddedMongo {
+
+    /**
+     * This field is used only once during the bootstrap of the singleton instance of this class
+     */
+    public static final List<MongoCredential> MONGO_CREDENTIALS = new CopyOnWriteArrayList<>();
+
+    /**
+     * This field is used only once during the bootstrap of the singleton instance of this class
+     */
+    public static String HOSTNAME = "localhost";
+
+    /**
+     * This field is used only once during the bootstrap of the singleton instance of this class
+     */
+    public static int PORT = 27777;
+
+    /**
+     * This field is used only once during the bootstrap of the singleton instance of this class
+     */
+    public static String DATABASE_NAME = "mongo";
+
+
+
 
     private static EmbeddedMongo instance;
 
@@ -81,7 +104,7 @@ public final class EmbeddedMongo {
 
     private static synchronized void bootstrap() {
         if (instance == null) {
-            EmbeddedMongo temp = new EmbeddedMongo("localhost", 27777, "mongo");
+            EmbeddedMongo temp = new EmbeddedMongo(HOSTNAME, PORT, DATABASE_NAME);
             temp.initialize();
             instance = temp;
         }
@@ -120,7 +143,13 @@ public final class EmbeddedMongo {
                 // try again, could be killed breakpoint in IDE
                 mongod = mongodExe.start();
             }
-            client = new MongoClient(mongoHostname + ":" + mongoPort);
+
+            if(MONGO_CREDENTIALS.isEmpty()) {
+                client = new MongoClient(mongoHostname + ":" + mongoPort);
+            } else {
+                client = new MongoClient(new ServerAddress(mongoHostname + ":" + mongoPort), MONGO_CREDENTIALS);
+                client.getDB("admin").command("{ user: \"siteUserAdmin\", pwd: \"password\", roles: [ { role: \"userAdminAnyDatabase\", db: \"admin\" } , { role: \"userAdminAnyDatabase\", db: \""+dbName+"\" } ] }");
+            }
 
             Runtime.getRuntime().addShutdownHook(new Thread() {
                 @Override
