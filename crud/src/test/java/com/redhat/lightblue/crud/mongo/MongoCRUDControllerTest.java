@@ -365,6 +365,48 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(10, coll.find(new BasicDBObject("field7.0.elemf1", "blah")).count());
     }
 
+
+    @Test
+    public void updateTest_PartialFailure() throws Exception {
+        EntityMetadata md = getMd("./testMetadata-requiredFields.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.INSERT);
+        ctx.add(md);
+        // Generate some docs
+        List<JsonDoc> docs = new ArrayList<>();
+        int numDocs = 20;
+        for (int i = 0; i < numDocs; i++) {
+            JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+            doc.modify(new Path("field1"), nodeFactory.textNode("doc" + i), false);
+            doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
+            docs.add(doc);
+        }
+        ctx.addDocuments(docs);
+        CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
+        Assert.assertEquals(numDocs, coll.find(null).count());
+        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+
+        // Add element to array
+        ctx = new TestCRUDOperationContext(Operation.UPDATE);
+        ctx.add(md);
+        CRUDUpdateResponse upd = controller.update(ctx, query("{'field':'field1','op':'=','rvalue':'doc1'}"),
+                                                   update("[ {'$append' : {'field7':{}} }, { '$set': { 'field7.-1.elemf1':'test'} } ]"),
+                                                   projection("{'field':'*','recursive':1}"));
+        Assert.assertEquals(1, upd.getNumUpdated());
+        Assert.assertEquals(0, upd.getNumFailed());
+        Assert.assertEquals(1,ctx.getDocuments().size());
+        Assert.assertEquals(3,ctx.getDocuments().get(0).getOutputDocument().get(new Path("field7")).size());
+
+        // Add another element, with violated constraint
+        ctx = new TestCRUDOperationContext(Operation.UPDATE);
+        ctx.add(md);
+        upd = controller.update(ctx, query("{'field':'field1','op':'=','rvalue':'doc1'}"),
+                                update("[ {'$append' : {'field7':{}} }, { '$set': { 'field7.-1.elemf2':'$null'} } ]"),
+                                projection("{'field':'*','recursive':1}"));
+        Assert.assertEquals(0, upd.getNumUpdated());
+        Assert.assertEquals(1, upd.getNumFailed());
+    }
+
+
     @Test
     public void sortAndPageTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
@@ -892,7 +934,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     @Test
     public void indexFieldsMatch() {
-        // order of keys in an index matters to mongo, this test exists to ensure this is accounted for in the controller
+        // order of kesys in an index matters to mongo, this test exists to ensure this is accounted for in the controller
 
         DBCollection coll = db.getCollection("testIndexFieldMatch");
         {
