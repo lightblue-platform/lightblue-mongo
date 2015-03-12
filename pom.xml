@@ -158,6 +158,12 @@
                 <version>1.10.8</version>
                 <scope>test</scope>
             </dependency>
+            <dependency>
+                <groupId>com.binarytweed</groupId>
+                <artifactId>quarantining-test-runner</artifactId>
+                <version>0.0.1</version>
+                <scope>test</scope>
+            </dependency>
          </dependencies>
     </dependencyManagement>
     <dependencies>

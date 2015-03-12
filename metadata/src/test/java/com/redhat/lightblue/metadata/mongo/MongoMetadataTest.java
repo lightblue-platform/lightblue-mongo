@@ -18,6 +18,9 @@
  */
 package com.redhat.lightblue.metadata.mongo;
 
+import java.lang.reflect.*;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.ArrayList;
@@ -81,7 +84,7 @@ public class MongoMetadataTest {
         mongo.reset();
     }
 
-    public class TestCRUDController implements CRUDController {
+    public static class TestCRUDController implements CRUDController {
 
         @Override
         public CRUDInsertionResponse insert(CRUDOperationContext ctx,
