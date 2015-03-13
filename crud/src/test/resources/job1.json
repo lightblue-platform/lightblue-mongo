@@ -1,0 +1,26 @@
+{
+  "creationDate":"20150305T15:31:57.000+0000",
+  "expectedExecutionMilliseconds":30000,
+  "startDate":"20060919T05:00:00.000+0000",
+  "createdBy":"dcrissma",
+  "_id":"termsAcknowledgementJob_6264",
+  "lastUpdatedBy":"dcrissma",
+  "jobExecutions":[
+     {"ownerName":"hystrix",
+      "consistentDocumentCount":0,
+      "completedFlag":false,
+      "overwrittenDocumentCount":0,
+      "actualStartDate":"20150312T13:26:41.943+0000",
+      "hostName":"lightbluehystrix2.dev.a1.vary.redhat.com",
+      "pid":"18161@lightbluehystrix2.dev.a1.vary.redhat.com",
+      "inconsistentDocumentCount":0,
+      "processedDocumentCount":0,
+      "actualEndDate":null}
+  ],
+  "endDate":"20060919T06:00:00.000+0000",
+  "whenAvailableDate":"20150305T05:00:00.000+0000",
+  "configurationName":"termsAcknowledgement",
+  "objectType":"migrationJob",
+  "lastUpdateDate":"20150305T15:31:57.000+0000",
+  "jobExecutions#":1
+}

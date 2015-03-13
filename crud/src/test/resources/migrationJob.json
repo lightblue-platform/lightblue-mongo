@@ -1,0 +1,186 @@
+{
+    "entityInfo": {
+        "name": "migrationJob",
+        "datastore": {
+            "collection": "data",
+            "backend": "mongo"
+        }
+    },
+    "schema": {
+        "name": "migrationJob",
+        "version": {
+            "value": "0.1.2-SNAPSHOT",
+            "changelog": "Initial version"
+        },
+        "status": {
+            "value": "active"
+        },
+        "access": {
+            "insert": [
+                "anyone"
+            ],
+            "update": [
+                "anyone"
+            ],
+            "find": [
+                "anyone"
+            ],
+            "delete": [
+                "anyone"
+            ]
+        },
+        "fields": {
+            "startDate": {
+                "type": "date",
+                "constraints": {
+                    "required": true
+                }
+            },
+            "jobExecutions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "fields": {
+                        "actualEndDate": {
+                            "type": "date",
+                            "constraints": {
+                                "required": false
+                            }
+                        },
+                        "ownerName": {
+                            "type": "string",
+                            "constraints": {
+                                "required": true
+                            }
+                        },
+                        "consistentDocumentCount": {
+                            "type": "integer",
+                            "constraints": {
+                                "required": true
+                            }
+                        },
+                        "completedFlag": {
+                            "type": "boolean",
+                            "constraints": {
+                                "required": true
+                            }
+                        },
+                        "hostName": {
+                            "type": "string",
+                            "constraints": {
+                                "required": true
+                            }
+                        },
+                        "actualStartDate": {
+                            "type": "date",
+                            "constraints": {
+                                "required": true
+                            }
+                        },
+                        "overwrittenDocumentCount": {
+                            "type": "integer",
+                            "constraints": {
+                                "required": true
+                            }
+                        },
+                        "pid": {
+                            "type": "string",
+                            "constraints": {
+                                "required": true
+                            }
+                        },
+                        "inconsistentDocumentCount": {
+                            "type": "integer",
+                            "constraints": {
+                                "required": true
+                            }
+                        },
+                        "processedDocumentCount": {
+                            "type": "integer",
+                            "constraints": {
+                                "required": true
+                            }
+                        }
+                    }
+                }
+            },
+            "endDate": {
+                "type": "date",
+                "constraints": {
+                    "required": true
+                }
+            },
+            "whenAvailableDate": {
+                "type": "date",
+                "constraints": {
+                    "required": true
+                }
+            },
+            "configurationName": {
+                "type": "string",
+                "constraints": {
+                    "required": true
+                }
+            },
+            "lastUpdateDate": {
+                "type": "date",
+                "constraints": {
+                    "required": true
+                }
+            },
+            "creationDate": {
+                "type": "date",
+                "constraints": {
+                    "required": true
+                }
+            },
+            "expectedExecutionMilliseconds": {
+                "type": "integer",
+                "constraints": {
+                    "required": true
+                }
+            },
+            "jobExecutions#": {
+                "type": "integer",
+                "access": {
+                    "find": [
+                        "anyone"
+                    ]
+                }
+            },
+            "createdBy": {
+                "type": "string",
+                "constraints": {
+                    "required": true
+                }
+            },
+            "_id": {
+                "type": "uid",
+                "constraints": {
+                    "identity": true
+                }
+            },
+            "lastUpdatedBy": {
+                "type": "string",
+                "constraints": {
+                    "required": true
+                }
+            },
+            "objectType": {
+                "type": "string",
+                "access": {
+                    "find": [
+                        "anyone"
+                    ],
+                    "update": [
+                        "noone"
+                    ]
+                },
+                "constraints": {
+                    "minLength": 1,
+                    "required": true
+                }
+            }
+        }
+    }
+}

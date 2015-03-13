@@ -941,4 +941,24 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         }
     }
 
+
+    @Test
+    public void testMigrationUpdate() throws Exception {
+        EntityMetadata md = getMd("./migrationJob.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("migrationJob",Operation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./job1.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        System.out.println("Write doc:" + doc);
+        CRUDInsertionResponse insresponse = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext("migrationJob",Operation.UPDATE);
+        ctx.add(md);
+        CRUDUpdateResponse upd = controller.update(ctx, query("{'field':'_id','op':'=','rvalue':'termsAcknowledgementJob_6264'}"),
+                                                   update("[{'$append':{'jobExecutions':{}}},{'$set':{'jobExecutions.-1.ownerName':'hystrix'}},{'$set':{'jobExecutions.-1.hostName':'$(hostname)'}},{'$set':{'jobExecutions.-1.pid':'32601@localhost.localdomain'}},{'$set':{'jobExecutions.-1.actualStartDate':'20150312T19:19:00.700+0000'}},{'$set':{'jobExecutions.-1.actualEndDate':'$null'}},{'$set':{'jobExecutions.-1.completedFlag':false}},{'$set':{'jobExecutions.-1.processedDocumentCount':0}},{'$set':{'jobExecutions.-1.consistentDocumentCount':0}},{'$set':{'jobExecutions.-1.inconsistentDocumentCount':0}},{'$set':{'jobExecutions.-1.overwrittenDocumentCount':0}}]"),
+                                                   projection("{'field':'*','recursive':1}"));
+        Assert.assertEquals(1,ctx.getDocuments().size());
+        Assert.assertEquals(2,ctx.getDocuments().get(0).getOutputDocument().get(new Path("jobExecutions")).size());
+    } 
 }
