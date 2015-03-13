@@ -18,75 +18,40 @@
  */
 package com.redhat.lightblue.metadata.mongo;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.HashSet;
-import java.util.regex.Pattern;
-
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.*;
+import com.redhat.lightblue.DataError;
+import com.redhat.lightblue.OperationStatus;
+import com.redhat.lightblue.Response;
+import com.redhat.lightblue.common.mongo.MongoDataStore;
+import com.redhat.lightblue.crud.Factory;
+import com.redhat.lightblue.metadata.*;
+import com.redhat.lightblue.metadata.parser.Extensions;
+import com.redhat.lightblue.metadata.parser.MetadataParser;
+import com.redhat.lightblue.mongo.hystrix.*;
+import com.redhat.lightblue.util.Error;
+import com.redhat.lightblue.util.Path;
 import org.bson.BSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.redhat.lightblue.DataError;
-import com.redhat.lightblue.OperationStatus;
-import com.redhat.lightblue.Response;
-import com.redhat.lightblue.common.mongo.DBResolver;
-import com.redhat.lightblue.common.mongo.MongoDataStore;
-import com.redhat.lightblue.metadata.AbstractMetadata;
-import com.redhat.lightblue.metadata.DataStore;
-import com.redhat.lightblue.metadata.EntityAccess;
-import com.redhat.lightblue.metadata.EntityInfo;
-import com.redhat.lightblue.metadata.EntityMetadata;
-import com.redhat.lightblue.metadata.EntitySchema;
-import com.redhat.lightblue.metadata.Field;
-import com.redhat.lightblue.metadata.FieldAccess;
-import com.redhat.lightblue.metadata.FieldCursor;
-import com.redhat.lightblue.metadata.FieldTreeNode;
-import com.redhat.lightblue.metadata.MetadataConstants;
-import com.redhat.lightblue.metadata.MetadataStatus;
-import com.redhat.lightblue.metadata.PredefinedFields;
-import com.redhat.lightblue.metadata.StatusChange;
-import com.redhat.lightblue.metadata.TypeResolver;
-import com.redhat.lightblue.metadata.Version;
-import com.redhat.lightblue.metadata.VersionInfo;
-import com.redhat.lightblue.metadata.MetadataListener;
-import com.redhat.lightblue.metadata.parser.Extensions;
-import com.redhat.lightblue.metadata.parser.MetadataParser;
-import com.redhat.lightblue.crud.Factory;
-import com.redhat.lightblue.mongo.hystrix.FindCommand;
-import com.redhat.lightblue.mongo.hystrix.FindOneCommand;
-import com.redhat.lightblue.mongo.hystrix.InsertCommand;
-import com.redhat.lightblue.mongo.hystrix.RemoveCommand;
-import com.redhat.lightblue.mongo.hystrix.UpdateCommand;
-import com.redhat.lightblue.mongo.hystrix.DistinctCommand;
-import com.redhat.lightblue.util.Error;
-import com.redhat.lightblue.util.Path;
+import java.util.*;
+import java.util.regex.Pattern;
 
 public class MongoMetadata extends AbstractMetadata {
 
-    private static final long serialVersionUID = 1L;
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(MongoMetadata.class);
-
     public static final String DEFAULT_METADATA_COLLECTION = "metadata";
-
+    private static final long serialVersionUID = 1L;
+    private static final Logger LOGGER = LoggerFactory.getLogger(MongoMetadata.class);
     private static final String LITERAL_ID = "_id";
     private static final String LITERAL_ENTITY_NAME = "entityName";
     private static final String LITERAL_VERSION = "version";
     private static final String LITERAL_STATUS = "status";
     private static final String LITERAL_STATUS_VALUE = "status.value";
     private static final String LITERAL_NAME = "name";
-
+    private static final char[] INVALID_COLLECTION_CHARS = {'-', ' ', '.'};
     private final transient DBCollection collection;
     private final transient BSONParser mdParser;
     private final Factory factory;
@@ -137,12 +102,10 @@ public class MongoMetadata extends AbstractMetadata {
             }
             return new EntityMetadata(info, schema);
         } catch (Error | IllegalArgumentException e) {
-            // rethrow lightblue error or illegao arg exception
+            // rethrow lightblue error or IllegalArgumentException
             throw e;
         } catch (Exception e) {
-            // throw new Error (preserves current error context)
-            LOGGER.error(e.getMessage(), e);
-            throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, e.getMessage());
+            throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
             Error.pop();
         }
@@ -167,9 +130,7 @@ public class MongoMetadata extends AbstractMetadata {
             // rethrow lightblue error
             throw e;
         } catch (Exception e) {
-            // throw new Error (preserves current error context)
-            LOGGER.error(e.getMessage(), e);
-            throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, e.getMessage());
+            throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
             Error.pop();
         }
@@ -216,19 +177,8 @@ public class MongoMetadata extends AbstractMetadata {
         } catch (Error e) {
             // rethrow lightblue error
             throw e;
-
-        } catch (CommandFailureException e) {
-            // give a better exception in case auth failed
-            LOGGER.error(e.getMessage(), e);
-            if(e.getCode() == 18){
-                throw Error.get(MetadataConstants.ERR_AUTH_FAILED, e.getMessage());
-            } else {
-                throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, e.getMessage());
-            }
         } catch (Exception e) {
-            // throw new Error (preserves current error context)
-            LOGGER.error(e.getMessage(), e);
-            throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, e.getMessage());
+            throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
             Error.pop();
         }
@@ -274,9 +224,7 @@ public class MongoMetadata extends AbstractMetadata {
             // rethrow lightblue error
             throw e;
         } catch (Exception e) {
-            // throw new Error (preserves current error context)
-            LOGGER.error(e.getMessage(), e);
-            throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, e.getMessage());
+            throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
             Error.pop();
         }
@@ -353,9 +301,7 @@ public class MongoMetadata extends AbstractMetadata {
                 // rethrow lightblue error
                 throw e;
             } catch (Exception e) {
-                // throw new Error (preserves current error context)
-                LOGGER.error(e.getMessage(), e);
-                throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, e.getMessage());
+                throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
             } finally {
                 Error.pop();
             }
@@ -364,9 +310,7 @@ public class MongoMetadata extends AbstractMetadata {
             throw e;
         } catch (Exception e) {
             LOGGER.error("createNewMetadata", e);
-            // throw new Error (preserves current error context)
-            LOGGER.error(e.getMessage(), e);
-            throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, e.getMessage());
+            throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
             Error.pop();
         }
@@ -409,15 +353,13 @@ public class MongoMetadata extends AbstractMetadata {
                 }
             } catch (Exception e) {
                 LOGGER.error("updateEntityInfo", e);
-                throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, e.toString());
+                throw analyzeException(e, MongoMetadataConstants.ERR_DB_ERROR);
             }
         } catch (Error e) {
             // rethrow lightblue error
             throw e;
         } catch (Exception e) {
-            // throw new Error (preserves current error context)
-            LOGGER.error(e.getMessage(), e);
-            throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, e.getMessage());
+            throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
             Error.pop();
         }
@@ -427,32 +369,32 @@ public class MongoMetadata extends AbstractMetadata {
      * When EntityInfo is updated, we have to make sure any active/deprecated metadata is still valid
      */
     private void validateAllVersions(EntityInfo ei) {
-        LOGGER.debug("Validating all versions of {}",ei.getName());
-        String version=null;
+        LOGGER.debug("Validating all versions of {}", ei.getName());
+        String version = null;
         try {
-            DBCursor cursor=new FindCommand(collection,
+            DBCursor cursor = new FindCommand(collection,
                     new BasicDBObject(LITERAL_NAME, ei.getName()).
                             append(LITERAL_VERSION, new BasicDBObject("$exists", 1)).
-                            append(LITERAL_STATUS_VALUE,new BasicDBObject("$ne",MetadataStatus.DISABLED.toString())),
+                            append(LITERAL_STATUS_VALUE, new BasicDBObject("$ne", MetadataStatus.DISABLED.toString())),
                     null).execute();
-            while(cursor.hasNext()) {
-                DBObject object=cursor.next();
-                EntitySchema schema=mdParser.parseEntitySchema(object);
-                version=schema.getVersion().getValue();
-                LOGGER.debug("Validating {} {}",ei.getName(),version);
-                EntityMetadata md=new EntityMetadata(ei,schema);
+            while (cursor.hasNext()) {
+                DBObject object = cursor.next();
+                EntitySchema schema = mdParser.parseEntitySchema(object);
+                version = schema.getVersion().getValue();
+                LOGGER.debug("Validating {} {}", ei.getName(), version);
+                EntityMetadata md = new EntityMetadata(ei, schema);
                 md.validate();
             }
         } catch (Exception e) {
-            throw Error.get(MongoMetadataConstants.ERR_UPDATE_INVALIDATES_METADATA,ei.getName()+":"+version+
-                    e.toString());
+            String msg = ei.getName() + ":" + version + e.toString();
+            throw analyzeException(e, MongoMetadataConstants.ERR_UPDATE_INVALIDATES_METADATA, msg);
         }
     }
 
     /**
      * Creates a new schema (versioned data) for an existing metadata.
      *
-     * @param md
+     * @param md A EntityMetadata instance which is will be validated and created
      */
     @Override
     public void createNewSchema(EntityMetadata md) {
@@ -493,15 +435,11 @@ public class MongoMetadata extends AbstractMetadata {
             // rethrow lightblue error
             throw e;
         } catch (Exception e) {
-            // throw new Error (preserves current error context)
-            LOGGER.error(e.getMessage(), e);
-            throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, e.getMessage());
+            throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
             Error.pop();
         }
     }
-
-    private static final char[] INVALID_COLLECTION_CHARS={'-',' ','.'};
 
     @Override
     protected void checkDataStoreIsValid(EntityInfo md) {
@@ -510,11 +448,11 @@ public class MongoMetadata extends AbstractMetadata {
         if (factory.getCRUDController(md.getDataStore().getBackend()) == null) {
             throw new IllegalArgumentException(MongoMetadataConstants.ERR_INVALID_DATASTORE);
         }
-        if (store instanceof MongoDataStore) {
 
-            for(char c:INVALID_COLLECTION_CHARS) {
-                if( ((MongoDataStore)store).getCollectionName().indexOf(c) >= 0 )
-                    throw Error.get(MongoMetadataConstants.ERR_INVALID_DATASTORE,((MongoDataStore)store).getCollectionName());
+        if (store instanceof MongoDataStore) {
+            for (char c : INVALID_COLLECTION_CHARS) {
+                if (((MongoDataStore) store).getCollectionName().indexOf(c) >= 0)
+                    throw Error.get(MongoMetadataConstants.ERR_INVALID_DATASTORE, ((MongoDataStore) store).getCollectionName());
             }
         }
     }
@@ -567,9 +505,7 @@ public class MongoMetadata extends AbstractMetadata {
             // rethrow lightblue error
             throw e;
         } catch (Exception e) {
-            // throw new Error (preserves current error context)
-            LOGGER.error(e.getMessage(), e);
-            throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, e.getMessage());
+            throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
             Error.pop();
         }
@@ -604,7 +540,7 @@ public class MongoMetadata extends AbstractMetadata {
             }
         } catch (Exception e) {
             LOGGER.error("Error during delete", e);
-            throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, e.toString());
+            throw analyzeException(e, MongoMetadataConstants.ERR_DB_ERROR);
         }
     }
 
@@ -719,4 +655,38 @@ public class MongoMetadata extends AbstractMetadata {
         return response;
     }
 
+    private Error analyzeException(Exception e, final String otherwise) {
+        return analyzeException(e, otherwise, null);
+    }
+
+    private Error analyzeException(Exception e, final String otherwise, final String msg) {
+        LOGGER.error(e.getMessage(), e);
+        if (e instanceof CommandFailureException) {
+            CommandFailureException ce = (CommandFailureException) e;
+            // give a better Error.code in case auth failed which is represented in MongoDB by code == 18
+            if (ce.getCode() == 18) {
+                return Error.get(MetadataConstants.ERR_AUTH_FAILED, e.getMessage());
+            } else {
+                return Error.get(MetadataConstants.ERR_DATASOURCE_UNKNOWN, e.getMessage());
+            }
+        } else if (e instanceof MongoClientException) {
+            if (e instanceof MongoTimeoutException) {
+                return Error.get(MetadataConstants.ERR_DATASOURCE_TIMEOUT, e.getMessage());
+            } else {
+                return Error.get(MetadataConstants.ERR_DATASOURCE_UNKNOWN, e.getMessage());
+            }
+        } else if (e instanceof MongoException) {
+            if (e instanceof MongoExecutionTimeoutException) {
+                return Error.get(MetadataConstants.ERR_DATASOURCE_TIMEOUT, e.getMessage());
+            } else {
+                return Error.get(MetadataConstants.ERR_DATASOURCE_UNKNOWN, e.getMessage());
+            }
+        } else {
+            if (msg == null) {
+                return Error.get(otherwise, e.getMessage());
+            } else {
+                return Error.get(otherwise, msg);
+            }
+        }
+    }
 }
