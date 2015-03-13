@@ -88,6 +88,7 @@ public class IterateAndUpdate implements DocUpdater {
         DBCursor cursor = null;
         int docIndex = 0;
         int numFailed = 0;
+        int numUpdated = 0;
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
             cursor = new FindCommand(collection, query, null).execute();
@@ -150,6 +151,7 @@ public class IterateAndUpdate implements DocUpdater {
                     numFailed++;
                     doc.setOutputDocument(errorProjector.project(doc.getOutputDocument(), nodeFactory));
                 } else {
+                    numUpdated++;
                     if (projector != null) {
                         LOGGER.debug("Projecting document {}", docIndex);
                         doc.setOutputDocument(projector.project(doc.getOutputDocument(), nodeFactory));
@@ -162,7 +164,7 @@ public class IterateAndUpdate implements DocUpdater {
                 cursor.close();
             }
         }
-        response.setNumUpdated(docIndex);
+        response.setNumUpdated(numUpdated);
         response.setNumFailed(numFailed);
     }
 
