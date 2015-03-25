@@ -58,7 +58,7 @@ import de.flapdoodle.embed.process.runtime.Network;
  *
  * @author dcrissman
  */
-public class MongoServerExternalResource extends ExternalResource{
+public class MongoServerExternalResource extends ExternalResource {
 
     public static final int DEFAULT_PORT = 27777;
 
@@ -67,9 +67,14 @@ public class MongoServerExternalResource extends ExternalResource{
     @Inherited
     @Documented
     public @interface InMemoryMongoServer {
-        /** Port to run the Mongo instance on.*/
+        /**
+         * Port to run the Mongo instance on.
+         */
         int port() default DEFAULT_PORT;
-        /** Version of Mongo to use. */
+
+        /**
+         * Version of Mongo to use.
+         */
         Version version() default Version.V2_6_1;
     }
 
@@ -78,7 +83,7 @@ public class MongoServerExternalResource extends ExternalResource{
     private MongodProcess mongod;
     private MongoClient client;
 
-    public MongoServerExternalResource(){
+    public MongoServerExternalResource() {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
@@ -89,13 +94,13 @@ public class MongoServerExternalResource extends ExternalResource{
     }
 
     @Override
-    public Statement apply(Statement base, Description description){
+    public Statement apply(Statement base, Description description) {
         immsAnnotation = description.getAnnotation(InMemoryMongoServer.class);
-        if((immsAnnotation == null) && description.isTest()){
+        if ((immsAnnotation == null) && description.isTest()) {
             immsAnnotation = description.getTestClass().getAnnotation(InMemoryMongoServer.class);
         }
 
-        if(immsAnnotation == null){
+        if (immsAnnotation == null) {
             throw new IllegalStateException("@InMemoryMongoServer must be set on suite or test level.");
         }
 
@@ -103,7 +108,7 @@ public class MongoServerExternalResource extends ExternalResource{
     }
 
     @Override
-    protected void before() throws UnknownHostException, IOException{
+    protected void before() throws IOException {
         MongodStarter runtime = MongodStarter.getDefaultInstance();
         IMongodConfig config = new MongodConfigBuilder().
                 version(immsAnnotation.version()).
@@ -111,17 +116,16 @@ public class MongoServerExternalResource extends ExternalResource{
                 build();
         mongodExe = runtime.prepare(config);
 
-        try{
+        try {
             mongod = mongodExe.start();
-        }
-        catch(IOException e){
+        } catch (IOException e) {
             //Mongo failed to start for the previously stated reason. A single retry will be attempted.
             mongod = mongodExe.start();
         }
     }
 
     @Override
-    protected void after(){
+    protected void after() {
         if (mongod != null) {
             mongod.stop();
             mongodExe.stop();
@@ -145,11 +149,12 @@ public class MongoServerExternalResource extends ExternalResource{
 
     /**
      * Provides a {@link MongoClient} for the running in-memory Mongo instance.
+     *
      * @return {@link MongoClient}
      * @throws UnknownHostException
      */
-    public MongoClient getConnection() throws UnknownHostException{
-        if(client == null){
+    public MongoClient getConnection() throws UnknownHostException {
+        if (client == null) {
             client = new MongoClient("localhost", immsAnnotation.port());
         }
         return client;
