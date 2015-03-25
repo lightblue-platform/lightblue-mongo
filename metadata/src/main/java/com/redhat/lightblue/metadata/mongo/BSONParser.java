@@ -249,67 +249,42 @@ public class BSONParser extends MetadataParser<BSONObject> {
     }
 
     @Override
-    public Projection parseProjection(BSONObject object) {
-        return object == null ? null : Projection.fromJson(toJson(object));
+    public Projection getProjection(BSONObject object,String name) {
+        String x=(String)object.get(name);
+        return x == null ? null : Projection.fromJson(toJson(x));
     }
 
     @Override
-    public QueryExpression parseQuery(BSONObject object) {
-        return object == null ? null : QueryExpression.fromJson(toJson(object));
+    public QueryExpression getQuery(BSONObject object,String name) {
+        String x=(String)object.get(name);
+        return x == null ? null : QueryExpression.fromJson(toJson(x));
     }
 
     @Override
-    public Sort parseSort(BSONObject object) {
-        return object == null ? null : Sort.fromJson(toJson(object));
+    public Sort getSort(BSONObject object,String name) {
+        String x=(String)object.get(name);
+        return x == null ? null : Sort.fromJson(toJson(x));
     }
 
     @Override
     public void putProjection(BSONObject object,String name,Projection p) {
         if(p!=null) {
-            object.put(name,toBson(p.toJson()));
+            object.put(name,p.toJson().toString());
         }
     }
 
     @Override
     public void putQuery(BSONObject object,String name,QueryExpression  q) {
         if(q!=null) {
-            object.put(name,toBson(q.toJson()));
+            object.put(name,q.toJson().toString());
         }
     }
 
     @Override
     public void putSort(BSONObject object,String name,Sort  s) {
         if(s!=null) {
-            object.put(name,toBson(s.toJson()));
+            object.put(name,s.toJson().toString());
         }
-    }
-
-    private static Object toBson(JsonNode node) {
-        if(node instanceof ObjectNode) {
-            return toBson((ObjectNode)node);
-        } else if(node instanceof ArrayNode) {
-            return toBson((ArrayNode)node);
-        } else {
-            return convertValue(node);
-        }
-    }
-
-    private static Object toBson(ObjectNode node) {
-        BasicDBObject ret=new BasicDBObject();
-        for(Iterator<Map.Entry<String,JsonNode>> itr=node.fields();itr.hasNext();) {
-            Map.Entry<String,JsonNode> entry=itr.next();
-            ret.put(entry.getKey(),toBson(entry.getValue()));
-        }
-        return ret;
-    }
-
-    private static List toBson(ArrayNode node) {
-        List list=new ArrayList(node.size());
-        for(Iterator<JsonNode> itr=node.elements();itr.hasNext();) {
-            JsonNode n=itr.next();
-            list.add(toBson(n));
-        }
-        return list;
     }
 
     private static Object convertValue(JsonNode node) {
@@ -330,9 +305,9 @@ public class BSONParser extends MetadataParser<BSONObject> {
         return node.asText();
     }
 
-    private static JsonNode toJson(BSONObject object) {
+    private static JsonNode toJson(String object) {
         try {
-            return JsonUtils.json(object.toString());
+            return JsonUtils.json(object);
         } catch (Exception e) {
             throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, object.toString());
         }

@@ -18,66 +18,31 @@
  */
 package com.redhat.lightblue.crud.mongo;
 
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Map;
-
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.NullNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.mongodb.DB;
-import com.mongodb.DBCollection;
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBObject;
-import com.mongodb.MongoException;
-import org.bson.types.ObjectId;
-import com.redhat.lightblue.interceptor.InterceptPoint;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.mongodb.*;
 import com.redhat.lightblue.common.mongo.DBResolver;
 import com.redhat.lightblue.common.mongo.MongoDataStore;
-import com.redhat.lightblue.crud.CRUDController;
-import com.redhat.lightblue.crud.CRUDDeleteResponse;
-import com.redhat.lightblue.crud.CRUDFindResponse;
-import com.redhat.lightblue.crud.CRUDInsertionResponse;
-import com.redhat.lightblue.crud.CRUDOperationContext;
-import com.redhat.lightblue.crud.CRUDSaveResponse;
-import com.redhat.lightblue.crud.CRUDUpdateResponse;
-import com.redhat.lightblue.crud.ConstraintValidator;
-import com.redhat.lightblue.crud.CrudConstants;
-import com.redhat.lightblue.crud.DocCtx;
+import com.redhat.lightblue.crud.*;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
-import com.redhat.lightblue.metadata.Metadata;
-import com.redhat.lightblue.metadata.Index;
-import com.redhat.lightblue.metadata.Indexes;
-import com.redhat.lightblue.metadata.EntityInfo;
-import com.redhat.lightblue.metadata.EntitySchema;
-import com.redhat.lightblue.metadata.EntityMetadata;
-import com.redhat.lightblue.metadata.MetadataConstants;
-import com.redhat.lightblue.metadata.MetadataListener;
-import com.redhat.lightblue.metadata.SimpleField;
-import com.redhat.lightblue.metadata.FieldConstraint;
-import com.redhat.lightblue.metadata.FieldTreeNode;
-import com.redhat.lightblue.metadata.Field;
-import com.redhat.lightblue.metadata.types.StringType;
+import com.redhat.lightblue.interceptor.InterceptPoint;
+import com.redhat.lightblue.metadata.*;
 import com.redhat.lightblue.metadata.constraints.IdentityConstraint;
 import com.redhat.lightblue.metadata.mongo.MongoMetadataConstants;
-import com.redhat.lightblue.query.FieldProjection;
-import com.redhat.lightblue.query.ProjectionList;
-import com.redhat.lightblue.query.Projection;
-import com.redhat.lightblue.query.QueryExpression;
-import com.redhat.lightblue.query.Sort;
-import com.redhat.lightblue.query.SortKey;
-import com.redhat.lightblue.query.UpdateExpression;
+import com.redhat.lightblue.metadata.types.StringType;
+import com.redhat.lightblue.query.*;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
-import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.MutablePath;
+import com.redhat.lightblue.util.Path;
+import org.bson.types.ObjectId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.*;
 
 public class MongoCRUDController implements CRUDController, MetadataListener {
 
@@ -199,7 +164,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                         ctx.getHookManager().queueHooks(ctx);
                     } catch (Exception e) {
                         LOGGER.error("saveOrInsert failed: {}", e);
-                        inputDoc.addError(Error.get(operation, MongoCrudConstants.ERR_SAVE_ERROR, e));
+                        inputDoc.addError(analyzeException(e, operation, MongoCrudConstants.ERR_SAVE_ERROR, true));
                     }
                     if (projector != null) {
                         JsonDoc jsonDoc = translator.toJson(dbObject);
@@ -219,9 +184,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
             throw e;
         } catch (Exception e) {
             LOGGER.error("Error during insert: {}", e);
-            // throw new Error (preserves current error context)
-            LOGGER.error(e.getMessage(), e);
-            throw Error.get(CrudConstants.ERR_CRUD, e.getMessage());
+            throw analyzeException(e, CrudConstants.ERR_CRUD);
         } finally {
             Error.pop();
         }
@@ -283,9 +246,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
             // rethrow lightblue error
             throw e;
         } catch (Exception e) {
-            // throw new Error (preserves current error context)
             LOGGER.error(e.getMessage(), e);
-            throw Error.get(CrudConstants.ERR_CRUD, e.getMessage());
+            throw analyzeException(e, CrudConstants.ERR_CRUD);
         } finally {
             Error.pop();
         }
@@ -324,7 +286,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
             ctx.addError(e);
         } catch (Exception e) {
             LOGGER.error(e.getMessage(), e);
-            ctx.addError(Error.get(e.toString()));
+            ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
         }
@@ -369,8 +331,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                 } else {
                     mongoSort = null;
                 }
-                DBObject mongoProjection=translator.translateProjection(md,getProjectionFields(projection,md),query,sort);
-                LOGGER.debug("Translated projection {}",mongoProjection);
+                DBObject mongoProjection = translator.translateProjection(md, getProjectionFields(projection, md), query, sort);
+                LOGGER.debug("Translated projection {}", mongoProjection);
                 DB db = dbResolver.get((MongoDataStore) md.getDataStore());
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
                 LOGGER.debug("Retrieve db collection:" + coll);
@@ -390,9 +352,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
             // rethrow lightblue error
             throw e;
         } catch (Exception e) {
-            // throw new Error (preserves current error context)
             LOGGER.error(e.getMessage(), e);
-            throw Error.get(CrudConstants.ERR_CRUD, e.getMessage());
+            throw analyzeException(e, CrudConstants.ERR_CRUD);
         } finally {
             Error.pop();
         }
@@ -402,12 +363,12 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     @Override
-    public void updatePredefinedFields(CRUDOperationContext ctx,JsonDoc doc) {
-        JsonNode idNode=doc.get(Translator.ID_PATH);
-        if(idNode==null||idNode instanceof NullNode) {
+    public void updatePredefinedFields(CRUDOperationContext ctx, JsonDoc doc) {
+        JsonNode idNode = doc.get(Translator.ID_PATH);
+        if (idNode == null || idNode instanceof NullNode) {
             doc.modify(Translator.ID_PATH,
-                       ctx.getFactory().getNodeFactory().textNode(ObjectId.get().toString()),
-                       false);
+                    ctx.getFactory().getNodeFactory().textNode(ObjectId.get().toString()),
+                    false);
         }
     }
 
@@ -438,13 +399,13 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     private Path translateIndexPath(Path p) {
-        MutablePath newPath=new MutablePath();
-        int n=p.numSegments();
-        for(int i=0;i<n;i++) {
-            String x=p.head(i);
-            if(!x.equals(Path.ANY)) {
-                if(p.isIndex(i)) {
-                    throw Error.get(MongoCrudConstants.ERR_INVALID_INDEX_FIELD,p.toString());
+        MutablePath newPath = new MutablePath();
+        int n = p.numSegments();
+        for (int i = 0; i < n; i++) {
+            String x = p.head(i);
+            if (!x.equals(Path.ANY)) {
+                if (p.isIndex(i)) {
+                    throw Error.get(MongoCrudConstants.ERR_INVALID_INDEX_FIELD, p.toString());
                 }
                 newPath.push(x);
             }
@@ -453,27 +414,27 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     private void validateIndexFields(EntityInfo ei) {
-        for(Index ix:ei.getIndexes().getIndexes()) {
-            List<SortKey> fields=ix.getFields();
-            List<SortKey> newFields=null;
-            boolean copied=false;
-            int i=0;
-            for(SortKey key:fields) {
-                Path p=key.getField();
-                Path newPath=translateIndexPath(p);
-                if(!p.equals(newPath)) {
-                    SortKey newKey=new SortKey(newPath,key.isDesc());
-                    if(!copied) {
-                        newFields=new ArrayList<SortKey>();
+        for (Index ix : ei.getIndexes().getIndexes()) {
+            List<SortKey> fields = ix.getFields();
+            List<SortKey> newFields = null;
+            boolean copied = false;
+            int i = 0;
+            for (SortKey key : fields) {
+                Path p = key.getField();
+                Path newPath = translateIndexPath(p);
+                if (!p.equals(newPath)) {
+                    SortKey newKey = new SortKey(newPath, key.isDesc());
+                    if (!copied) {
+                        newFields = new ArrayList<>();
                         newFields.addAll(fields);
-                        copied=true;
+                        copied = true;
                     }
-                    newFields.set(i,newKey);
+                    newFields.set(i, newKey);
                 }
             }
-            if(copied) {
+            if (copied) {
                 ix.setFields(newFields);
-                LOGGER.debug("Index rewritten as {}",ix);
+                LOGGER.debug("Index rewritten as {}", ix);
             }
         }
     }
@@ -498,10 +459,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
             idField = new SimpleField(ID_STR, StringType.TYPE);
             schema.getFields().addNew(idField);
         } else {
-            if (field instanceof SimpleField)
+            if (field instanceof SimpleField) {
                 idField = (SimpleField) field;
-            else
+            } else {
                 throw Error.get(MongoMetadataConstants.ERR_INVALID_ID);
+            }
         }
 
         // Make sure _id has identity constraint
@@ -530,8 +492,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         boolean found = false;
         for (Index ix : indexes.getIndexes()) {
             List<SortKey> fields = ix.getFields();
-            if (fields.size() == 1 && fields.get(0).getField().equals(Translator.ID_PATH) &&
-                    ix.isUnique()) {
+            if (fields.size() == 1 && fields.get(0).getField().equals(Translator.ID_PATH)
+                    && ix.isUnique()) {
                 found = true;
                 break;
             }
@@ -563,32 +525,36 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         Error.push("createUpdateIndex");
         try {
             List<DBObject> existingIndexes = entityCollection.getIndexInfo();
+            Set<DBObject> deleteIndexes = new HashSet<>();
+            deleteIndexes.addAll(existingIndexes);
             LOGGER.debug("Existing indexes: {}", existingIndexes);
             for (Index index : indexes.getIndexes()) {
                 boolean createIx = !isIdIndex(index);
-                if(createIx) {
+                if (createIx) {
                     LOGGER.debug("Processing index {}", index);
                     for (DBObject existingIndex : existingIndexes) {
                         if (indexFieldsMatch(index, existingIndex)
-                            && indexOptionsMatch(index, existingIndex)) {
+                                && indexOptionsMatch(index, existingIndex)) {
                             LOGGER.debug("Same index exists, not creating");
                             createIx = false;
+                            deleteIndexes.remove(existingIndex);
                             break;
                         }
                     }
                 }
-                
+
                 if (createIx) {
                     for (DBObject existingIndex : existingIndexes) {
                         if (indexFieldsMatch(index, existingIndex)
-                            && !indexOptionsMatch(index, existingIndex)) {
+                                && !indexOptionsMatch(index, existingIndex)) {
                             LOGGER.debug("Same index exists with different options, dropping index:{}", existingIndex);
                             // Changing index options, drop the index using its name, recreate with new options
                             entityCollection.dropIndex(existingIndex.get("name").toString());
+                            deleteIndexes.remove(existingIndex);
                         }
                     }
                 }
-                
+
                 if (createIx) {
                     DBObject newIndex = new BasicDBObject();
                     for (SortKey p : index.getFields()) {
@@ -603,16 +569,24 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                     entityCollection.createIndex(newIndex, options);
                 }
             }
+
+            // for any indexes that remain in deleteIndexes set, delete them (except _id index!)
+            for (DBObject deleteIndex : deleteIndexes) {
+                if (((BasicDBObject) deleteIndex.get("key")).size() != 1
+                        || !((BasicDBObject) deleteIndex.get("key")).containsField(ID_STR)) {
+                    // it's a multi-key index or the one key is not _id, delete it
+                    entityCollection.dropIndex(deleteIndex.get("name").toString());
+                }
+            }
         } catch (MongoException me) {
-            LOGGER.error("createUpdateEntityInfoIndexes: {}", ei);
+            LOGGER.error("createUpdateEntityInfoIndexes: {}", ei, me);
             throw Error.get(MongoCrudConstants.ERR_ENTITY_INDEX_NOT_CREATED, me.getMessage());
         } catch (Error e) {
             // rethrow lightblue error
             throw e;
         } catch (Exception e) {
-            // throw new Error (preserves current error context)
             LOGGER.error(e.getMessage(), e);
-            throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, e.getMessage());
+            throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
             Error.pop();
         }
@@ -621,9 +595,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     private boolean isIdIndex(Index index) {
-        List<SortKey> fields=index.getFields();
-        return fields.size()==1&&
-            fields.get(0).getField().equals(Translator.ID_PATH);
+        List<SortKey> fields = index.getFields();
+        return fields.size() == 1
+                && fields.get(0).getField().equals(Translator.ID_PATH);
     }
 
     private boolean compareSortKeys(SortKey sortKey, String fieldName, Object dir) {
@@ -668,24 +642,64 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     /**
-     * Returns a projection containing the requested projection, all
-     * identity fields, and the objectType field
+     * Returns a projection containing the requested projection, all identity
+     * fields, and the objectType field
      */
     private Projection getProjectionFields(Projection requestedProjection,
                                            EntityMetadata md) {
-        Field[] identityFields=md.getEntitySchema().getIdentityFields();
-        List<Projection> projectFields=new ArrayList<>(identityFields==null?1:identityFields.length+1);
-        if(requestedProjection instanceof ProjectionList) {
-            projectFields.addAll(((ProjectionList)requestedProjection).getItems());
-        } else if(requestedProjection!=null) {
+        Field[] identityFields = md.getEntitySchema().getIdentityFields();
+        List<Projection> projectFields = new ArrayList<>(identityFields == null ? 1 : identityFields.length + 1);
+        if (requestedProjection instanceof ProjectionList) {
+            projectFields.addAll(((ProjectionList) requestedProjection).getItems());
+        } else if (requestedProjection != null) {
             projectFields.add(requestedProjection);
         }
         if (identityFields != null) {
-            for (Field x : identityFields)
+            for (Field x : identityFields) {
                 projectFields.add(new FieldProjection(x.getFullPath(), true, false));
+            }
         }
-        projectFields.add(new FieldProjection(Translator.OBJECT_TYPE,true,false));
-            
+        projectFields.add(new FieldProjection(Translator.OBJECT_TYPE, true, false));
+
         return new ProjectionList(projectFields);
+    }
+
+    private Error analyzeException(Exception e, final String otherwise) {
+        return analyzeException(e, otherwise, null, false);
+    }
+
+    private Error analyzeException(Exception e, final String otherwise, final String msg, boolean specialHandling) {
+        LOGGER.error(e.getMessage(), e);
+        if (e instanceof CommandFailureException) {
+            CommandFailureException ce = (CommandFailureException) e;
+            // give a better Error.code in case auth failed which is represented in MongoDB by code == 18
+            if (ce.getCode() == 18) {
+                return Error.get(CrudConstants.ERR_AUTH_FAILED, e.getMessage());
+            } else {
+                return Error.get(CrudConstants.ERR_DATASOURCE_UNKNOWN, e.getMessage());
+            }
+        } else if (e instanceof MongoClientException) {
+            if (e instanceof MongoTimeoutException) {
+                return Error.get(CrudConstants.ERR_DATASOURCE_TIMEOUT, e.getMessage());
+            } else {
+                return Error.get(CrudConstants.ERR_DATASOURCE_UNKNOWN, e.getMessage());
+            }
+        } else if (e instanceof MongoException) {
+            if (e instanceof MongoExecutionTimeoutException) {
+                return Error.get(CrudConstants.ERR_DATASOURCE_TIMEOUT, e.getMessage());
+            } else {
+                return Error.get(CrudConstants.ERR_DATASOURCE_UNKNOWN, e.getMessage());
+            }
+        } else {
+            if (msg == null) {
+                return Error.get(otherwise, e.getMessage());
+            } else {
+                if(specialHandling){
+                    return Error.get(otherwise, msg, e);
+                }else {
+                    return Error.get(otherwise, msg);
+                }
+            }
+        }
     }
 }

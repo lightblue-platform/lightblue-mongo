@@ -17,7 +17,7 @@
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.redhat.lightblue.mongo;
-
+/*
 import java.io.FileReader;
 
 import com.mongodb.MongoClient;
@@ -58,9 +58,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;/*
  import com.redhat.lightblue.metadata.parser.JSONMetadataParser;
  import java.io.IOException;
 
- /**
+ /
  * Simple test front-end for metadata and mediator that works with one DB
- **/
+ */
 
 
 public class FrontEnd {
