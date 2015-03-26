@@ -36,7 +36,7 @@ public final class EmbeddedMongo {
     /**
      * This field is used only once during the bootstrap of the singleton instance of this class
      */
-    public static String HOSTNAME = "localhost";
+    public static final String HOSTNAME = "localhost";
 
     /**
      * This field is used only once during the bootstrap of the singleton instance of this class
@@ -46,7 +46,7 @@ public final class EmbeddedMongo {
     /**
      * This field is used only once during the bootstrap of the singleton instance of this class
      */
-    public static String DATABASE_NAME = "mongo";
+    public static final String DATABASE_NAME = "mongo";
 
 
 
@@ -64,7 +64,7 @@ public final class EmbeddedMongo {
     }
 
     protected static class FileStreamProcessor implements IStreamProcessor {
-        private FileOutputStream outputStream;
+        private final FileOutputStream outputStream;
 
         public FileStreamProcessor(File file) throws FileNotFoundException {
             outputStream = new FileOutputStream(file);
@@ -73,7 +73,7 @@ public final class EmbeddedMongo {
         @Override
         public void process(String block) {
             try {
-                outputStream.write(block.getBytes());
+                outputStream.write(block.getBytes("UTF-8"));
             } catch (IOException e) {
                 throw new IllegalStateException(e);
             }
@@ -154,7 +154,7 @@ public final class EmbeddedMongo {
             Runtime.getRuntime().addShutdownHook(new Thread() {
                 @Override
                 public void run() {
-                    super.run();
+                    super.start();
                     if (mongod != null) {
                         mongod.stop();
                         mongodExe.stop();
