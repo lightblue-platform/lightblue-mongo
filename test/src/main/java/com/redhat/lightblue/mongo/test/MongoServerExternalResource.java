@@ -141,8 +141,7 @@ public class MongoServerExternalResource extends ExternalResource {
          */
         try {
             Thread.sleep(5000);
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             e.printStackTrace();
         }
     }
@@ -158,6 +157,20 @@ public class MongoServerExternalResource extends ExternalResource {
             client = new MongoClient("localhost", immsAnnotation.port());
         }
         return client;
+    }
+
+    /**
+     * @return the port the mongo instance is running on.
+     */
+    public int getPort() {
+        return immsAnnotation.port();
+    }
+
+    /**
+     * @return the mongo version being run.
+     */
+    public Version getMongoVersion() {
+        return immsAnnotation.version();
     }
 
 }
