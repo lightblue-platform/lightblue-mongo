@@ -21,6 +21,7 @@ package com.redhat.lightblue.mongo.test;
 import static com.redhat.lightblue.util.JsonUtils.json;
 
 import java.io.IOException;
+import java.net.UnknownHostException;
 
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -29,6 +30,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.redhat.lightblue.mongo.test.MongoServerExternalResource.InMemoryMongoServer;
 import com.redhat.lightblue.test.AbstractCRUDTestController;
 
+/**
+ * <p>Extension of {@link AbstractCRUDTestController} that adds built in mongo support.</p>
+ * <p><b>NOTE:</b> At this time only restarting mongo before/after the suite is supported.
+ * That said, if you need to clean the mongo database between tests then see {@link #cleanupMongoCollections(String...)}. </p>
+ *
+ * @author dcrissman
+ */
 @InMemoryMongoServer
 public abstract class AbstractMongoCRUDTestController extends AbstractCRUDTestController {
 
@@ -37,9 +45,15 @@ public abstract class AbstractMongoCRUDTestController extends AbstractCRUDTestCo
 
     @BeforeClass
     public static void prepareMongoDatasources() {
-        System.setProperty("mongo.host", "localhost");
-        System.setProperty("mongo.port", String.valueOf(mongoServer.getPort()));
-        System.setProperty("mongo.database", "lightblue");
+        if (System.getProperty("mongo.host") == null) {
+            System.setProperty("mongo.host", "localhost");
+        }
+        if (System.getProperty("mongo.port") == null) {
+            System.setProperty("mongo.port", String.valueOf(mongoServer.getPort()));
+        }
+        if (System.getProperty("mongo.database") == null) {
+            System.setProperty("mongo.database", "lightblue");
+        }
     }
 
     public AbstractMongoCRUDTestController() throws Exception {
@@ -56,6 +70,30 @@ public abstract class AbstractMongoCRUDTestController extends AbstractCRUDTestCo
             }
         } catch (IOException e) {
             throw new RuntimeException("Unable to load resource '" + getDatasourcesResourceName() + "'", e);
+        }
+    }
+
+    /**
+     * Drop specified collections from the mongo database with the dbName from <code>System.getProperty("mongo.database")</code>.
+     * Useful for cleaning up between tests.
+     *
+     * @param collectionName
+     * @throws UnknownHostException
+     */
+    public void cleanupMongoCollections(String... collectionNames) throws UnknownHostException {
+        cleanupMongoCollections(System.getProperty("mongo.database"), collectionNames);
+    }
+
+    /**
+     * Drop specified collections. Useful for cleaning up between tests.
+     *
+     * @param dbName
+     * @param collectionName
+     * @throws UnknownHostException
+     */
+    public void cleanupMongoCollections(String dbName, String[] collectionNames) throws UnknownHostException {
+        for (String collectionName : collectionNames) {
+            mongoServer.getConnection().getDB(dbName).getCollection(collectionName).drop();
         }
     }
 
