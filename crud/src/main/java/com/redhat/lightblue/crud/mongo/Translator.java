@@ -664,7 +664,8 @@ public class Translator {
     private DBObject translateNaryFieldRelationalExpression(FieldTreeNode context, NaryFieldRelationalExpression expr) {
         Type t = resolve(context, expr.getField()).getType();
         if (t.supportsEq()) {
-            FieldTreeNode arr=resolve(context,expr.getRfield());
+            // Call resolve, which will verify the field exists.  Don't need the response.
+            resolve(context,expr.getRfield());
             boolean in=expr.getOp()==NaryRelationalOperator._in;
             return new BasicDBObject("$where",
                                      String.format("function() for(var nfr=0;nfr<this.%s.length;nfr++) {if ( %s == %s[nfr] ) return %s;} return %s;}",
