@@ -45,14 +45,17 @@ public abstract class AbstractMongoCRUDTestController extends AbstractCRUDTestCo
 
     @BeforeClass
     public static void prepareMongoDatasources() {
+        if (System.getProperty("mongo.backend") == null) {
+            System.setProperty("mongo.backend", "mongo");
+        }
+        if (System.getProperty("mongo.database") == null) {
+            System.setProperty("mongo.database", "testdb");
+        }
         if (System.getProperty("mongo.host") == null) {
             System.setProperty("mongo.host", "localhost");
         }
         if (System.getProperty("mongo.port") == null) {
             System.setProperty("mongo.port", String.valueOf(mongoServer.getPort()));
-        }
-        if (System.getProperty("mongo.database") == null) {
-            System.setProperty("mongo.database", "lightblue");
         }
     }
 
