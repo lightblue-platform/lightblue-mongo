@@ -64,6 +64,11 @@ public abstract class AbstractMongoCRUDTestController extends AbstractCRUDTestCo
     }
 
     @Override
+    protected JsonNode getLightblueMetadataJson() throws Exception {
+        return json(loadResource("/mongo-lightblue-metadata.json", true));
+    }
+
+    @Override
     protected JsonNode getDatasourcesJson() {
         try {
             if (getDatasourcesResourceName() == null) {
