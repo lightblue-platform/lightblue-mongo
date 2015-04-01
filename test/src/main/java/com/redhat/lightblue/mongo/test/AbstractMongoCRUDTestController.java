@@ -45,8 +45,8 @@ public abstract class AbstractMongoCRUDTestController extends AbstractCRUDTestCo
 
     @BeforeClass
     public static void prepareMongoDatasources() {
-        if (System.getProperty("mongo.backend") == null) {
-            System.setProperty("mongo.backend", "mongo");
+        if (System.getProperty("mongo.datasource") == null) {
+            System.setProperty("mongo.datasource", "mongo");
         }
         if (System.getProperty("mongo.database") == null) {
             System.setProperty("mongo.database", "testdb");

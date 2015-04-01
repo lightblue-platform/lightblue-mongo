@@ -1,5 +1,5 @@
 {
-    "${mongo.backend}" : {
+    "${mongo.datasource}" : {
         "type" : "com.redhat.lightblue.mongo.config.MongoConfiguration",
         "metadataBackendParser" : "com.redhat.lightblue.metadata.mongo.MongoBackendParser",
         "ssl" : false,
