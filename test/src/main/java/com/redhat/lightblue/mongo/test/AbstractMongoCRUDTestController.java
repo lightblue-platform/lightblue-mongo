@@ -45,19 +45,27 @@ public abstract class AbstractMongoCRUDTestController extends AbstractCRUDTestCo
 
     @BeforeClass
     public static void prepareMongoDatasources() {
+        if (System.getProperty("mongo.datasource") == null) {
+            System.setProperty("mongo.datasource", "mongo");
+        }
+        if (System.getProperty("mongo.database") == null) {
+            System.setProperty("mongo.database", "testdb");
+        }
         if (System.getProperty("mongo.host") == null) {
             System.setProperty("mongo.host", "localhost");
         }
         if (System.getProperty("mongo.port") == null) {
             System.setProperty("mongo.port", String.valueOf(mongoServer.getPort()));
         }
-        if (System.getProperty("mongo.database") == null) {
-            System.setProperty("mongo.database", "lightblue");
-        }
     }
 
     public AbstractMongoCRUDTestController() throws Exception {
         super(true);
+    }
+
+    @Override
+    protected JsonNode getLightblueMetadataJson() throws Exception {
+        return json(loadResource("/mongo-lightblue-metadata.json", true));
     }
 
     @Override
