@@ -28,7 +28,7 @@
     <groupId>com.redhat.lightblue.mongo</groupId>
     <artifactId>lightblue-mongo-pom</artifactId>
     <packaging>pom</packaging>
-    <version>1.3.0-SNAPSHOT</version>
+    <version>1.3.0</version>
     <name>lightblue-mongo: ${project.groupId}|${project.artifactId}</name>
     <description>Lightblue MongoDB implementation</description>
     <licenses>
@@ -42,7 +42,7 @@
         <connection>scm:git:https://github.com/lightblue-platform/lightblue-mongo.git</connection>
         <developerConnection>scm:git:git@github.com:lightblue-platform/lightblue-mongo.git</developerConnection>
         <url>https://github.com/lightblue-platform/lightblue-core</url>
-      <tag>HEAD</tag>
+      <tag>V1.3.0</tag>
     </scm>
     <distributionManagement>
         <repository>
@@ -119,37 +119,37 @@
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-metadata</artifactId>
-                <version>1.3.0-SNAPSHOT</version>
+                <version>1.3.0</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-crud</artifactId>
-                <version>1.3.0-SNAPSHOT</version>
+                <version>1.3.0</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-api</artifactId>
-                <version>1.3.0-SNAPSHOT</version>
+                <version>1.3.0</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-util</artifactId>
-                <version>1.3.0-SNAPSHOT</version>
+                <version>1.3.0</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-query-api</artifactId>
-                <version>1.3.0-SNAPSHOT</version>
+                <version>1.3.0</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-config</artifactId>
-                <version>1.3.0-SNAPSHOT</version>
+                <version>1.3.0</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-test</artifactId>
-                <version>1.3.0-SNAPSHOT</version>
+                <version>1.3.0</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
