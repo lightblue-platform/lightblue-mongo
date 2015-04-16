@@ -22,12 +22,12 @@
     <parent>
         <groupId>com.redhat.lightblue.mongo</groupId>
         <artifactId>lightblue-mongo-pom</artifactId>
-        <version>1.3.0-SNAPSHOT</version>
+        <version>1.4.0-SNAPSHOT</version>
     </parent>
     <groupId>com.redhat.lightblue.mongo</groupId>
     <artifactId>lightblue-mongo-crud</artifactId>
     <packaging>jar</packaging>
-    <version>1.3.0-SNAPSHOT</version>
+    <version>1.4.0-SNAPSHOT</version>
     <name>lightblue-mongo: ${project.groupId}|${project.artifactId}</name>
     <dependencies>
         <dependency>
