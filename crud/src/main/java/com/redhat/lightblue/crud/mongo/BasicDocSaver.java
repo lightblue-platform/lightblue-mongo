@@ -32,7 +32,7 @@ import com.mongodb.WriteResult;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CrudConstants;
 import com.redhat.lightblue.crud.DocCtx;
-import com.redhat.lightblue.crud.Operation;
+import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.EntityMetadata;
@@ -93,7 +93,7 @@ public class BasicDocSaver implements DocSaver {
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, inputDoc);
                         translator.addInvisibleFields(oldDBObject, dbObject, md);
                         result = new UpdateCommand(collection, q, dbObject, upsert, upsert, WriteConcern.SAFE).execute();
-                        inputDoc.setOperationPerformed(Operation.UPDATE);
+                        inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, inputDoc);
                     } else {
                         inputDoc.addError(Error.get("update",
@@ -141,7 +141,7 @@ public class BasicDocSaver implements DocSaver {
                 try {
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_INSERT_DOC, ctx, inputDoc);
                     WriteResult r = new InsertCommand(collection, dbObject, WriteConcern.SAFE).execute();
-                    inputDoc.setOperationPerformed(Operation.INSERT);
+                    inputDoc.setCRUDOperationPerformed(CRUDOperation.INSERT);
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_INSERT_DOC, ctx, inputDoc);
                     return r;
                 } catch (MongoException.DuplicateKey dke) {

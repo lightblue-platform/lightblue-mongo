@@ -34,7 +34,7 @@ import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.CrudConstants;
 import com.redhat.lightblue.crud.DocCtx;
-import com.redhat.lightblue.crud.Operation;
+import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.metadata.EntityMetadata;
@@ -120,7 +120,7 @@ public class AtomicIterateUpdate implements DocUpdater {
                         if (projector != null) {
                             LOGGER.debug("Projecting document {}", docIndex);
                             doc.setOutputDocument(projector.project(translator.toJson(modifiedDoc), nodeFactory));
-                            doc.setOperationPerformed(Operation.UPDATE);
+                            doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                         }
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
                         numUpdated++;

@@ -23,7 +23,7 @@ import com.mongodb.DBObject;
 import com.mongodb.WriteResult;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDOperationContext;
-import com.redhat.lightblue.crud.Operation;
+import com.redhat.lightblue.crud.CRUDOperation;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -47,7 +47,7 @@ public class BasicDocDeleterTest extends AbstractMongoCrudTest {
 
         // execute delete
         BasicDocDeleter deleter = new BasicDocDeleter();
-        CRUDOperationContext ctx = new TestCRUDOperationContext(Operation.DELETE);
+        CRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.DELETE);
         DBObject mongoQuery = new BasicDBObject();
         mongoQuery.put("_id", id);
         CRUDDeleteResponse response = new CRUDDeleteResponse();
