@@ -31,7 +31,7 @@ import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import com.mongodb.WriteResult;
-import com.redhat.lightblue.crud.Operation;
+import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.JsonUtils;
@@ -49,7 +49,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
     public void setup() throws Exception {
         super.setup();
 
-        ctx = new TestCRUDOperationContext(Operation.FIND);
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         // load metadata 
         EntityMetadata md = getMd("./testMetadata.json");
         // and add it to metadata resolver (the context)

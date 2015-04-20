@@ -20,6 +20,7 @@ package com.redhat.lightblue.crud.mongo;
 
 import java.util.List;
 
+import com.redhat.lightblue.crud.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,12 +30,6 @@ import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.WriteResult;
 import com.redhat.lightblue.interceptor.InterceptPoint;
-import com.redhat.lightblue.crud.CRUDOperationContext;
-import com.redhat.lightblue.crud.CRUDUpdateResponse;
-import com.redhat.lightblue.crud.ConstraintValidator;
-import com.redhat.lightblue.crud.CrudConstants;
-import com.redhat.lightblue.crud.DocCtx;
-import com.redhat.lightblue.crud.Operation;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
@@ -134,7 +129,7 @@ public class IterateAndUpdate implements DocUpdater {
                             DBObject updatedObject = translator.toBson(doc.getOutputDocument());
                             translator.addInvisibleFields(document, updatedObject, md);
                             WriteResult result = new SaveCommand(collection, updatedObject).execute();
-                            doc.setOperationPerformed(Operation.UPDATE);
+                            doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             LOGGER.debug("Number of rows affected : ", result.getN());
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
                         } catch (Exception e) {

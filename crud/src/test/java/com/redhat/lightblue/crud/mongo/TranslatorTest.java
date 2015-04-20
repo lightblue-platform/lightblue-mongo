@@ -21,7 +21,7 @@ package com.redhat.lightblue.crud.mongo;
 import java.util.Set;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.mongodb.DBObject;
-import com.redhat.lightblue.crud.Operation;
+import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Path;
@@ -44,7 +44,7 @@ public class TranslatorTest extends AbstractMongoCrudTest {
     public void setup() throws Exception {
         super.setup();
 
-        TestCRUDOperationContext ctx = new TestCRUDOperationContext(Operation.FIND);
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         // load metadata 
         md = getMd("./testMetadata.json");
         // and add it to metadata resolver (the context)
