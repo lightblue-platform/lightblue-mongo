@@ -19,7 +19,7 @@
 package com.redhat.lightblue.crud.mongo;
 
 import com.redhat.lightblue.crud.CRUDOperationContext;
-import com.redhat.lightblue.crud.Operation;
+import com.redhat.lightblue.crud.CRUDOperation;
 import static com.redhat.lightblue.crud.mongo.AbstractMongoCrudTest.factory;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import java.util.HashMap;
@@ -33,11 +33,11 @@ import java.util.Map;
 public class TestCRUDOperationContext extends CRUDOperationContext {
     private final Map<String, EntityMetadata> map = new HashMap<>();
 
-    public TestCRUDOperationContext(Operation op) {
+    public TestCRUDOperationContext(CRUDOperation op) {
         this("test",op);
     }
 
-    public TestCRUDOperationContext(String name,Operation op) {
+    public TestCRUDOperationContext(String name,CRUDOperation op) {
         super(op, name, factory, null);
     }
 

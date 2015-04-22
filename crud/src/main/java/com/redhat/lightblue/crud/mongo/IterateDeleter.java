@@ -32,7 +32,7 @@ import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.DocCtx;
-import com.redhat.lightblue.crud.Operation;
+import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.mongo.hystrix.FindCommand;
 import com.redhat.lightblue.mongo.hystrix.RemoveCommand;
 
@@ -73,7 +73,7 @@ public class IterateDeleter implements DocDeleter {
                 WriteResult result = new RemoveCommand(collection, new BasicDBObject("_id", id), WriteConcern.SAFE).execute();
                 if (result.getN() == 1) {
                     numDeleted++;
-                    doc.setOperationPerformed(Operation.DELETE);
+                    doc.setCRUDOperationPerformed(CRUDOperation.DELETE);
                 }
                 ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_DELETE_DOC, ctx, doc);
                 docIndex++;

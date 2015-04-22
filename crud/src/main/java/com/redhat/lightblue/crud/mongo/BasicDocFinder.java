@@ -29,7 +29,7 @@ import com.mongodb.DBCursor;
 
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.crud.CRUDOperationContext;
-import com.redhat.lightblue.crud.Operation;
+import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.mongo.hystrix.FindCommand;
 
@@ -77,7 +77,7 @@ public class BasicDocFinder implements DocFinder {
         List<JsonDoc> jsonDocs = translator.toJson(mongoResults);
         ctx.addDocuments(jsonDocs);
         for (DocCtx doc : ctx.getDocuments()) {
-            doc.setOperationPerformed(Operation.FIND);
+            doc.setCRUDOperationPerformed(CRUDOperation.FIND);
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_FIND_DOC, ctx, doc);
         }
         LOGGER.debug("Translated DBObjects to json");

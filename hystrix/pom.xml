@@ -33,7 +33,7 @@
         <dependency>
             <groupId>com.redhat.lightblue.mongo</groupId>
             <artifactId>lightblue-mongo-test</artifactId>
-            <version>${project.version}</version>
+            <version>1.4.0-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
