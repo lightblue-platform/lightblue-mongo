@@ -20,6 +20,7 @@ package com.redhat.lightblue.crud.mongo;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -93,6 +94,26 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(1, coll.find(new BasicDBObject("_id", Translator.createIdFrom(id))).count());
     }
     
+    @Test
+    public void insertTest_nullReqField() throws Exception {
+        EntityMetadata md = getMd("./testMetadata-requiredFields2.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        doc.modify(new Path("field1"),null,false);
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+        System.out.println(ctx.getDataErrors());
+        Assert.assertEquals(1, ctx.getDocuments().size());
+        Assert.assertTrue(ctx.getErrors() == null || ctx.getErrors().isEmpty());
+        Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
+        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        Assert.assertEquals(1, coll.find(new BasicDBObject("_id", Translator.createIdFrom(id))).count());
+    }
+    
+
     @Test @Ignore
     public void insertTest_empty_array() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
@@ -364,6 +385,28 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(10, upd.getNumUpdated());
         Assert.assertEquals(0, upd.getNumFailed());
         Assert.assertEquals(10, coll.find(new BasicDBObject("field7.0.elemf1", "blah")).count());
+    }
+
+    @Test
+    public void updateTest_nullReqField() throws Exception {
+        EntityMetadata md = getMd("./testMetadata-requiredFields2.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        doc.modify(new Path("field1"),JsonNodeFactory.instance.nullNode(),false);
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+ 
+        ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
+        ctx.add(md);
+        CRUDUpdateResponse upd = controller.update(ctx, query("{'field':'field2','op':'=','rvalue':'f2'}"),
+                                                   update(" {'$set' : {'field3':3 }}"),
+                                                   projection("{'field':'*','recursive':1}"));
+        Assert.assertEquals(1, upd.getNumUpdated());
+        Assert.assertEquals(0, upd.getNumFailed());
+        Assert.assertEquals(1,ctx.getDocuments().size());
     }
 
 
