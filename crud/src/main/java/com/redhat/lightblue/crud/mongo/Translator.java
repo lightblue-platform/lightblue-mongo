@@ -223,6 +223,7 @@ public class Translator {
         }
         DBObject ret = toBson(doc, md);
         LOGGER.debug("toBson() return");
+        LOGGER.debug("toBson: in: {}, out: {}",doc,ret);
         return ret;
     }
 
@@ -241,6 +242,7 @@ public class Translator {
         }
         JsonDoc doc = toJson(object, md);
         LOGGER.debug("toJson() return");
+        LOGGER.debug("toJson: in: {}, out: {}",object,doc);
         return doc;
     }
 
@@ -935,7 +937,8 @@ public class Translator {
                 } else if (field instanceof ReferenceField) {
                     convertReferenceFieldToJson();
                 }
-            }
+            } else
+                node.set(fieldName,factory.nullNode());
         } while (mdCursor.nextSibling());
         return node;
     }
@@ -1027,7 +1030,7 @@ public class Translator {
                         Path path,
                         JsonNode node) {
         Object value = toValue(fieldMd.getType(), node);
-        // Should we add fields with null values to the bson doc?
+        // Should we add fields with null values to the bson doc? Answer: yes
         if (value != null) {
             LOGGER.debug("{} = {}", path, value);
             if (path.equals(ID_PATH)) {
@@ -1039,7 +1042,8 @@ public class Translator {
             }
 
             dest.append(path.tail(0), value);
-        }
+        } else
+            dest.append(path.tail(0), null);
     }
 
     /**
