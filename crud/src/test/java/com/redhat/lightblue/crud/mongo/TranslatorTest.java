@@ -19,12 +19,15 @@
 package com.redhat.lightblue.crud.mongo;
 
 import java.util.Set;
+import com.fasterxml.jackson.databind.node.NullNode;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.mongodb.DBObject;
+import com.mongodb.BasicDBObject;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Path;
+import com.redhat.lightblue.util.JsonDoc;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -51,6 +54,35 @@ public class TranslatorTest extends AbstractMongoCrudTest {
         ctx.add(md);
         // create translator with the context
         translator = new Translator(ctx, nodeFactory);
+    }
+
+    @Test
+    public void translateNullArray() throws Exception {
+        JsonDoc doc=new JsonDoc(json(loadResource("./testdata1.json")));
+        doc.modify(new Path("field7"),nodeFactory.nullNode(),true);
+        DBObject bdoc=translator.toBson(doc);
+        Assert.assertNull(bdoc.get("field7"));
+    }
+
+    @Test
+    public void translateNullObject() throws Exception {
+        JsonDoc doc=new JsonDoc(json(loadResource("./testdata1.json")));
+        doc.modify(new Path("field6"),nodeFactory.nullNode(),true);
+        DBObject bdoc=translator.toBson(doc);
+        Assert.assertNull(bdoc.get("field6"));
+    }
+
+    @Test
+    public void translateNullBsonObject() throws Exception {
+        BasicDBObject obj=new BasicDBObject("field6",null).append("objectType","test");
+        JsonDoc doc=translator.toJson(obj);
+        Assert.assertTrue(doc.get(new Path("field6")) instanceof NullNode);
+    }
+    @Test
+    public void translateNullBsonArray() throws Exception {
+        BasicDBObject obj=new BasicDBObject("field7",null).append("objectType","test");
+        JsonDoc doc=translator.toJson(obj);
+        Assert.assertTrue(doc.get(new Path("field7")) instanceof NullNode);
     }
 
     @Test
