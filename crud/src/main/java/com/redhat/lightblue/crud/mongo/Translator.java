@@ -1080,6 +1080,8 @@ public class Translator {
                     ret.append(path.tail(0), objectToBson(cursor, md));
                     cursor.parent();
                 }
+            } else if(node instanceof NullNode) {
+                ret.append(path.tail(0),null);
             } else {
                 throw Error.get(ERR_INVALID_FIELD, path.toString());
             }
@@ -1096,6 +1098,8 @@ public class Translator {
                     // empty array! add an empty list.
                     ret.append(path.tail(0), new ArrayList());
                 }
+            } else if(node instanceof NullNode) {
+                ret.append(path.tail(0),null);
             } else {
                 throw Error.get(ERR_INVALID_FIELD, path.toString());
             }
