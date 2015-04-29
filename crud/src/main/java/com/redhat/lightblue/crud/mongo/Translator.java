@@ -242,7 +242,6 @@ public class Translator {
         }
         JsonDoc doc = toJson(object, md);
         LOGGER.debug("toJson() return");
-        LOGGER.debug("toJson: in: {}, out: {}",object,doc);
         return doc;
     }
 
