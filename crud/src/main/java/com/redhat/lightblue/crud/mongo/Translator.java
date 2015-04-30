@@ -223,7 +223,6 @@ public class Translator {
         }
         DBObject ret = toBson(doc, md);
         LOGGER.debug("toBson() return");
-        LOGGER.debug("toBson: in: {}, out: {}",doc,ret);
         return ret;
     }
 
@@ -242,7 +241,6 @@ public class Translator {
         }
         JsonDoc doc = toJson(object, md);
         LOGGER.debug("toJson() return");
-        LOGGER.debug("toJson: in: {}, out: {}",object,doc);
         return doc;
     }
 
@@ -318,7 +316,6 @@ public class Translator {
      * @param query The query expression
      */
     public DBObject translate(EntityMetadata md, QueryExpression query) {
-        LOGGER.debug("translate {}", query);
         Error.push("translateQuery");
         FieldTreeNode mdRoot = md.getFieldTreeRoot();
         try {
@@ -348,12 +345,10 @@ public class Translator {
      */
     public DBObject translate(EntityMetadata md, UpdateExpression expr)
             throws CannotTranslateException {
-        LOGGER.debug("translate {}", expr);
         Error.push("translateUpdate");
         try {
             BasicDBObject ret = new BasicDBObject();
             translateUpdate(md.getFieldTreeRoot(), expr, ret);
-            LOGGER.debug("translated={}", ret);
             return ret;
         } catch (Error | CannotTranslateException e) {
             // rethrow lightblue error
@@ -1030,7 +1025,6 @@ public class Translator {
         Object value = toValue(fieldMd.getType(), node);
         // Should we add fields with null values to the bson doc? Answer: yes
         if (value != null) {
-            LOGGER.debug("{} = {}", path, value);
             if (path.equals(ID_PATH)) {
                 value = createIdFrom(value);
             }
