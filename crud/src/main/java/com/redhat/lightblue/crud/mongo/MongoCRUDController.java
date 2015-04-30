@@ -238,6 +238,13 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                         projector, errorProjector);
                 ctx.setProperty(PROP_UPDATER, docUpdater);
                 docUpdater.update(ctx, coll, md, response, mongoQuery);
+                /*if (ctx.getDocumentsWithoutErrors() != null && !ctx.getDocumentsWithoutErrors().isEmpty()) {
+                    for (DocCtx doc : ctx.getDocumentsWithoutErrors()) {
+                        if(doc.getOriginalDocument() == null) {
+                            doc.startModifications();
+                        }
+                    }
+                }*/
                 ctx.getHookManager().queueHooks(ctx);
             } else {
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "update:" + ctx.getEntityName()));
@@ -278,6 +285,13 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                 DocDeleter deleter = new IterateDeleter(translator);
                 ctx.setProperty(PROP_DELETER, deleter);
                 deleter.delete(ctx, coll, mongoQuery, response);
+               /* if (ctx.getDocumentsWithoutErrors() != null && !ctx.getDocumentsWithoutErrors().isEmpty()) {
+                    for (DocCtx doc : ctx.getDocumentsWithoutErrors()) {
+                        if(doc.getOriginalDocument() == null) {
+                            doc.startModifications();
+                        }
+                    }
+                }*/
                 ctx.getHookManager().queueHooks(ctx);
             } else {
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "delete:" + ctx.getEntityName()));
@@ -344,6 +358,13 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                 for (DocCtx document : ctx.getDocuments()) {
                     document.setOutputDocument(projector.project(document, ctx.getFactory().getNodeFactory()));
                 }
+                /*if (ctx.getDocumentsWithoutErrors() != null && !ctx.getDocumentsWithoutErrors().isEmpty()) {
+                    for (DocCtx doc : ctx.getDocumentsWithoutErrors()) {
+                        if(doc.getOriginalDocument() == null) {
+                            doc.startModifications();
+                        }
+                    }
+                }*/
                 ctx.getHookManager().queueHooks(ctx);
             } else {
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "find:" + ctx.getEntityName()));
