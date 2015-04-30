@@ -382,7 +382,6 @@ public class Translator {
                                               Projection p,
                                               QueryExpression q,
                                               Sort s) {
-        LOGGER.debug("getRequiredFields: p={}, q={}, s={}",p,q,s);
         Set<Path> fields=new HashSet<>();
         FieldCursor cursor=md.getFieldCursor();
         while(cursor.next()) {
@@ -412,7 +411,6 @@ public class Translator {
                                         QueryExpression q,
                                         Sort s) {
         Set<Path> fields=getRequiredFields(md,p,q,s);
-        LOGGER.debug("translateProjection, p={}, q={}, s={}, fields={}",p,q,s,fields);
         BasicDBObject ret=new BasicDBObject();
         for(Path f:fields) {
             ret.append(translatePath(f),1);
