@@ -161,7 +161,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                     try {
                         saver.saveDoc(ctx, operation.equals(OP_INSERT) ? DocSaver.Op.insert : DocSaver.Op.save,
                                 upsert, collection, md, dbObject, inputDoc);
-                        ctx.getHookManager().queueHooks(ctx);
                     } catch (Exception e) {
                         LOGGER.error("saveOrInsert failed: {}", e);
                         inputDoc.addError(analyzeException(e, operation, MongoCrudConstants.ERR_SAVE_ERROR, true));
@@ -178,6 +177,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                         ret++;
                     }
                 }
+                ctx.getHookManager().queueHooks(ctx);
             }
         } catch (Error e) {
             // rethrow lightblue error
