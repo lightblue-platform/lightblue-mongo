@@ -35,6 +35,7 @@
         <dependency>
             <groupId>com.redhat.lightblue.mongo</groupId>
             <artifactId>lightblue-mongo-test</artifactId>
+            <version>1.5.0-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
