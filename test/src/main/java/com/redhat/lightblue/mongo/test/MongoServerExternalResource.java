@@ -55,6 +55,8 @@ import de.flapdoodle.embed.process.runtime.Network;
  *   level. This annotation allows properties of the Mongo instance to be configured, but is required even
  *   if only using the default values.
  * </p>
+ * <p>On occasion for debugging purposes, it is useful to connect to the running mongo instance. This can be achieved by
+ * placing a breakpoint in the unit test and then running <code>mongo --host localhost --port 27777</code> from your console.<p>
  *
  * @author dcrissman
  */
