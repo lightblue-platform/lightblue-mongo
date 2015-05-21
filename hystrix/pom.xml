@@ -24,7 +24,9 @@
         <artifactId>lightblue-mongo-pom</artifactId>
         <version>1.5.0-SNAPSHOT</version>
     </parent>
+    <groupId>com.redhat.lightblue.mongo</groupId>
     <artifactId>lightblue-mongo-hystrix</artifactId>
+    <version>1.5.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>lightblue-mongo: ${project.groupId}|${project.artifactId}</name>
     <dependencies>
