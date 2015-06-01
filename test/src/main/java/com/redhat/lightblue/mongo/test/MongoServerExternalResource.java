@@ -63,6 +63,7 @@ import de.flapdoodle.embed.process.runtime.Network;
 public class MongoServerExternalResource extends ExternalResource {
 
     public static final int DEFAULT_PORT = 27777;
+    public static final Version DEFAULT_VERSION = Version.V2_6_1;
 
     @Retention(RetentionPolicy.RUNTIME)
     @Target({ElementType.METHOD, ElementType.TYPE})
@@ -102,10 +103,6 @@ public class MongoServerExternalResource extends ExternalResource {
             immsAnnotation = description.getTestClass().getAnnotation(InMemoryMongoServer.class);
         }
 
-        if (immsAnnotation == null) {
-            throw new IllegalStateException("@InMemoryMongoServer must be set on suite or test level.");
-        }
-
         return super.apply(base, description);
     }
 
@@ -113,8 +110,8 @@ public class MongoServerExternalResource extends ExternalResource {
     protected void before() throws IOException {
         MongodStarter runtime = MongodStarter.getDefaultInstance();
         IMongodConfig config = new MongodConfigBuilder().
-                version(immsAnnotation.version()).
-                net(new Net(immsAnnotation.port(), Network.localhostIsIPv6())).
+                version(getMongoVersion()).
+                net(new Net(getPort(), Network.localhostIsIPv6())).
                 build();
         mongodExe = runtime.prepare(config);
 
@@ -156,7 +153,7 @@ public class MongoServerExternalResource extends ExternalResource {
      */
     public MongoClient getConnection() throws UnknownHostException {
         if (client == null) {
-            client = new MongoClient("localhost", immsAnnotation.port());
+            client = new MongoClient("localhost", getPort());
         }
         return client;
     }
@@ -165,14 +162,14 @@ public class MongoServerExternalResource extends ExternalResource {
      * @return the port the mongo instance is running on.
      */
     public int getPort() {
-        return immsAnnotation.port();
+        return (immsAnnotation == null) ? DEFAULT_PORT : immsAnnotation.port();
     }
 
     /**
      * @return the mongo version being run.
      */
     public Version getMongoVersion() {
-        return immsAnnotation.version();
+        return (immsAnnotation == null) ? DEFAULT_VERSION : immsAnnotation.version();
     }
 
 }
