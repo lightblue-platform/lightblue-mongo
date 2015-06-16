@@ -49,7 +49,8 @@ public abstract class AbstractMongoCommand<T> extends HystrixCommand<T> {
      */
     public AbstractMongoCommand(String commandKey, DBCollection collection) {
         super(HystrixCommand.Setter.withGroupKey(HystrixCommandGroupKey.Factory.asKey(GROUPKEY)).
-                andCommandKey(HystrixCommandKey.Factory.asKey(GROUPKEY + ":" + commandKey)));
+                andCommandKey(HystrixCommandKey.Factory.asKey(GROUPKEY + ":" + commandKey)).
+                andThreadPoolKey(HystrixThreadPoolKey.Factory.asKey(GROUPKEY)));
         this.collection = collection;
     }
 
