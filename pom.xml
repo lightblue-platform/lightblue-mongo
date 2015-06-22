@@ -119,32 +119,32 @@
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-metadata</artifactId>
-                <version>1.6.0-SNAPSHOT</version>
+                <version>1.6.0</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-crud</artifactId>
-                <version>1.6.0-SNAPSHOT</version>
+                <version>1.6.0</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-api</artifactId>
-                <version>1.6.0-SNAPSHOT</version>
+                <version>1.6.0</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-util</artifactId>
-                <version>1.6.0-SNAPSHOT</version>
+                <version>1.6.0</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-query-api</artifactId>
-                <version>1.6.0-SNAPSHOT</version>
+                <version>1.6.0</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-config</artifactId>
-                <version>1.6.0-SNAPSHOT</version>
+                <version>1.6.0</version>
             </dependency>
             <dependency>
                 <groupId>com.netflix.hystrix</groupId>
@@ -154,7 +154,7 @@
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-test</artifactId>
-                <version>1.6.0-SNAPSHOT</version>
+                <version>1.6.0</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
