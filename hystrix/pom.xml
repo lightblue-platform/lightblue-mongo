@@ -26,7 +26,6 @@
     </parent>
     <groupId>com.redhat.lightblue.mongo</groupId>
     <artifactId>lightblue-mongo-hystrix</artifactId>
-    <version>1.7.0-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>lightblue-mongo: ${project.groupId}|${project.artifactId}</name>
     <dependencies>
@@ -37,7 +36,7 @@
         <dependency>
             <groupId>com.redhat.lightblue.mongo</groupId>
             <artifactId>lightblue-mongo-test</artifactId>
-            <version>1.7.0-SNAPSHOT</version>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
