@@ -26,6 +26,8 @@ import java.net.UnknownHostException;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 
+import com.mongodb.BasicDBObject;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.redhat.lightblue.mongo.test.MongoServerExternalResource.InMemoryMongoServer;
 import com.redhat.lightblue.test.AbstractCRUDTestController;
@@ -101,7 +103,7 @@ public abstract class AbstractMongoCRUDTestController extends AbstractCRUDTestCo
      */
     public void cleanupMongoCollections(String dbName, String[] collectionNames) throws UnknownHostException {
         for (String collectionName : collectionNames) {
-            mongoServer.getConnection().getDB(dbName).getCollection(collectionName).drop();
+            mongoServer.getConnection().getDB(dbName).getCollection(collectionName).remove(new BasicDBObject());
         }
     }
 
