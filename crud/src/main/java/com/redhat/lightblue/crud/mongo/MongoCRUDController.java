@@ -180,11 +180,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                 ctx.getHookManager().queueHooks(ctx);
             }
         } catch (Error e) {
-            // rethrow lightblue error
-            throw e;
+            ctx.addError(e);
         } catch (Exception e) {
-            LOGGER.error("Error during insert: {}", e);
-            throw analyzeException(e, CrudConstants.ERR_CRUD);
+            ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
         }
@@ -197,15 +195,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                                      QueryExpression query,
                                      UpdateExpression update,
                                      Projection projection) {
-        if (query == null) {
-            throw new IllegalArgumentException(MongoCrudConstants.ERR_NULL_QUERY);
-        }
         LOGGER.debug("update start: q:{} u:{} p:{}", query, update, projection);
         Error.push(OP_UPDATE);
         CRUDUpdateResponse response = new CRUDUpdateResponse();
         Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
-        ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE, ctx);
         try {
+            if (query == null) {
+                throw Error.get("update",MongoCrudConstants.ERR_NULL_QUERY,"");
+            }
+            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE, ctx);
             EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
             if (md.getAccess().getUpdate().hasAccess(ctx.getCallerRoles())) {
                 ConstraintValidator validator = ctx.getFactory().getConstraintValidator(md);
@@ -243,11 +241,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "update:" + ctx.getEntityName()));
             }
         } catch (Error e) {
-            // rethrow lightblue error
-            throw e;
+            ctx.addError(e);
         } catch (Exception e) {
-            LOGGER.error(e.getMessage(), e);
-            throw analyzeException(e, CrudConstants.ERR_CRUD);
+            ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
         }
@@ -259,15 +255,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     @Override
     public CRUDDeleteResponse delete(CRUDOperationContext ctx,
                                      QueryExpression query) {
-        if (query == null) {
-            throw new IllegalArgumentException(MongoCrudConstants.ERR_NULL_QUERY);
-        }
         LOGGER.debug("delete start: q:{}", query);
         Error.push(OP_DELETE);
         CRUDDeleteResponse response = new CRUDDeleteResponse();
         Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
-        ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_DELETE, ctx);
         try {
+            if (query == null) {
+                throw Error.get("delete",MongoCrudConstants.ERR_NULL_QUERY,"");
+            }
+            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_DELETE, ctx);
             EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
             if (md.getAccess().getDelete().hasAccess(ctx.getCallerRoles())) {
                 LOGGER.debug("Translating query {}", query);
@@ -285,7 +281,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         } catch (Error e) {
             ctx.addError(e);
         } catch (Exception e) {
-            LOGGER.error(e.getMessage(), e);
             ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
@@ -305,18 +300,18 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                                  Sort sort,
                                  Long from,
                                  Long to) {
-        if (query == null) {
-            throw new IllegalArgumentException(MongoCrudConstants.ERR_NULL_QUERY);
-        }
-        if (projection == null) {
-            throw new IllegalArgumentException(MongoCrudConstants.ERR_NULL_PROJECTION);
-        }
         LOGGER.debug("find start: q:{} p:{} sort:{} from:{} to:{}", query, projection, sort, from, to);
         Error.push(OP_FIND);
         CRUDFindResponse response = new CRUDFindResponse();
         Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
-        ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_FIND, ctx);
         try {
+            if (query == null) {
+                throw Error.get("find",MongoCrudConstants.ERR_NULL_QUERY,"");
+            }
+            if (projection == null) {
+                throw Error.get("find",MongoCrudConstants.ERR_NULL_PROJECTION,"");
+            }
+            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_FIND, ctx);
             EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
             if (md.getAccess().getFind().hasAccess(ctx.getCallerRoles())) {
                 FieldAccessRoleEvaluator roleEval = new FieldAccessRoleEvaluator(md, ctx.getCallerRoles());
@@ -349,11 +344,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "find:" + ctx.getEntityName()));
             }
         } catch (Error e) {
-            // rethrow lightblue error
-            throw e;
+            ctx.addError(e);
         } catch (Exception e) {
-            LOGGER.error(e.getMessage(), e);
-            throw analyzeException(e, CrudConstants.ERR_CRUD);
+            ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
         }
@@ -579,13 +572,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                 }
             }
         } catch (MongoException me) {
-            LOGGER.error("createUpdateEntityInfoIndexes: {}", ei, me);
             throw Error.get(MongoCrudConstants.ERR_ENTITY_INDEX_NOT_CREATED, me.getMessage());
         } catch (Error e) {
             // rethrow lightblue error
             throw e;
         } catch (Exception e) {
-            LOGGER.error(e.getMessage(), e);
             throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
             Error.pop();
@@ -669,7 +660,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     private Error analyzeException(Exception e, final String otherwise, final String msg, boolean specialHandling) {
-        LOGGER.error(e.getMessage(), e);
+        if(e instanceof Error)
+            return (Error)e;
+
         if (e instanceof CommandFailureException) {
             CommandFailureException ce = (CommandFailureException) e;
             // give a better Error.code in case auth failed which is represented in MongoDB by code == 18
