@@ -182,7 +182,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         } catch (Error e) {
             ctx.addError(e);
         } catch (Exception e) {
-            LOGGER.error("Error during insert: {}", e);
             ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
@@ -244,7 +243,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         } catch (Error e) {
             ctx.addError(e);
         } catch (Exception e) {
-            LOGGER.error(e.getMessage(), e);
             ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
@@ -283,7 +281,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         } catch (Error e) {
             ctx.addError(e);
         } catch (Exception e) {
-            LOGGER.error(e.getMessage(), e);
             ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
@@ -349,7 +346,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         } catch (Error e) {
             ctx.addError(e);
         } catch (Exception e) {
-            LOGGER.error(e.getMessage(), e);
             ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
@@ -576,13 +572,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
                 }
             }
         } catch (MongoException me) {
-            LOGGER.error("createUpdateEntityInfoIndexes: {}", ei, me);
             throw Error.get(MongoCrudConstants.ERR_ENTITY_INDEX_NOT_CREATED, me.getMessage());
         } catch (Error e) {
             // rethrow lightblue error
             throw e;
         } catch (Exception e) {
-            LOGGER.error(e.getMessage(), e);
             throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
             Error.pop();
@@ -666,7 +660,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     }
 
     private Error analyzeException(Exception e, final String otherwise, final String msg, boolean specialHandling) {
-        LOGGER.error(e.getMessage(), e);
+        if(e instanceof Error)
+            return (Error)e;
+
         if (e instanceof CommandFailureException) {
             CommandFailureException ce = (CommandFailureException) e;
             // give a better Error.code in case auth failed which is represented in MongoDB by code == 18
