@@ -28,6 +28,7 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.X509TrustManager;
+
 import java.security.cert.X509Certificate;
 
 import org.slf4j.Logger;
@@ -40,10 +41,12 @@ import com.mongodb.DB;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoCredential;
+import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
 import com.redhat.lightblue.config.DataSourceConfiguration;
 import com.redhat.lightblue.metadata.mongo.MongoDataStoreParser;
 import com.redhat.lightblue.metadata.parser.DataStoreParser;
+
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 
@@ -74,6 +77,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
     private boolean ssl = Boolean.FALSE;
     private boolean noCertValidation = Boolean.FALSE;
     private Class metadataDataStoreParser = MongoDataStoreParser.class;
+    private ReadPreference readPreference = null;
 
     public void addServerAddress(String hostname, int port) throws UnknownHostException {
         this.servers.add(new ServerAddress(hostname, port));
@@ -225,6 +229,9 @@ public class MongoConfiguration implements DataSourceConfiguration {
         if (connectionsPerHost != null) {
             builder.connectionsPerHost(connectionsPerHost);
         }
+
+        if (this.readPreference != null)
+            builder.readPreference(readPreference);
 
         if (ssl) {
             // taken from MongoClientURI, written this way so we don't have to
@@ -429,6 +436,21 @@ public class MongoConfiguration implements DataSourceConfiguration {
                     }
                 }
             }
+
+            JsonNode jsonNodeOptions = node.get("driverOptions");
+            if (jsonNodeOptions != null) {
+                JsonNode readPreferenceOption = jsonNodeOptions.get("readPreference");
+                if (readPreferenceOption != null)
+                    this.readPreference = ReadPreference.valueOf(readPreferenceOption.asText());
+            }
         }
+    }
+
+    public ReadPreference getReadPreference() {
+        return readPreference;
+    }
+
+    public void setReadPreference(ReadPreference readPreference) {
+        this.readPreference = readPreference;
     }
 }
