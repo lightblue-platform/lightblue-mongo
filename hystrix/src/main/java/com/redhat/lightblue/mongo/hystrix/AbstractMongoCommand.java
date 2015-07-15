@@ -18,6 +18,9 @@
  */
 package com.redhat.lightblue.mongo.hystrix;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+
 import com.mongodb.DBCollection;
 import com.mongodb.MongoSocketException;
 import com.netflix.hystrix.HystrixCommand;
@@ -66,7 +69,11 @@ public abstract class AbstractMongoCommand<T> extends HystrixCommand<T> {
             // must rethrow because MongoSocketException is instance of RuntimeException
             throw mse;
         } catch (RuntimeException x) {
-            throw new HystrixBadRequestException("in " + getClass().getName(), x);
+            StringWriter sw=new StringWriter();
+            PrintWriter w=new PrintWriter(sw);
+            w.println(x.toString());
+            x.printStackTrace(w);
+            throw new HystrixBadRequestException("in " + getClass().getName()+":"+sw.toString(),x);
         }
     }
 
