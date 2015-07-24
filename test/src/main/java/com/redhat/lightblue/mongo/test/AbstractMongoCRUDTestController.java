@@ -66,12 +66,12 @@ public abstract class AbstractMongoCRUDTestController extends AbstractCRUDTestCo
 
     @Override
     protected JsonNode getLightblueMetadataJson() throws Exception {
-        return json(loadResource("/mongo-lightblue-metadata.json", getClass()));
+        return json(loadResource("/mongo-lightblue-metadata.json", AbstractMongoCRUDTestController.class));
     }
 
     @Override
     protected JsonNode getDatasourcesJson() throws Exception {
-        return json(loadResource("/mongo-datasources.json", getClass()));
+        return json(loadResource("/mongo-datasources.json", AbstractMongoCRUDTestController.class));
     }
 
     /**
