@@ -19,16 +19,15 @@
 package com.redhat.lightblue.mongo.test;
 
 import static com.redhat.lightblue.util.JsonUtils.json;
+import static com.redhat.lightblue.util.test.AbstractJsonNodeTest.loadResource;
 
-import java.io.IOException;
 import java.net.UnknownHostException;
 
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 
-import com.mongodb.BasicDBObject;
-
 import com.fasterxml.jackson.databind.JsonNode;
+import com.mongodb.BasicDBObject;
 import com.redhat.lightblue.mongo.test.MongoServerExternalResource.InMemoryMongoServer;
 import com.redhat.lightblue.test.AbstractCRUDTestController;
 
@@ -67,20 +66,12 @@ public abstract class AbstractMongoCRUDTestController extends AbstractCRUDTestCo
 
     @Override
     protected JsonNode getLightblueMetadataJson() throws Exception {
-        return json(loadResource("/mongo-lightblue-metadata.json", true));
+        return json(loadResource("/mongo-lightblue-metadata.json", AbstractMongoCRUDTestController.class));
     }
 
     @Override
-    protected JsonNode getDatasourcesJson() {
-        try {
-            if (getDatasourcesResourceName() == null) {
-                return json(loadResource("/mongo-datasources.json", true));
-            } else {
-                return json(loadResource(getDatasourcesResourceName(), false));
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Unable to load resource '" + getDatasourcesResourceName() + "'", e);
-        }
+    protected JsonNode getDatasourcesJson() throws Exception {
+        return json(loadResource("/mongo-datasources.json", AbstractMongoCRUDTestController.class));
     }
 
     /**
