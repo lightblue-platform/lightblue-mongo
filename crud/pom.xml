@@ -54,7 +54,11 @@
             <groupId>com.redhat.lightblue</groupId>
             <artifactId>lightblue-core-crud</artifactId>
         </dependency>
-    </dependencies>
+         <dependency>
+            <groupId>com.redhat.lightblue</groupId>
+            <artifactId>lightblue-core-extensions</artifactId>
+        </dependency>
+   </dependencies>
     <build>
         <plugins>
             <plugin>
