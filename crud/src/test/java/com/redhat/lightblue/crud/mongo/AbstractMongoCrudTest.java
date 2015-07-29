@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
+import com.mongodb.BasicDBObject;
 import com.redhat.lightblue.crud.Factory;
 import com.redhat.lightblue.crud.validator.DefaultFieldConstraintValidators;
 import com.redhat.lightblue.crud.validator.EmptyEntityConstraintValidators;
@@ -79,8 +80,8 @@ public abstract class AbstractMongoCrudTest extends AbstractJsonSchemaTest {
 
     @After
     public void teardown() throws Exception {
-        mongo.getConnection().dropDatabase(DATABADSE_NAME);
-        coll = null;
+        if(coll!=null)
+            coll.remove(new BasicDBObject());
     }
 
     protected Projection projection(String s) throws Exception {

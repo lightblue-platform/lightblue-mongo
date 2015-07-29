@@ -19,8 +19,7 @@
 package com.redhat.lightblue.crud.mongo;
 
 import java.util.Date;
-import java.util.List;
-import java.util.ArrayList;
+import java.util.Arrays;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -164,11 +163,11 @@ public class MongoLocking {
                     append(EXPIRATION,new BasicDBObject("$gt",now)).
                     append(VERSION,readVer);
                 update=new BasicDBObject().
-                    append(TIMESTAMP,now).
-                    append(EXPIRATION,expiration).
-                    append(TTL,ttl).
-                    append("$inc",new BasicDBObject(COUNT,1)).
-                    append("$inc",new BasicDBObject(VERSION,1));            
+                    append("$set",new BasicDBObject(TIMESTAMP,now).
+                           append(EXPIRATION,expiration).
+                           append(TTL,ttl)).
+                    append("$inc",new BasicDBObject(VERSION,1).
+                           append(COUNT,1));
                 LOGGER.debug("update: {} {}",query,update);
                 wr=coll.update(query,update,false,false,WriteConcern.SAFE);
                 if(wr.getN()==1) {
@@ -180,19 +179,17 @@ public class MongoLocking {
         if(!locked) {
             // assume lock is expired or count <=0, and try to acquire it
             LOGGER.debug("{}/{} lock is expired or count <= 0, attempting to reacquire expired lock", callerId, resourceId);
-            List<DBObject> q=new ArrayList<>();
-            q.add(new BasicDBObject(EXPIRATION,new BasicDBObject("$lte",now)));
-            q.add(new BasicDBObject(COUNT,new BasicDBObject("$lte",0)));
             query=new BasicDBObject().
                 append(RESOURCEID,resourceId).
-                append("$or",q).
+                append("$or",Arrays.asList(new BasicDBObject(EXPIRATION,new BasicDBObject("$lte",now)),
+                                           new BasicDBObject(COUNT,new BasicDBObject("$lte",0)))).
                 append(VERSION,readVer);
             update=new BasicDBObject().
-                append(CALLERID,callerId).
-                append(TIMESTAMP,now).
-                append(EXPIRATION,expiration).
-                append(TTL,ttl).
-                append(COUNT,1).
+                append("$set",new BasicDBObject(CALLERID,callerId).
+                       append(TIMESTAMP,now).
+                       append(EXPIRATION,expiration).
+                       append(TTL,ttl).
+                       append(COUNT,1)).
                 append("$inc",new BasicDBObject(VERSION,1));
             LOGGER.debug("update: {} {}",query,update);
             wr=coll.update(query,update,false,false,WriteConcern.SAFE);
@@ -237,11 +234,11 @@ public class MongoLocking {
                 append(EXPIRATION,new BasicDBObject("$gt",now)).
                 append(COUNT,new BasicDBObject("$gt",0));
             BasicDBObject update=new BasicDBObject().
-                append("$inc",new BasicDBObject(COUNT,-1)).
-                append(EXPIRATION,expiration).
-                append(TTL,ttl).
-                append(TIMESTAMP,now).
-                append("$inc",new BasicDBObject(VERSION,1));
+                append("$set",new BasicDBObject(EXPIRATION,expiration).
+                       append(TTL,ttl).
+                       append(TIMESTAMP,now)).
+                append("$inc",new BasicDBObject(COUNT,-1).
+                       append(VERSION,1));
             wr=coll.update(query,update,false,false,WriteConcern.SAFE);
             if(wr.getN()==1) {
                 LOGGER.debug("{}/{} lock count decremented, still locked",callerId,resourceId);
@@ -280,8 +277,8 @@ public class MongoLocking {
         if(lock!=null) {
             Date expiration=new Date(now.getTime()+((Number)lock.get(TTL)).longValue());
             BasicDBObject update=new BasicDBObject().
-                append(TIMESTAMP,now).
-                append(EXPIRATION,expiration);
+                append("$set",new BasicDBObject(TIMESTAMP,now).
+                       append(EXPIRATION,expiration));
             WriteResult wr=coll.update(q,update,false,false,WriteConcern.SAFE);
             if(wr.getN()!=1)
                 throw new InvalidLockException(resourceId);
