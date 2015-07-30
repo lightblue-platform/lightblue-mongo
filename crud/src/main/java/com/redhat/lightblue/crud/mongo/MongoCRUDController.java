@@ -380,9 +380,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     }
 
     @Override
-    public Extension getExtensionInstance(Class<? extends Extension> extensionClass) {
+    public <E extends Extension> E getExtensionInstance(Class<? extends Extension> extensionClass) {
         if(extensionClass.equals(LockingSupport.class))
-            return new MongoLockingSupport(this);
+            return (E)new MongoLockingSupport(this);
         else
             return null;
     }
