@@ -51,6 +51,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>com.redhat.lightblue.mongo</groupId>
+            <artifactId>lightblue-mongo-config</artifactId>
+            <version>1.7.0-SNAPSHOT</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.redhat.lightblue</groupId>
             <artifactId>lightblue-core-crud</artifactId>
         </dependency>
