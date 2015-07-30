@@ -22,6 +22,9 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Iterator;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -36,6 +39,8 @@ import com.redhat.lightblue.common.mongo.MongoDataStore;
 
 public class MongoLockingSupport implements LockingSupport {
 
+    private static final Logger LOGGER=LoggerFactory.getLogger(MongoLockingSupport.class);
+
     private final MongoCRUDController controller;
     
     public MongoLockingSupport(MongoCRUDController controller) {
@@ -45,13 +50,17 @@ public class MongoLockingSupport implements LockingSupport {
     @Override
     public String[] getLockingDomains() {
         List<String> list=new ArrayList<>();
+        LOGGER.debug("Getting configured locking domains");
         ControllerConfiguration cfg=controller.getControllerConfiguration();
         if(cfg!=null) {
+            LOGGER.debug("Got controller configuration");
             ObjectNode configNode=cfg.getExtensions();
             if(configNode!=null) {
+                LOGGER.debug("Extensions: {}",configNode);
                 JsonNode x=configNode.get("locking");
                 if(x instanceof ArrayNode) {
                     ArrayNode arr=(ArrayNode)x;
+                    LOGGER.debug("Locking:{}",arr);
                     for(Iterator<JsonNode> domains=arr.elements();
                         domains.hasNext();) {
                         x=domains.next();
@@ -65,6 +74,7 @@ public class MongoLockingSupport implements LockingSupport {
                 }
             }
         }
+        LOGGER.debug("Domains:{}",list);
         return list.toArray(new String[list.size()]);
     }
 
