@@ -25,7 +25,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Test class that encapsulates the in memory mongo DB used for unit tests.
  *
  * Created by nmalik on 12/16/14.
+ * 
+ * Should be using {@link AbstractMongoCRUDTestController} and/or {@link MongoServerExternalResource}.
  */
+@Deprecated
 public final class EmbeddedMongo {
 
     /**
