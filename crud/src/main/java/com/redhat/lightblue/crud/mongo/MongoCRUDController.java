@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.*;
+import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.common.mongo.DBResolver;
 import com.redhat.lightblue.common.mongo.MongoDataStore;
 import com.redhat.lightblue.crud.*;
@@ -83,9 +84,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     private static final Projection ID_PROJECTION = new FieldProjection(new Path(ID_STR), true, false);
 
     private final DBResolver dbResolver;
+    private final ControllerConfiguration controllerCfg;
 
-    public MongoCRUDController(DBResolver dbResolver) {
+    public MongoCRUDController(ControllerConfiguration controllerCfg,DBResolver dbResolver) {
         this.dbResolver = dbResolver;
+        this.controllerCfg=controllerCfg;
     }
 
     /**
