@@ -32,8 +32,9 @@ import com.mongodb.MongoException;
 import com.mongodb.DBObject;
 
 import com.redhat.lightblue.extensions.synch.InvalidLockException;
+import com.redhat.lightblue.extensions.synch.Locking;
 
-public class MongoLocking {
+public class MongoLocking implements Locking {
 
     public static final String CALLERID="own";
     public static final String RESOURCEID="rsc";

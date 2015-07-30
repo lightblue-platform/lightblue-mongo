@@ -39,13 +39,16 @@ import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.MutablePath;
 import com.redhat.lightblue.util.Path;
+import com.redhat.lightblue.extensions.ExtensionSupport;
+import com.redhat.lightblue.extensions.Extension;
+import com.redhat.lightblue.extensions.synch.LockingSupport;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-public class MongoCRUDController implements CRUDController, MetadataListener {
+public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport {
 
     public static final String ID_STR = "_id";
 
@@ -91,6 +94,14 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         this.controllerCfg=controllerCfg;
     }
 
+    public DBResolver getDbResolver() {
+        return dbResolver;
+    }
+
+    public ControllerConfiguration getControllerConfiguration() {
+        return controllerCfg;
+    }
+    
     /**
      * Insertion operation for mongo
      */
@@ -368,6 +379,14 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         }
     }
 
+    @Override
+    public Extension getExtensionInstance(Class<? extends Extension> extensionClass) {
+        if(extensionClass.equals(LockingSupport.class))
+            return new MongoLockingSupport(this);
+        else
+            return null;
+    }
+    
     @Override
     public MetadataListener getMetadataListener() {
         return this;
