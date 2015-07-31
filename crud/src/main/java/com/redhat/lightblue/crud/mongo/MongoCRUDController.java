@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.*;
+import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.common.mongo.DBResolver;
 import com.redhat.lightblue.common.mongo.MongoDataStore;
 import com.redhat.lightblue.crud.*;
@@ -38,13 +39,16 @@ import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.MutablePath;
 import com.redhat.lightblue.util.Path;
+import com.redhat.lightblue.extensions.ExtensionSupport;
+import com.redhat.lightblue.extensions.Extension;
+import com.redhat.lightblue.extensions.synch.LockingSupport;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-public class MongoCRUDController implements CRUDController, MetadataListener {
+public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport {
 
     public static final String ID_STR = "_id";
 
@@ -83,11 +87,21 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
     private static final Projection ID_PROJECTION = new FieldProjection(new Path(ID_STR), true, false);
 
     private final DBResolver dbResolver;
+    private final ControllerConfiguration controllerCfg;
 
-    public MongoCRUDController(DBResolver dbResolver) {
+    public MongoCRUDController(ControllerConfiguration controllerCfg,DBResolver dbResolver) {
         this.dbResolver = dbResolver;
+        this.controllerCfg=controllerCfg;
     }
 
+    public DBResolver getDbResolver() {
+        return dbResolver;
+    }
+
+    public ControllerConfiguration getControllerConfiguration() {
+        return controllerCfg;
+    }
+    
     /**
      * Insertion operation for mongo
      */
@@ -365,6 +379,14 @@ public class MongoCRUDController implements CRUDController, MetadataListener {
         }
     }
 
+    @Override
+    public <E extends Extension> E getExtensionInstance(Class<? extends Extension> extensionClass) {
+        if(extensionClass.equals(LockingSupport.class))
+            return (E)new MongoLockingSupport(this);
+        else
+            return null;
+    }
+    
     @Override
     public MetadataListener getMetadataListener() {
         return this;

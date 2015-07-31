@@ -68,7 +68,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         final DB dbx = db;
         dbx.createCollection(COLL_NAME, null);
 
-        controller = new MongoCRUDController(new DBResolver() {
+        controller = new MongoCRUDController(null,new DBResolver() {
             @Override
             public DB get(MongoDataStore store) {
                 return dbx;

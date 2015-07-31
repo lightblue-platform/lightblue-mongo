@@ -40,6 +40,9 @@ public final class MongoCrudConstants {
     public static final String ERR_ENTITY_INDEX_NOT_CREATED = "mongo-crud:EntityIndexNotCreated";
     public static final String ERR_INVALID_INDEX_FIELD = "mongo-crud:InvalidIndexField";
 
+    public static final String ERR_INVALID_LOCKING_DOMAIN = "mongo-crud:InvalidLockingDomain";
+    public static final String ERR_CONFIGURATION_ERROR = "mongo=crud:ConfigurationError";
+    
     private MongoCrudConstants() {
 
     }
