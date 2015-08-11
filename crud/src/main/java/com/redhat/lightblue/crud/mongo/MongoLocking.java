@@ -228,12 +228,14 @@ public class MongoLocking implements Locking {
         if(lock!=null) {
             long ttl=((Number)lock.get(TTL)).longValue();
             Date expiration=new Date(now.getTime()+ttl);
+            int ver=((Number)lock.get(VERSION)).intValue();
             // Try decrementing the lock count of our lock
             query=new BasicDBObject().
                 append(CALLERID,callerId).
                 append(RESOURCEID,resourceId).
                 append(EXPIRATION,new BasicDBObject("$gt",now)).
-                append(COUNT,new BasicDBObject("$gt",0));
+                append(COUNT,new BasicDBObject("$gt",0)).
+                append(VERSION,ver);
             BasicDBObject update=new BasicDBObject().
                 append("$set",new BasicDBObject(EXPIRATION,expiration).
                        append(TTL,ttl).
@@ -277,9 +279,12 @@ public class MongoLocking implements Locking {
         DBObject lock=coll.findOne(q);
         if(lock!=null) {
             Date expiration=new Date(now.getTime()+((Number)lock.get(TTL)).longValue());
+            int ver=((Number)lock.get(VERSION)).intValue();
             BasicDBObject update=new BasicDBObject().
                 append("$set",new BasicDBObject(TIMESTAMP,now).
-                       append(EXPIRATION,expiration));
+                       append(EXPIRATION,expiration)).
+                append("$inc",new BasicDBObject(VERSION,1));
+            q=q.append(VERSION,ver);
             WriteResult wr=coll.update(q,update,false,false,WriteConcern.SAFE);
             if(wr.getN()!=1)
                 throw new InvalidLockException(resourceId);
