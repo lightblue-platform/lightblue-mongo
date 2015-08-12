@@ -26,6 +26,12 @@ import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 
+/**
+ * Sequence generation using a MongoDB collection. 
+ *
+ * Each sequence is a document uniquely identified by the sequence name. The document contains
+ * initial value for the sequence, the increment, and the value.
+ */
 public class MongoSequenceGenerator {
 
     public static final String NAME="name";
@@ -47,12 +53,30 @@ public class MongoSequenceGenerator {
         BasicDBObject options=new BasicDBObject("unique",1);
         coll.ensureIndex(keys,options);
     }
-   
+
+    /**
+     * Atomically increments and returns the sequence value. If this
+     * is the first use of the sequence, the sequence is created
+     *
+     * @param name The sequence name
+     * @param init The initial value of the sequence. Used only if
+     * the sequence does not exists prior to this call
+     * @param inc The increment, Could be negative or positive. If 0,
+     * it is assumed to be 1. Used only if the sequence does not exist
+     * prior to this call
+     *
+     * If the sequence already exists, the <code>init</code> and
+     * <code>inc</code> are ignored.
+     *
+     * @return The value of the sequence before the call
+     */
     public long getNextSequenceValue(String name,long init,long inc) {
         LOGGER.debug("getNextSequenceValue({})",name);
+        // Read the sequence document
         BasicDBObject q=new BasicDBObject(NAME,name);
         DBObject doc=coll.findOne(q);
         if(doc==null) {
+            // Sequence document does not exist. Insert a new document using the init and inc
             LOGGER.debug("inserting sequence record name={}, init={}, inc={}",name,init,inc);
             if(inc==0)
                 inc=1;
@@ -66,6 +90,7 @@ public class MongoSequenceGenerator {
             try {
                 coll.insert(u,WriteConcern.SAFE);
             } catch (Exception e) {
+                // Someone else might have inserted already, try to re-read
                 LOGGER.debug("Insertion failed with {}, trying to read",e);
             }
             doc=coll.findOne(q);
@@ -76,6 +101,7 @@ public class MongoSequenceGenerator {
         Long increment=(Long)doc.get(INC);
         BasicDBObject u=new BasicDBObject().
             append("$inc",new BasicDBObject(VALUE,increment));
+        // This call returns the unmodified document
         doc=coll.findAndModify(q,u);
         Long l=(Long)doc.get(VALUE);
         LOGGER.debug("{} -> {}",name,l);
