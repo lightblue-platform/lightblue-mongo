@@ -319,9 +319,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         CRUDFindResponse response = new CRUDFindResponse();
         Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
         try {
-            if (query == null) {
-                throw Error.get("find",MongoCrudConstants.ERR_NULL_QUERY,"");
-            }
             if (projection == null) {
                 throw Error.get("find",MongoCrudConstants.ERR_NULL_PROJECTION,"");
             }
@@ -330,7 +327,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             if (md.getAccess().getFind().hasAccess(ctx.getCallerRoles())) {
                 FieldAccessRoleEvaluator roleEval = new FieldAccessRoleEvaluator(md, ctx.getCallerRoles());
                 LOGGER.debug("Translating query {}", query);
-                DBObject mongoQuery = translator.translate(md, query);
+                DBObject mongoQuery = query==null?null:translator.translate(md, query);
                 LOGGER.debug("Translated query {}", mongoQuery);
                 DBObject mongoSort;
                 if (sort != null) {
