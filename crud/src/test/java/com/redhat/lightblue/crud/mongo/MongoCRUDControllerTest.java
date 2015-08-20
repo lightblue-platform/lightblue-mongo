@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -450,6 +451,33 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(1, upd.getNumFailed());
     }
 
+
+    @Test
+    public void findUsingBigdecimalTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+
+        ctx.add(md);
+        // Generate some docs
+        List<JsonDoc> docs = new ArrayList<>();
+        int numDocs = 20;
+        for (int i = 0; i < numDocs; i++) {
+            JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+            doc.modify(new Path("field1"), nodeFactory.textNode("doc" + i), false);
+            doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
+            doc.modify(new Path("field4"), nodeFactory.numberNode(new BigDecimal(100)),false);
+            docs.add(doc);
+        }
+        ctx.addDocuments(docs);
+        controller.insert(ctx, projection("{'field':'_id'}"));
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field4','op':'=','rvalue':'100'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(numDocs,ctx.getDocuments().size());
+
+    }
 
     @Test
     public void sortAndPageTest() throws Exception {

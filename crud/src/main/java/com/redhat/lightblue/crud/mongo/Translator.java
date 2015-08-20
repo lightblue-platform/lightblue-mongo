@@ -487,7 +487,7 @@ public class Translator {
                 if (field.equals(ID_PATH)) {
                     valueObject = createIdFrom(valueObject);
                 }
-                obj.put(translatePath(field), valueObject);
+                obj.put(translatePath(field), filterBigNumbers(valueObject));
             } else {
                 throw new CannotTranslateException(expr);
             }
@@ -593,7 +593,7 @@ public class Translator {
             if (value != null) {
                 value = t.cast(value);
             }
-            ret.add(value);
+            ret.add(filterBigNumbers(value));
         }
         return ret;
     }
@@ -610,7 +610,7 @@ public class Translator {
                 throw Error.get(ERR_INVALID_COMPARISON, expr.toString());
             }
         }
-        Object valueObject = t.cast(expr.getRvalue().getValue());
+        Object valueObject = filterBigNumbers(t.cast(expr.getRvalue().getValue()));
         if (expr.getField().equals(ID_PATH)) {
             valueObject = createIdFrom(valueObject);
         }
@@ -1014,8 +1014,16 @@ public class Translator {
         if (node == null || node instanceof NullNode) {
             return null;
         } else {
-            return t.fromJson(node);
+            return filterBigNumbers(t.fromJson(node));
         }
+    }
+
+    private Object filterBigNumbers(Object value) {
+        // Store big values as string. Mongo does not support big values
+        if(value instanceof BigDecimal || value instanceof BigInteger)
+            return value.toString();
+        else
+            return value;
     }
 
     private void toBson(BasicDBObject dest,
@@ -1028,11 +1036,6 @@ public class Translator {
             if (path.equals(ID_PATH)) {
                 value = createIdFrom(value);
             }
-            // Store big values as string. Mongo does not support big values
-            if (value instanceof BigDecimal || value instanceof BigInteger) {
-                value = value.toString();
-            }
-
             dest.append(path.tail(0), value);
         } else
             dest.append(path.tail(0), null);
