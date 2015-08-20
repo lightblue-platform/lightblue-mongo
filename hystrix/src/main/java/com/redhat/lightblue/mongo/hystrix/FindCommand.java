@@ -21,6 +21,7 @@ package com.redhat.lightblue.mongo.hystrix;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
+import com.mongodb.BasicDBObject;
 
 /**
  * Hystrix command for executing findOne on a MongoDB collection.
@@ -44,6 +45,7 @@ public class FindCommand extends AbstractMongoCommand<DBCursor> {
 
     @Override
     protected DBCursor runMongoCommand() {
-        return getDBCollection().find(query, projection);
+        DBObject q=query==null?new BasicDBObject():query;
+        return getDBCollection().find(q, projection);
     }
 }
