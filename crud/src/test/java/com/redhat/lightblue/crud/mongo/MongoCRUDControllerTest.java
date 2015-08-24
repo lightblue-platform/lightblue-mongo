@@ -317,6 +317,43 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void upsertWithIdsTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadata_ids.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        ctx.addDocument(doc);
+        System.out.println("Write doc:" + doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
+        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
+                        projection("{'field':'*','recursive':1}"), null, null, null);
+        JsonDoc readDoc = ctx.getDocuments().get(0);
+
+        // Remove _id from the doc
+        readDoc.modify(new Path("_id"),null,false);
+        // Change a field
+        Assert.assertEquals(1,readDoc.get(new Path("field3")).asInt());
+        readDoc.modify(new Path("field3"),JsonNodeFactory.instance.numberNode(2),true);
+        ctx=new TestCRUDOperationContext(CRUDOperation.SAVE);
+        ctx.add(md);
+        ctx.addDocument(readDoc);
+        controller.save(ctx,false, projection("{'field':'_id'}"));
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
+                        projection("{'field':'*','recursive':1}"), null, null, null);
+        readDoc = ctx.getDocuments().get(0);
+
+        Assert.assertEquals(2,readDoc.get(new Path("field3")).asInt());
+    }
+
+
+    @Test
     public void updateTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
