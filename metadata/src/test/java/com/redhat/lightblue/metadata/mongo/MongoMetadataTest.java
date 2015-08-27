@@ -482,6 +482,62 @@ public class MongoMetadataTest {
     }
 
     @Test
+    public void snapshotUpdates() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0-SNAPSHOT", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollection"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        md.createNewMetadata(e);
+        EntityMetadata g = md.getEntityMetadata("testEntity", "1.0.0-SNAPSHOT");
+        Assert.assertNotNull("Can't retrieve entity", g);
+        Assert.assertEquals(e.getName(), g.getName());
+        Assert.assertEquals(e.getVersion().getValue(), g.getVersion().getValue());
+        Version[] v = md.getEntityVersions("testEntity");
+        Assert.assertEquals(1, v.length);
+        Assert.assertEquals("1.0.0-SNAPSHOT", v[0].getValue());
+        e.setVersion(new Version("1.0.0-SNAPSHOT", null, "blahblahyadayada"));
+        md.createNewSchema(e);
+        v = md.getEntityVersions("testEntity");
+        Assert.assertEquals(1, v.length);
+        try {
+            md.createNewMetadata(e);
+            Assert.fail();
+        } catch (Exception x) {
+        }
+    }
+
+    @Test
+    public void nonsnapshotUpdateFails() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollection"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        md.createNewMetadata(e);
+        EntityMetadata g = md.getEntityMetadata("testEntity", "1.0.0");
+        Assert.assertNotNull("Can't retrieve entity", g);
+        Assert.assertEquals(e.getName(), g.getName());
+        Assert.assertEquals(e.getVersion().getValue(), g.getVersion().getValue());
+        Version[] v = md.getEntityVersions("testEntity");
+        Assert.assertEquals(1, v.length);
+        Assert.assertEquals("1.0.0", v[0].getValue());
+        e.setVersion(new Version("1.0.0", null, "blahblahyadayada"));
+        try {
+            md.createNewSchema(e);
+            Assert.fail();
+        } catch (Exception x) {}
+        v = md.getEntityVersions("testEntity");
+        Assert.assertEquals(1, v.length);
+    }
+
+    @Test
     public void getWithStatus() throws Exception {
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));

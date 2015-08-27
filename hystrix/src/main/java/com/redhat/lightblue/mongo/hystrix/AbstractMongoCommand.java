@@ -23,12 +23,14 @@ import java.io.StringWriter;
 
 import com.mongodb.DBCollection;
 import com.mongodb.MongoSocketException;
+import com.mongodb.MongoException;
 import com.netflix.hystrix.HystrixCommand;
 import com.netflix.hystrix.HystrixCommandGroupKey;
 import com.netflix.hystrix.HystrixCommandKey;
 import com.netflix.hystrix.HystrixThreadPoolKey;
 import com.netflix.hystrix.HystrixCommandProperties;
 import com.netflix.hystrix.exception.HystrixBadRequestException;
+import com.netflix.hystrix.exception.HystrixRuntimeException;
 
 /**
  * The groupkey for all mongodb commands are "mongodb"
@@ -68,6 +70,8 @@ public abstract class AbstractMongoCommand<T> extends HystrixCommand<T> {
         } catch (MongoSocketException mse) {
             // must rethrow because MongoSocketException is instance of RuntimeException
             throw mse;
+        } catch(MongoException me) {
+            throw me;
         } catch (RuntimeException x) {
             StringWriter sw=new StringWriter();
             PrintWriter w=new PrintWriter(sw);
@@ -78,4 +82,16 @@ public abstract class AbstractMongoCommand<T> extends HystrixCommand<T> {
     }
 
     protected abstract T runMongoCommand();
+
+    public T executeAndUnwrap() {
+        try {
+            return execute();
+        } catch (HystrixRuntimeException x) {
+            Throwable t=x.getCause();
+            if(t instanceof RuntimeException)
+                throw (RuntimeException)t;
+            else
+                throw new RuntimeException(t);
+        }
+    }
 }
