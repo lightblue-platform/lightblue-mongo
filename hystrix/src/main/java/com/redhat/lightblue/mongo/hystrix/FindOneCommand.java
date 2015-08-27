@@ -20,6 +20,7 @@ package com.redhat.lightblue.mongo.hystrix;
 
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.BasicDBObject;
 
 /**
  * Hystrix command for executing findOne on a MongoDB collection.
@@ -28,6 +29,7 @@ import com.mongodb.DBObject;
  */
 public class FindOneCommand extends AbstractMongoCommand<DBObject> {
     private final DBObject query;
+    private final DBObject projection;
 
     /**
      *
@@ -35,12 +37,26 @@ public class FindOneCommand extends AbstractMongoCommand<DBObject> {
      * @param query
      */
     public FindOneCommand(DBCollection collection, DBObject query) {
+        this(collection,query,null);
+    }
+
+    /**
+     *
+     * @param clientKey used to set thread pool key
+     * @param query
+     */
+    public FindOneCommand(DBCollection collection, DBObject query,DBObject projection) {
         super(FindOneCommand.class.getSimpleName(), collection);
         this.query = query;
+        this.projection = projection;
     }
 
     @Override
     protected DBObject runMongoCommand() {
-        return getDBCollection().findOne(query);
+        DBObject q=query==null?new BasicDBObject():query;
+        if(projection==null)
+            return getDBCollection().findOne(q);
+        else
+            return getDBCollection().findOne(q,projection);
     }
 }

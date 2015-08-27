@@ -36,6 +36,7 @@ import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.EntityMetadata;
+import com.redhat.lightblue.metadata.Field;
 import com.redhat.lightblue.mongo.hystrix.FindOneCommand;
 import com.redhat.lightblue.mongo.hystrix.InsertCommand;
 import com.redhat.lightblue.mongo.hystrix.UpdateCommand;
@@ -74,16 +75,35 @@ public class BasicDocSaver implements DocSaver {
         WriteResult result = null;
         String error = null;
 
-        Object id = dbObject.get(MongoCRUDController.ID_STR);
+        DBObject oldDBObject=null;
+        
+        Object id=dbObject.get(MongoCRUDController.ID_STR);
+        if(id==null) {
+            LOGGER.debug("Null _id, looking up the doc using identity fields");
+            Field[] identityFields=md.getEntitySchema().getIdentityFields();
+            Object[] identityFieldValues=fill(dbObject,identityFields);
+            if(!isNull(identityFieldValues)) {                            
+                DBObject lookupq=getLookupQ(identityFields,identityFieldValues);
+                LOGGER.debug("Lookup query: {}",lookupq);                            
+                oldDBObject=new FindOneCommand(collection,lookupq).execute();
+                LOGGER.debug("Retrieved:{}",oldDBObject);
+                if(oldDBObject!=null)
+                    id=oldDBObject.get(MongoCRUDController.ID_STR);
+                LOGGER.debug("Retrieved id:{}",id);
+            }
+        }
+        
         if (op == DocSaver.Op.insert
-                || (id == null && upsert)) {
+            || (id==null && upsert)) {
             // Inserting
             result = insertDoc(ctx, collection, md, dbObject, inputDoc);
-        } else if (op == DocSaver.Op.save && id != null) {
+        } else if (op == DocSaver.Op.save && id!=null) {
             // Updating
             LOGGER.debug("Updating doc {}" + id);
             BasicDBObject q = new BasicDBObject(MongoCRUDController.ID_STR, Translator.createIdFrom(id));
-            DBObject oldDBObject = new FindOneCommand(collection, q).execute();
+            if(oldDBObject==null) {
+                oldDBObject = new FindOneCommand(collection, q).execute();
+            }
             if (oldDBObject != null) {
                 if (md.getAccess().getUpdate().hasAccess(ctx.getCallerRoles())) {
                     JsonDoc oldDoc = translator.toJson(oldDBObject);
@@ -123,6 +143,45 @@ public class BasicDocSaver implements DocSaver {
             }
         }
     }
+
+    private DBObject getLookupQ(Field[] fields,Object[] values) {
+        BasicDBObject dbObject=new BasicDBObject();
+        for(int i=0;i<fields.length;i++) {
+            String path=Translator.translatePath(fields[i].getFullPath());
+            Object value;
+            if(path.equals(MongoCRUDController.ID_STR))
+                value=Translator.createIdFrom(values[i]);
+            else
+                value=values[i];
+            dbObject.append(path,value);
+        }
+        return dbObject;
+    }
+
+    /**
+     * Return the values for the fields
+     */
+    private Object[] fill(DBObject object,Field[] fields) {
+        Object[] ret=new Object[fields.length];
+        for(int i=0;i<ret.length;i++)
+            ret[i]=Translator.getDBObject(object,fields[i].getFullPath());
+        return ret;
+    }
+
+    /**
+     * Return if all values are null
+     */
+    private boolean isNull(Object[] values) {
+        if(values!=null) {
+            for(int i=0;i<values.length;i++) {
+                if(values[i]!=null) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+                     
 
     private WriteResult insertDoc(CRUDOperationContext ctx,
             DBCollection collection,
