@@ -42,6 +42,8 @@ public final class MongoCrudConstants {
 
     public static final String ERR_INVALID_LOCKING_DOMAIN = "mongo-crud:InvalidLockingDomain";
     public static final String ERR_CONFIGURATION_ERROR = "mongo=crud:ConfigurationError";
+
+    public static final String ERR_NO_SEQUENCE_NAME = "mongo-crud:NoSequenceName";
     
     private MongoCrudConstants() {
 
