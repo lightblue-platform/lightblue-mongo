@@ -35,7 +35,31 @@ import com.redhat.lightblue.common.mongo.MongoDataStore;
 
 import com.redhat.lightblue.extensions.valuegenerator.ValueGeneratorSupport;
 
-
+/**
+ * This class performs the interface adaptation between MongoSequence
+ * and ValueGeneratorSupport. When a value generator is called from
+ * the mediator, this translates that call to MongoSequence APIs.
+ *
+ * The mongo sequence support recognizes these properties in the value
+ * generator:
+ *
+ * <ul>
+ *
+ * <li>name: Name of the sequence. Required parameter. Each unique
+ * name corresponds to a document in the sequences collection.</li>
+ * 
+ * <li>collection: Optional parameter, if ommitted, "sequences" is
+ * assumed. Gives the collection name to store the document for this
+ * sequence.</li>
+ *
+ * <li>initialValue: Optional parameter, if ommitted, 1 is
+ * assumed. Gives the initial value of the sequence.</li>
+ * 
+ * <li>increment: Optional parameter, if ommitted, 1 is assumed. Gives
+ * the increment value of the sequence.<li>
+ *
+ * </ul>
+ */
 public class MongoSequenceSupport implements ValueGeneratorSupport {
 
     private static final Logger LOGGER=LoggerFactory.getLogger(MongoSequenceSupport.class);
