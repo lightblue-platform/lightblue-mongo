@@ -42,6 +42,7 @@ import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.extensions.ExtensionSupport;
 import com.redhat.lightblue.extensions.Extension;
 import com.redhat.lightblue.extensions.synch.LockingSupport;
+import com.redhat.lightblue.extensions.valuegenerator.ValueGeneratorSupport;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -380,8 +381,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     public <E extends Extension> E getExtensionInstance(Class<? extends Extension> extensionClass) {
         if(extensionClass.equals(LockingSupport.class))
             return (E)new MongoLockingSupport(this);
-        else
-            return null;
+        else if(extensionClass.equals(ValueGeneratorSupport.class))
+            return (E)new MongoSequenceSupport(this);
+        return null;
     }
     
     @Override
