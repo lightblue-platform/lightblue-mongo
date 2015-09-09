@@ -276,7 +276,7 @@ public class Translator {
             } else {
                 trc = ((DBObject) trc).get(segment);
             }
-            if (trc == null) {
+            if (trc == null&&seg+1<n) {
                 throw Error.get(MongoCrudConstants.ERR_TRANSLATION_ERROR, p.toString());
             }
         }
