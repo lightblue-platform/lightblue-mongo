@@ -635,7 +635,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 return true;
             }
         }
-        return true;
+        return false;
     }
 
     private boolean indexOptionsMatch(Index index, DBObject existingIndex) {

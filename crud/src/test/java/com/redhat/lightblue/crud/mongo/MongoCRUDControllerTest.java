@@ -20,6 +20,7 @@ package com.redhat.lightblue.crud.mongo;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +47,7 @@ import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.ObjectField;
 import com.redhat.lightblue.metadata.MetadataStatus;
 import com.redhat.lightblue.metadata.Index;
+import com.redhat.lightblue.metadata.FieldConstraint;
 import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.metadata.types.IntegerType;
 import com.redhat.lightblue.metadata.constraints.IdentityConstraint;
@@ -1128,5 +1130,119 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                                                    projection("{'field':'*','recursive':1}"));
         Assert.assertEquals(1,ctx.getDocuments().size());
         Assert.assertEquals(2,ctx.getDocuments().get(0).getOutputDocument().get(new Path("jobExecutions")).size());
-    } 
+    }
+
+    @Test
+    public void idIndexRewriteTest() throws Exception {
+        DBCollection coll=db.getCollection("data");
+        
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "data"));
+        SimpleField idField=new SimpleField("_id",StringType.TYPE);
+        List<FieldConstraint> clist=new ArrayList<>();
+        clist.add(new IdentityConstraint());
+        idField.setConstraints(clist);
+        e.getFields().put(idField);
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        e.getFields().put(new SimpleField("objectType", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+        e.getEntitySchema().getAccess().getInsert().setRoles("anyone");
+        e.getEntitySchema().getAccess().getFind().setRoles("anyone");
+        controller.beforeUpdateEntityInfo(null,e.getEntityInfo(),false);
+        Assert.assertEquals(1,e.getEntityInfo().getIndexes().getIndexes().size());
+        Assert.assertEquals("_id",e.getEntityInfo().getIndexes().getIndexes().get(0).getFields().get(0).getField().toString());
+        controller.afterUpdateEntityInfo(null,e.getEntityInfo(),false);
+        // We have our _id index
+        // lets insert a doc in the collection, so we can test indexes
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity",CRUDOperation.INSERT);
+        ctx.add(e);
+        ObjectNode obj=JsonNodeFactory.instance.objectNode();
+        obj.set("objectType",JsonNodeFactory.instance.textNode("testEntity"));
+        obj.set("field1",JsonNodeFactory.instance.textNode("blah"));
+        JsonDoc doc=new JsonDoc(obj);
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+       Assert.assertEquals(1,coll.find().count());
+       
+       Index ix2=new Index(new SortKey(new Path("field1"),false));
+       e.getEntityInfo().getIndexes().add(ix2);
+       // At this point, there must be an _id index in the collection
+       Assert.assertEquals(1,coll.getIndexInfo().size());
+       // Lets overwrite
+       controller.afterUpdateEntityInfo(null,e.getEntityInfo(),false);
+       // This should not fail
+       Assert.assertEquals(2,coll.getIndexInfo().size());
+    }
+    
+    @Test
+    public void doubleidIndexRewriteTest() throws Exception {
+        DBCollection coll=db.getCollection("data");
+        
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "data"));
+        SimpleField idField=new SimpleField("_id",StringType.TYPE);
+        List<FieldConstraint> clist=new ArrayList<>();
+        clist.add(new IdentityConstraint());
+        idField.setConstraints(clist);
+        e.getFields().put(idField);
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        e.getFields().put(new SimpleField("objectType", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+        e.getEntitySchema().getAccess().getInsert().setRoles("anyone");
+        e.getEntitySchema().getAccess().getFind().setRoles("anyone");
+
+        Index ix1=new Index(new SortKey(new Path("field1"),false),new SortKey(new Path("field2"),false));
+        ix1.setUnique(true);
+        ix1.setName("main");
+
+
+        Index ix2=new Index(new SortKey(new Path("_id"),false));
+        ix2.setUnique(true);
+        e.getEntityInfo().getIndexes().add(ix2);
+        Index ix3=new Index(new SortKey(new Path("_id"),false));
+        ix3.setUnique(false);
+        ix3.setName("nonunique");
+        e.getEntityInfo().getIndexes().add(ix3);
+        
+        controller.afterUpdateEntityInfo(null,e.getEntityInfo(),false);
+        // lets insert a doc in the collection, so we can test indexes
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity",CRUDOperation.INSERT);
+        ctx.add(e);
+        ObjectNode obj=JsonNodeFactory.instance.objectNode();
+        obj.set("objectType",JsonNodeFactory.instance.textNode("testEntity"));
+        obj.set("field1",JsonNodeFactory.instance.textNode("blah"));
+        JsonDoc doc=new JsonDoc(obj);
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        Assert.assertEquals(1,coll.find().count());
+       
+        // At this point, there must be only one _id index in the collection
+        Assert.assertEquals(1,coll.getIndexInfo().size());
+
+        // Remove the nonunique index
+        List<Index> ilist=new ArrayList<>();
+        ilist.add(ix1);
+        ilist.add(ix2);
+        e.getEntityInfo().getIndexes().setIndexes(ilist);
+        
+        // Lets overwrite
+        controller.afterUpdateEntityInfo(null,e.getEntityInfo(),false);
+        // This should not fail
+        Assert.assertEquals(2,coll.getIndexInfo().size());
+    }
+
 }
