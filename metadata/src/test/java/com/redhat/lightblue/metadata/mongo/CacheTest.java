@@ -166,10 +166,8 @@ public class CacheTest {
         // Update the version in db
         coll.update(new BasicDBObject("_id","collectionVersion"),new BasicDBObject("$inc",new BasicDBObject("collectionVersion",1)));
         Thread.sleep(51);
-        // Lookup should not fail, but will detect change
-        Assert.assertNotNull(cache.lookup(coll,"testEntity","1.0.0"));
-        // Lookup should fail now
-        Assert.assertNull(cache.lookup(coll,"testEntity","1.0.0"));        
+        // Lookup will fail,  detect change
+        Assert.assertNull(cache.lookup(coll,"testEntity","1.0.0"));
     }
     
 

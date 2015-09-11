@@ -82,6 +82,12 @@ public class MetadataCache {
     }
     
     public EntityMetadata lookup(DBCollection collection,String entityName,String version) {
+        long now=System.currentTimeMillis();
+        if(lastCacheRefreshTime+cacheTTLMsecs<now)
+            fullRefresh(collection,now);
+        else if(lastVersionLookupTime+versionLookupPeriodMsecs<now) 
+            refreshCollectionVersion(collection,now,false);
+
         EntityMetadata md;
         EntityVersion v=new EntityVersion(entityName,version);
         WeakReference<EntityMetadata> ref=cache.get(v);
@@ -89,12 +95,6 @@ public class MetadataCache {
             md=ref.get();
         else
             md=null;
-
-        long now=System.currentTimeMillis();
-        if(lastCacheRefreshTime+cacheTTLMsecs<now)
-            fullRefresh(collection,now);
-        else if(lastVersionLookupTime+versionLookupPeriodMsecs<now) 
-            refreshCollectionVersion(collection,now,false);
         
         return md;
     }
