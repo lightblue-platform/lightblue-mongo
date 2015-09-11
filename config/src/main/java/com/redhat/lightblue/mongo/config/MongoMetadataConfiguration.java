@@ -30,6 +30,7 @@ import com.redhat.lightblue.config.LightblueFactory;
 import com.redhat.lightblue.metadata.Metadata;
 import com.redhat.lightblue.metadata.mongo.MongoDataStoreParser;
 import com.redhat.lightblue.metadata.mongo.MongoMetadata;
+import com.redhat.lightblue.metadata.mongo.MetadataCache;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.parser.JSONMetadataParser;
 import com.redhat.lightblue.metadata.types.DefaultTypes;
@@ -43,6 +44,10 @@ public class MongoMetadataConfiguration extends AbstractMetadataConfiguration {
 
     private String datasource;
     private String collection;
+    private Long cachePeekInterval;
+    private Long cacheTTL;
+    
+    private static final MetadataCache metadataCache=new MetadataCache();
 
     @Override
     public Metadata createMetadata(DataSourcesConfiguration datasources,
@@ -72,12 +77,14 @@ public class MongoMetadataConfiguration extends AbstractMetadataConfiguration {
             MongoDataStore mdstore = new MongoDataStore();
             mdstore.setDatasourceName(datasource);
 
+            metadataCache.setCacheParams(cachePeekInterval,cacheTTL);
+
             try {
                 MongoMetadata mongoMetadata = null;
                 if (collection == null) {
-                    mongoMetadata = new MongoMetadata(dbresolver.get(mdstore), parserExtensions, typeResolver, factory.getFactory());
+                    mongoMetadata = new MongoMetadata(dbresolver.get(mdstore), parserExtensions, typeResolver, factory.getFactory(),metadataCache);
                 } else {
-                    mongoMetadata = new MongoMetadata(dbresolver.get(mdstore), collection, parserExtensions, typeResolver, factory.getFactory());
+                    mongoMetadata = new MongoMetadata(dbresolver.get(mdstore), collection, parserExtensions, typeResolver, factory.getFactory(),metadataCache);
                 }
 
                 mongoMetadata.setRoleMap(getMappedRoles());
@@ -140,6 +147,12 @@ public class MongoMetadataConfiguration extends AbstractMetadataConfiguration {
             if (x != null) {
                 collection = x.asText();
             }
+            x=node.get("cachePeekIntervalMsec");
+            if(x!=null)
+                cachePeekInterval=x.asLong();
+            x=node.get("cacheTTLMsec");
+            if(x!=null)
+                cacheTTL=x.asLong();
         }
     }
 }

@@ -45,7 +45,7 @@ public class MongoMetadata extends AbstractMetadata {
     public static final String DEFAULT_METADATA_COLLECTION = "metadata";
     private static final long serialVersionUID = 1L;
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoMetadata.class);
-    private static final String LITERAL_ID = "_id";
+    public static final String LITERAL_ID = "_id";
     private static final String LITERAL_ENTITY_NAME = "entityName";
     private static final String LITERAL_VERSION = "version";
     private static final String LITERAL_STATUS = "status";
@@ -55,22 +55,26 @@ public class MongoMetadata extends AbstractMetadata {
     private final transient DBCollection collection;
     private final transient BSONParser mdParser;
     private final Factory factory;
+    private final MetadataCache cache;
 
     public MongoMetadata(DB db,
                          String metadataCollection,
                          Extensions<BSONObject> parserExtensions,
                          TypeResolver typeResolver,
-                         Factory factory) {
+                         Factory factory,
+                         MetadataCache cache) {
         this.collection = db.getCollection(metadataCollection);
         this.mdParser = new BSONParser(parserExtensions, typeResolver);
         this.factory = factory;
+        this.cache=cache;
     }
 
     public MongoMetadata(DB db,
                          Extensions<BSONObject> parserExtensions,
                          TypeResolver typeResolver,
-                         Factory factory) {
-        this(db, DEFAULT_METADATA_COLLECTION, parserExtensions, typeResolver, factory);
+                         Factory factory,
+                         MetadataCache cache) {
+        this(db, DEFAULT_METADATA_COLLECTION, parserExtensions, typeResolver, factory,cache);
     }
 
     @Override
@@ -79,9 +83,16 @@ public class MongoMetadata extends AbstractMetadata {
         if (entityName == null || entityName.length() == 0) {
             throw new IllegalArgumentException(LITERAL_ENTITY_NAME);
         }
-
+        
         Error.push("getEntityMetadata(" + entityName + ":" + version + ")");
         try {
+            EntityMetadata md;
+            if(cache!=null) {
+                md=cache.lookup(collection,entityName,version);
+                if(md!=null)
+                    return md;
+            }
+            
             EntityInfo info = getEntityInfo(entityName);
             if (version == null || version.length() == 0) {
                 if (info.getDefaultVersion() == null || info.getDefaultVersion().length() == 0) {
@@ -100,7 +111,10 @@ public class MongoMetadata extends AbstractMetadata {
             } else {
                 throw Error.get(MongoMetadataConstants.ERR_UNKNOWN_VERSION, entityName + ":" + version);
             }
-            return new EntityMetadata(info, schema);
+            md=new EntityMetadata(info, schema);
+            if(cache!=null)
+                cache.put(md);
+            return md;
         } catch (Error | IllegalArgumentException e) {
             // rethrow lightblue error or IllegalArgumentException
             throw e;
@@ -297,6 +311,8 @@ public class MongoMetadata extends AbstractMetadata {
                     new RemoveCommand(collection, new BasicDBObject(LITERAL_ID, infoObj.get(LITERAL_ID))).executeAndUnwrap();
                     throw Error.get(MongoMetadataConstants.ERR_DUPLICATE_METADATA, ver.getValue());
                 }
+                if(cache!=null)
+                    cache.updateCollectionVersion(collection);
             } catch (Error e) {
                 // rethrow lightblue error
                 throw e;
@@ -355,6 +371,8 @@ public class MongoMetadata extends AbstractMetadata {
                 LOGGER.error("updateEntityInfo", e);
                 throw analyzeException(e, MongoMetadataConstants.ERR_DB_ERROR);
             }
+            if(cache!=null)
+                cache.updateCollectionVersion(collection);
         } catch (Error e) {
             // rethrow lightblue error
             throw e;
@@ -442,6 +460,8 @@ public class MongoMetadata extends AbstractMetadata {
             if (listener != null) {
                 listener.afterCreateNewSchema(this, md);
             }
+            if(cache!=null)
+                cache.updateCollectionVersion(collection);
         } catch (MongoException.DuplicateKey dke) {
             throw Error.get(MongoMetadataConstants.ERR_DUPLICATE_METADATA, ver.getValue());
         } catch (Error e) {
@@ -514,6 +534,8 @@ public class MongoMetadata extends AbstractMetadata {
             if (error != null) {
                 throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, error);
             }
+            if(cache!=null)
+                cache.updateCollectionVersion(collection);
         } catch (Error e) {
             // rethrow lightblue error
             throw e;
@@ -551,6 +573,8 @@ public class MongoMetadata extends AbstractMetadata {
             if (error != null) {
                 throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, error);
             }
+            if(cache!=null)
+                cache.updateCollectionVersion(collection);
         } catch (Exception e) {
             LOGGER.error("Error during delete", e);
             throw analyzeException(e, MongoMetadataConstants.ERR_DB_ERROR);

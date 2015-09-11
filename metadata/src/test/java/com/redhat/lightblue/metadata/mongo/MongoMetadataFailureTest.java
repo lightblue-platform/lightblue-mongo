@@ -50,7 +50,7 @@ public class MongoMetadataFailureTest {
         Extensions<BSONObject> x = new Extensions<>();
         x.addDefaultExtensions();
         x.registerDataStoreParser("mongo", new MongoDataStoreParser<BSONObject>());
-        md = new MongoMetadata(mongo.getDB(), x, new DefaultTypes(), factory);
+        md = new MongoMetadata(mongo.getDB(), x, new DefaultTypes(), factory,null);
         BasicDBObject index = new BasicDBObject("name", 1);
         index.put("version.value", 1);
         mongo.getDB().getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION).ensureIndex(index, "name", true);
