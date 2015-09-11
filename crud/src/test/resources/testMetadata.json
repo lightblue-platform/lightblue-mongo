@@ -63,6 +63,12 @@
                         "elemf3": {"type": "integer"}
                     }
                 }
+            },
+            "ref": {
+                "type":"reference",
+                "entity":"test",
+                "versionValue":"1.0",
+                "query":{"field":"_id","op":"=","rvalue":1}
             }
         }
     }

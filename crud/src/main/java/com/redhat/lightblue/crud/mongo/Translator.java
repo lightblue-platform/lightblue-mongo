@@ -95,10 +95,11 @@ public class Translator {
 
     public static final Path ID_PATH = new Path("_id");
 
-    public static final String ERR_NO_OBJECT_TYPE = "NO_OBJECT_TYPE";
-    public static final String ERR_INVALID_OBJECTTYPE = "INVALID_OBJECTTYPE";
-    public static final String ERR_INVALID_FIELD = "INVALID_FIELD";
-    public static final String ERR_INVALID_COMPARISON = "INVALID_COMPARISON";
+    public static final String ERR_NO_OBJECT_TYPE = "mongo-translation:no-object-type";
+    public static final String ERR_INVALID_OBJECTTYPE = "mongo-translation:invalid-object-type";
+    public static final String ERR_INVALID_FIELD = "mongo-translation:invalid-field";
+    public static final String ERR_INVALID_COMPARISON = "mongo-translation:invalid-comparison";
+    public static final String ERR_CANNOT_TRANSLATE_REFERENCE = "mongo-translation:cannot-translate-reference";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(Translator.class);
 
@@ -928,7 +929,7 @@ public class Translator {
                 } else if (field instanceof ArrayField && value instanceof List && mdCursor.firstChild()) {
                     convertArrayFieldToJson(node, fieldName, md, mdCursor, value);
                 } else if (field instanceof ReferenceField) {
-                    convertReferenceFieldToJson();
+                    convertReferenceFieldToJson(value);
                 }
             } else
                 node.set(fieldName,factory.nullNode());
@@ -971,7 +972,7 @@ public class Translator {
         mdCursor.parent();
     }
 
-    private void convertReferenceFieldToJson() {
+    private void convertReferenceFieldToJson(Object value) {
         //TODO
         LOGGER.debug("Converting reference field: ");
     }
@@ -1062,7 +1063,7 @@ public class Translator {
             } else if (fieldMdNode instanceof ArrayField) {
                 convertArrayFieldToBson(node, cursor, ret, fieldMdNode, path, md);
             } else if (fieldMdNode instanceof ReferenceField) {
-                convertReferenceFieldToBson();
+                convertReferenceFieldToBson(node,path);
             }
         } while (cursor.nextSibling());
         return ret;
@@ -1101,9 +1102,11 @@ public class Translator {
         }
     }
 
-    private void convertReferenceFieldToBson() {
+    private void convertReferenceFieldToBson(JsonNode node,Path path) {
+        if(node instanceof NullNode || node.size()==0)
+            return;
         //TODO
-        throw new java.lang.UnsupportedOperationException();
+        throw Error.get(ERR_CANNOT_TRANSLATE_REFERENCE,path.toString());
     }
 
     /**
