@@ -105,7 +105,7 @@ public abstract class AbstractMongoCrudTest extends AbstractJsonSchemaTest {
     }
 
     public EntityMetadata getMd(String fname) throws IOException, ProcessingException {
-        runValidJsonTest("json-schema/metadata/metadata.json", fname);
+        //runValidJsonTest("json-schema/metadata/metadata.json", fname);
         JsonNode node = loadJsonNode(fname);
         Extensions<JsonNode> extensions = new Extensions<>();
         extensions.addDefaultExtensions();

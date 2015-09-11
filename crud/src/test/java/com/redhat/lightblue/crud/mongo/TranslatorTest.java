@@ -20,6 +20,7 @@ package com.redhat.lightblue.crud.mongo;
 
 import java.util.Set;
 import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.mongodb.DBObject;
 import com.mongodb.BasicDBObject;
@@ -28,6 +29,7 @@ import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.JsonDoc;
+import com.redhat.lightblue.util.JsonUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -178,6 +180,36 @@ public class TranslatorTest extends AbstractMongoCrudTest {
         DBObject mongoUpdateExpr = translator.translate(md, ue);
 
         Assert.assertNotNull(mongoUpdateExpr);
+    }
+
+    @Test
+    public void translateReference_fail() throws Exception {
+        String docStr = loadResource(getClass().getSimpleName() + "-data-with-ref.json");
+        JsonNode jdoc=JsonUtils.json(docStr);
+        JsonDoc doc=new JsonDoc(jdoc);
+        try {
+            translator.toBson(doc);
+            Assert.fail();
+        } catch(Exception e) {}
+
+    }
+
+    @Test
+    public void translateEmptyReference() throws Exception {
+        String docStr = loadResource(getClass().getSimpleName() + "-data-without-ref.json");
+        JsonNode jdoc=JsonUtils.json(docStr);
+        JsonDoc doc=new JsonDoc(jdoc);
+        DBObject obj=translator.toBson(doc);
+        Assert.assertNull(obj.get("ref"));
+    }
+    
+    @Test
+    public void translateNullReference() throws Exception {
+        String docStr = loadResource(getClass().getSimpleName() + "-data-with-null-ref.json");
+        JsonNode jdoc=JsonUtils.json(docStr);
+        JsonDoc doc=new JsonDoc(jdoc);
+        DBObject obj=translator.toBson(doc);
+        Assert.assertNull(obj.get("ref"));
     }
 
     @Test
