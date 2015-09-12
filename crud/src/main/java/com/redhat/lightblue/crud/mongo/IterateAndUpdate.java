@@ -99,7 +99,7 @@ public class IterateAndUpdate implements DocUpdater {
                 // From now on: doc contains the old copy, and doc.getOutputDocument contains the new copy
                 if (updater.update(doc.getOutputDocument(), md.getFieldTreeRoot(), Path.EMPTY)) {
                     LOGGER.debug("Document {} modified, updating", docIndex);
-                    PredefinedFields.updateArraySizes(nodeFactory, doc.getOutputDocument());
+                    PredefinedFields.updateArraySizes(md, nodeFactory, doc.getOutputDocument());
                     LOGGER.debug("Running constraint validations");
                     validator.clearErrors();
                     validator.validateDoc(doc.getOutputDocument());
