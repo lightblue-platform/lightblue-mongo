@@ -81,14 +81,6 @@ public class MongoConfiguration implements DataSourceConfiguration {
     private ReadPreference readPreference = null;
     private WriteConcern writeConcern = WriteConcern.FSYNCED;
 
-    public WriteConcern getWriteConcern() {
-        return writeConcern;
-    }
-
-    public void setWriteConcern(WriteConcern writeConcern) {
-        this.writeConcern = writeConcern;
-    }
-
     public void addServerAddress(String hostname, int port) throws UnknownHostException {
         this.servers.add(new ServerAddress(hostname, port));
     }
@@ -278,6 +270,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
         bld.append("connectionsPerHost:").append(connectionsPerHost).append('\n').
                 append("database:").append(database).append('\n').
                 append("ssl:").append(ssl).append('\n').
+                append("writeConcern:").append(writeConcern).append('\n').
                 append("noCertValidation:").append(noCertValidation);
         bld.append("credentials:");
         boolean first = true;
@@ -401,6 +394,10 @@ public class MongoConfiguration implements DataSourceConfiguration {
             if (x != null) {
                 database = x.asText();
             }
+            x = node.get("writeConcern");
+            if(x != null){
+                writeConcern = WriteConcern.valueOf(x.asText());
+            }
             JsonNode jsonNodeServers = node.get("servers");
             if (jsonNodeServers != null && jsonNodeServers.isArray()) {
                 Iterator<JsonNode> elements = jsonNodeServers.elements();
@@ -457,6 +454,14 @@ public class MongoConfiguration implements DataSourceConfiguration {
         }
     }
 
+    public WriteConcern getWriteConcern() {
+        return writeConcern;
+    }
+
+    public void setWriteConcern(WriteConcern writeConcern) {
+        this.writeConcern = writeConcern;
+    }
+    
     public ReadPreference getReadPreference() {
         return readPreference;
     }
