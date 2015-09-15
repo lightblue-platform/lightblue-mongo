@@ -26,6 +26,7 @@ import com.mongodb.DBObject;
 import com.mongodb.BasicDBObject;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.metadata.EntityMetadata;
+import com.redhat.lightblue.metadata.CompositeMetadata;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.JsonDoc;
@@ -275,6 +276,39 @@ public class TranslatorTest extends AbstractMongoCrudTest {
         Assert.assertTrue(fields.contains(new Path("field6.nf7.nnf1")));
         Assert.assertTrue(fields.contains(new Path("field6.nf7.nnf2")));
         Assert.assertTrue(fields.contains(new Path("field7.*.elemf1")));
+        Assert.assertTrue(fields.contains(new Path("field7.*.elemf2")));
+        Assert.assertTrue(fields.contains(new Path("field7.*.elemf3")));
+    }
+    @Test
+    public void projectionFieldsWithRef() throws Exception {
+        md = getMd("./testMetadataRef.json");
+        CompositeMetadata cmd=CompositeMetadata.buildCompositeMetadata(md,new CompositeMetadata.GetMetadata() {
+                public EntityMetadata getMetadata(Path injectionField,
+                                                  String entityName,
+                                                  String version) {
+                    return null;
+                }
+            });
+        Set<Path> fields=Translator.getRequiredFields(cmd,projection("{'field':'*','recursive':1}"),null,null);
+        System.out.println(fields);
+        Assert.assertTrue(fields.contains(new Path("objectType")));
+        Assert.assertTrue(fields.contains(new Path("_id")));
+        Assert.assertTrue(fields.contains(new Path("field1")));
+        Assert.assertFalse(fields.contains(new Path("field2")));
+        Assert.assertFalse(fields.contains(new Path("field2.*")));
+        Assert.assertTrue(fields.contains(new Path("field3")));
+        Assert.assertTrue(fields.contains(new Path("field4")));
+        Assert.assertTrue(fields.contains(new Path("field5")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf1")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf2")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf3")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf4")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf5")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf6")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf7.nnf1")));
+        Assert.assertTrue(fields.contains(new Path("field6.nf7.nnf2")));
+        Assert.assertFalse(fields.contains(new Path("field7.*.elemf1")));
+        Assert.assertFalse(fields.contains(new Path("field7.*.elemf1.*")));
         Assert.assertTrue(fields.contains(new Path("field7.*.elemf2")));
         Assert.assertTrue(fields.contains(new Path("field7.*.elemf3")));
     }
