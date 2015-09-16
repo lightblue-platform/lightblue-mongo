@@ -199,6 +199,29 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), saveResponse.getNumSaved());
     }
 
+    @Test
+    public void saveTest_duplicateKey() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        System.out.println("Write doc:" + doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+
+        doc.modify(new Path("_id"),nodeFactory.textNode(id),false);
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        ctx.addDocument(doc);
+        controller.insert(ctx,projection);
+
+        Assert.assertEquals(1,ctx.getDocuments().get(0).getErrors().size());
+        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE,ctx.getDocuments().get(0).getErrors().get(0).getErrorCode());
+        
+    }
 
     @Test
     public void saveIdTypeUidTest() throws Exception {

@@ -86,7 +86,7 @@ public class IterateAndUpdate implements DocUpdater {
         int numUpdated = 0;
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
-            cursor = new FindCommand(collection, query, null).execute();
+            cursor = new FindCommand(collection, query, null).executeAndUnwrap();
             LOGGER.debug("Found {} documents", cursor.count());
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_RESULTSET, ctx);
             // read-update-write
@@ -128,7 +128,7 @@ public class IterateAndUpdate implements DocUpdater {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc);
                             DBObject updatedObject = translator.toBson(doc.getOutputDocument());
                             translator.addInvisibleFields(document, updatedObject, md);
-                            WriteResult result = new SaveCommand(collection, updatedObject).execute();
+                            WriteResult result = new SaveCommand(collection, updatedObject).executeAndUnwrap();
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             LOGGER.debug("Number of rows affected : ", result.getN());
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);

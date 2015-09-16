@@ -57,7 +57,7 @@ public class BasicDocFinder implements DocFinder {
                      Long from,
                      Long to) {
         LOGGER.debug("Submitting query {}",mongoQuery);
-        DBCursor cursor = new FindCommand(coll, mongoQuery, mongoProjection).execute();
+        DBCursor cursor = new FindCommand(coll, mongoQuery, mongoProjection).executeAndUnwrap();
         LOGGER.debug("Query evaluated");
         if (mongoSort != null) {
             cursor = cursor.sort(mongoSort);
