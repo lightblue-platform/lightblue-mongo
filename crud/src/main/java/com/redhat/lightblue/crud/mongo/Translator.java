@@ -955,20 +955,14 @@ public class Translator {
                 } else if (field instanceof ReferenceField) {
                     convertReferenceFieldToJson(value);
                 }
-            } else
-                // If field is null, only add it as null if the field exists in the document as null
-                // Also filter out any possible references. These will be added in later
-                if(object.containsField(fieldName)&&
-                   !(field instanceof ReferenceField||
-                     field instanceof ResolvedReferenceField))
-                    node.set(fieldName,factory.nullNode());
+            } // Don't add any null values to the document
         } while (mdCursor.nextSibling());
         return node;
     }
 
     private void convertSimpleFieldToJson(ObjectNode node, FieldTreeNode field, Object value, String fieldName) {
         JsonNode valueNode = field.getType().toJson(factory, value);
-        if (valueNode != null) {
+        if (valueNode != null &&!(valueNode instanceof NullNode)) {
             node.set(fieldName, valueNode);
         }
     }
@@ -977,7 +971,7 @@ public class Translator {
         if (value instanceof DBObject) {
             if (mdCursor.firstChild()) {
                 JsonNode valueNode = objectToJson((DBObject) value, md, mdCursor);
-                if (valueNode != null) {
+                if (valueNode != null && !(valueNode instanceof NullNode)) {
                     node.set(fieldName, valueNode);
                 }
                 mdCursor.parent();
@@ -1061,14 +1055,13 @@ public class Translator {
                         Path path,
                         JsonNode node) {
         Object value = toValue(fieldMd.getType(), node);
-        // Should we add fields with null values to the bson doc? Answer: yes
+        // Should we add fields with null values to the bson doc? Answer: no
         if (value != null) {
             if (path.equals(ID_PATH)) {
                 value = createIdFrom(value);
             }
             dest.append(path.tail(0), value);
-        } else
-            dest.append(path.tail(0), null);
+        } 
     }
 
     /**
