@@ -575,6 +575,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                         newIndex.put(p.getField().toString(), p.isDesc() ? -1 : 1);
                     }
                     BasicDBObject options = new BasicDBObject("unique", index.isUnique());
+                    // if index is unique also make it a sparse index, so we can have non-required unique fields
+                    options.append("sparse", index.isUnique());
                     if (index.getName() != null && index.getName().trim().length() > 0) {
                         options.append("name", index.getName().trim());
                     }

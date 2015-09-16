@@ -912,7 +912,53 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
-    public void entityIndexUpdateTest() throws Exception {
+    public void entityIndexUpdateTest_notSparseUnique() throws Exception {
+        // verify that if an index already exists as unique and NOT sparse lightblue will not recreate it as sparse
+        
+        // 1. create the index as unique but not sparse
+        DBCollection entityCollection = db.getCollection("testCollectionIndex2");
+        
+        DBObject newIndex = new BasicDBObject();
+        newIndex.put("field1", -1);
+        BasicDBObject options = new BasicDBObject("unique", true);
+        options.append("sparse", false);
+        options.append("name", "testIndex");
+        entityCollection.createIndex(newIndex, options);
+
+        // 2. create metadata with same index 
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex2"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+        Index index = new Index();
+        index.setName("testIndex");
+        index.setUnique(true);
+        List<SortKey> indexFields = new ArrayList<>();
+        indexFields.add(new SortKey(new Path("field1"), true));
+        index.setFields(indexFields);
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+        // 3. verify index in database is unique but not sparse
+        entityCollection = db.getCollection("testCollectionIndex2");
+        
+        // should also have _id index
+        Assert.assertEquals("Unexpected number of indexes", 2, entityCollection.getIndexInfo().size());
+        DBObject mongoIndex = entityCollection.getIndexInfo().get(1);
+        Assert.assertTrue("Keys on index unexpected", mongoIndex.get("key").toString().contains("field1"));
+        Assert.assertEquals("Index is not unique", Boolean.TRUE, mongoIndex.get("unique"));
+        Assert.assertEquals("Index is sparse", Boolean.FALSE, mongoIndex.get("sparse"));
+    }
+
+    @Test
+    public void entityIndexUpdateTest_default() throws Exception {
 
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
@@ -954,6 +1000,14 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         for (DBObject mongoIndex : entityCollection.getIndexInfo()) {
             if ("testIndex2".equals(mongoIndex.get("name"))) {
                 if (mongoIndex.get("key").toString().contains("field1")) {
+                    if (mongoIndex.get("unique") != null) {
+                        // if it is null it is not unique, so no check is required
+                        Assert.assertEquals("Index is unique", Boolean.FALSE, mongoIndex.get("unique"));
+                    }
+                    if (mongoIndex.get("sparse") != null) {
+                        // if it is null it is not sparse, so no check is required
+                        Assert.assertEquals("Index is sparse", Boolean.FALSE, mongoIndex.get("sparse"));
+                    }
                     foundIndex = true;
                 }
             }
@@ -965,6 +1019,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         for (DBObject mongoIndex : entityCollection.getIndexInfo()) {
             if ("testIndex".equals(mongoIndex.get("name"))) {
                 if (mongoIndex.get("key").toString().contains("field1")) {
+                    Assert.assertEquals("Index is not unique", Boolean.TRUE, mongoIndex.get("unique"));
+                    Assert.assertEquals("Index is sparse", Boolean.TRUE, mongoIndex.get("sparse"));
                     foundIndex = true;
                 }
             }
