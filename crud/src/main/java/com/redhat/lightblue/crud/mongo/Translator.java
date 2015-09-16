@@ -386,12 +386,14 @@ public class Translator {
             do {
                 Path field=cursor.getCurrentPath();
                 FieldTreeNode node=cursor.getCurrentNode();
-                if(node instanceof ResolvedReferenceField) {
+                LOGGER.debug("Checking if {} is included ({})",field,node);
+                if(node instanceof ResolvedReferenceField||
+                   node instanceof ReferenceField) {
                     done=!cursor.nextSibling();
-                } else {
+                } else  {
                     if( (node instanceof ObjectField) ||
-                        (node instanceof ArrayField &&
-                         ((ArrayField)node).getElement() instanceof ObjectArrayElement) ) {
+                        (node instanceof ArrayField && ((ArrayField)node).getElement() instanceof ObjectArrayElement) ||
+                        (node instanceof ArrayElement)) {
                         // include its member fields
                     } else if( (p!=null && p.isFieldRequiredToEvaluateProjection(field)) ||
                                (q!=null && q.isRequired(field)) ||
@@ -935,13 +937,20 @@ public class Translator {
                     convertSimpleFieldToJson(node, field, value, fieldName);
                 } else if (field instanceof ObjectField) {
                     convertObjectFieldToJson(node, fieldName, md, mdCursor, value, p);
+                } else if(field instanceof ResolvedReferenceField) {
+                    // This should not happen
                 } else if (field instanceof ArrayField && value instanceof List && mdCursor.firstChild()) {
                     convertArrayFieldToJson(node, fieldName, md, mdCursor, value);
                 } else if (field instanceof ReferenceField) {
                     convertReferenceFieldToJson(value);
                 }
             } else
-                node.set(fieldName,factory.nullNode());
+                // If field is null, only add it as null if the field exists in the document as null
+                // Also filter out any possible references. These will be added in later
+                if(object.containsField(fieldName)&&
+                   !(field instanceof ReferenceField||
+                     field instanceof ResolvedReferenceField))
+                    node.set(fieldName,factory.nullNode());
         } while (mdCursor.nextSibling());
         return node;
     }

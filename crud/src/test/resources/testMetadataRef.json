@@ -69,7 +69,7 @@
                         "elemf1": {"type": "reference",
                                    "entity":"test",
                                    "versionValue":"1.0",
-                                   "query":{"field":"_id","op":"=","rvalue":1}
+                                   "query":{"field":"_id","op":"=","rfield":"$parent.elemf2"}
                                   },
                         "elemf2": {"type": "string"},
                         "elemf3": {"type": "integer"}
