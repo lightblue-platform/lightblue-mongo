@@ -48,6 +48,7 @@ import com.redhat.lightblue.metadata.ObjectArrayElement;
 import com.redhat.lightblue.metadata.ObjectField;
 import com.redhat.lightblue.metadata.ReferenceField;
 import com.redhat.lightblue.metadata.SimpleArrayElement;
+import com.redhat.lightblue.metadata.ResolvedReferenceField;
 import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.Type;
 import com.redhat.lightblue.query.ArrayContainsExpression;
@@ -380,21 +381,42 @@ public class Translator {
                                               Sort s) {
         Set<Path> fields=new HashSet<>();
         FieldCursor cursor=md.getFieldCursor();
-        while(cursor.next()) {
-            Path field=cursor.getCurrentPath();
-            FieldTreeNode node=cursor.getCurrentNode();
-            if( (node instanceof ObjectField) ||
-                (node instanceof ArrayField &&
-                 ((ArrayField)node).getElement() instanceof ObjectArrayElement) ) {
-                // include its member fields
-            } else if( (p!=null && p.isFieldRequiredToEvaluateProjection(field)) ||
-                       (q!=null && q.isRequired(field)) ||
-                       (s!=null && s.isRequired(field)) ) {
-                LOGGER.debug("{}: required",field);
-                fields.add(field);
-            } else {
-                LOGGER.debug("{}: not required", field);
-            }
+        // skipPrefix will be set to the root of a subtree that needs to be skipped.
+        // If it is non-null, all fields with a prefix 'skipPrefix' will be skipped.
+        Path skipPrefix=null;
+        if(cursor.next()) {
+            boolean done=false;
+            do {
+                Path field=cursor.getCurrentPath();
+                if(skipPrefix!=null) {
+                    if(!field.matchingDescendant(skipPrefix)) {
+                        skipPrefix=null;
+                    }
+                }
+                if(skipPrefix==null) {
+                    FieldTreeNode node=cursor.getCurrentNode();
+                    LOGGER.debug("Checking if {} is included ({})",field,node);
+                    if(node instanceof ResolvedReferenceField||
+                       node instanceof ReferenceField) {
+                        skipPrefix=field;
+                    } else  {
+                        if( (node instanceof ObjectField) ||
+                            (node instanceof ArrayField && ((ArrayField)node).getElement() instanceof ObjectArrayElement) ||
+                            (node instanceof ArrayElement)) {
+                            // include its member fields
+                        } else if( (p!=null && p.isFieldRequiredToEvaluateProjection(field)) ||
+                                   (q!=null && q.isRequired(field)) ||
+                                   (s!=null && s.isRequired(field)) ) {
+                            LOGGER.debug("{}: required",field);
+                            fields.add(field);
+                        } else {
+                            LOGGER.debug("{}: not required", field);
+                        }
+                        done=!cursor.next();
+                    }
+                } else
+                    done=!cursor.next();
+            } while(!done);
         }
         return fields;
     }
@@ -926,13 +948,20 @@ public class Translator {
                     convertSimpleFieldToJson(node, field, value, fieldName);
                 } else if (field instanceof ObjectField) {
                     convertObjectFieldToJson(node, fieldName, md, mdCursor, value, p);
+                } else if(field instanceof ResolvedReferenceField) {
+                    // This should not happen
                 } else if (field instanceof ArrayField && value instanceof List && mdCursor.firstChild()) {
                     convertArrayFieldToJson(node, fieldName, md, mdCursor, value);
                 } else if (field instanceof ReferenceField) {
                     convertReferenceFieldToJson(value);
                 }
             } else
-                node.set(fieldName,factory.nullNode());
+                // If field is null, only add it as null if the field exists in the document as null
+                // Also filter out any possible references. These will be added in later
+                if(object.containsField(fieldName)&&
+                   !(field instanceof ReferenceField||
+                     field instanceof ResolvedReferenceField))
+                    node.set(fieldName,factory.nullNode());
         } while (mdCursor.nextSibling());
         return node;
     }

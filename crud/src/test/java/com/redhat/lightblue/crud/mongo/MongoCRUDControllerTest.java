@@ -42,11 +42,13 @@ import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.metadata.EntityMetadata;
+import com.redhat.lightblue.metadata.CompositeMetadata;
 import com.redhat.lightblue.metadata.Version;
 import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.ObjectField;
 import com.redhat.lightblue.metadata.MetadataStatus;
 import com.redhat.lightblue.metadata.Index;
+import com.redhat.lightblue.metadata.FieldCursor;
 import com.redhat.lightblue.metadata.FieldConstraint;
 import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.metadata.types.IntegerType;
@@ -1243,6 +1245,36 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         controller.afterUpdateEntityInfo(null,e.getEntityInfo(),false);
         // This should not fail
         Assert.assertEquals(2,coll.getIndexInfo().size());
+    }
+
+    @Test
+    public void projectedRefComesNullTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadataRef.json");
+        CompositeMetadata cmd=CompositeMetadata.buildCompositeMetadata(md,new CompositeMetadata.GetMetadata() {
+                public EntityMetadata getMetadata(Path injectionField,
+                                                  String entityName,
+                                                  String version) {
+                    return null;
+                }
+            });
+
+        FieldCursor cursor=cmd.getFieldCursor();
+        while(cursor.next())
+            System.out.println(cursor.getCurrentPath()+":"+cursor.getCurrentNode());
+        
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(cmd);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataref.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field1','op':'=','rvalue':'f1'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+        Assert.assertNull(ctx.getDocuments().get(0).get(new Path("field7.0.elemf1")));
     }
 
 }
