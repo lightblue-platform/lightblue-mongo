@@ -65,6 +65,11 @@ public abstract class AbstractMongoCRUDTestController extends AbstractCRUDTestCo
     }
 
     @Override
+    protected String getDatasource() {
+        return System.getProperty("mongo.datasource");
+    }
+
+    @Override
     protected JsonNode getLightblueMetadataJson() throws Exception {
         return json(loadResource("/mongo-lightblue-metadata.json", AbstractMongoCRUDTestController.class), true);
     }
