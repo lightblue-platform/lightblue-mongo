@@ -381,30 +381,41 @@ public class Translator {
                                               Sort s) {
         Set<Path> fields=new HashSet<>();
         FieldCursor cursor=md.getFieldCursor();
+        // skipPrefix will be set to the root of a subtree that needs to be skipped.
+        // If it is non-null, all fields with a prefix 'skipPrefix' will be skipped.
+        Path skipPrefix=null;
         if(cursor.next()) {
             boolean done=false;
             do {
                 Path field=cursor.getCurrentPath();
-                FieldTreeNode node=cursor.getCurrentNode();
-                LOGGER.debug("Checking if {} is included ({})",field,node);
-                if(node instanceof ResolvedReferenceField||
-                   node instanceof ReferenceField) {
-                    done=!cursor.nextSibling();
-                } else  {
-                    if( (node instanceof ObjectField) ||
-                        (node instanceof ArrayField && ((ArrayField)node).getElement() instanceof ObjectArrayElement) ||
-                        (node instanceof ArrayElement)) {
-                        // include its member fields
-                    } else if( (p!=null && p.isFieldRequiredToEvaluateProjection(field)) ||
-                               (q!=null && q.isRequired(field)) ||
-                               (s!=null && s.isRequired(field)) ) {
-                        LOGGER.debug("{}: required",field);
-                        fields.add(field);
-                    } else {
-                        LOGGER.debug("{}: not required", field);
+                if(skipPrefix!=null) {
+                    if(!field.matchingDescendant(skipPrefix)) {
+                        skipPrefix=null;
                     }
-                    done=!cursor.next();
                 }
+                if(skipPrefix==null) {
+                    FieldTreeNode node=cursor.getCurrentNode();
+                    LOGGER.debug("Checking if {} is included ({})",field,node);
+                    if(node instanceof ResolvedReferenceField||
+                       node instanceof ReferenceField) {
+                        skipPrefix=field;
+                    } else  {
+                        if( (node instanceof ObjectField) ||
+                            (node instanceof ArrayField && ((ArrayField)node).getElement() instanceof ObjectArrayElement) ||
+                            (node instanceof ArrayElement)) {
+                            // include its member fields
+                        } else if( (p!=null && p.isFieldRequiredToEvaluateProjection(field)) ||
+                                   (q!=null && q.isRequired(field)) ||
+                                   (s!=null && s.isRequired(field)) ) {
+                            LOGGER.debug("{}: required",field);
+                            fields.add(field);
+                        } else {
+                            LOGGER.debug("{}: not required", field);
+                        }
+                        done=!cursor.next();
+                    }
+                } else
+                    done=!cursor.next();
             } while(!done);
         }
         return fields;
