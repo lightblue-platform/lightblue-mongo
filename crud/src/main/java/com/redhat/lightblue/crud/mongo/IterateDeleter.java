@@ -60,7 +60,7 @@ public class IterateDeleter implements DocDeleter {
         int numDeleted = 0;
         try {
             // Find docs
-            cursor = new FindCommand(collection, mongoQuery, null).execute();
+            cursor = new FindCommand(collection, mongoQuery, null).executeAndUnwrap();
             LOGGER.debug("Found {} documents", cursor.count());
             // read-delet
             while (cursor.hasNext()) {
@@ -70,7 +70,7 @@ public class IterateDeleter implements DocDeleter {
                 DocCtx doc = ctx.addDocument(translator.toJson(document));
                 doc.setOriginalDocument(doc);
                 ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_DELETE_DOC, ctx, doc);
-                WriteResult result = new RemoveCommand(collection, new BasicDBObject("_id", id), WriteConcern.SAFE).execute();
+                WriteResult result = new RemoveCommand(collection, new BasicDBObject("_id", id), WriteConcern.SAFE).executeAndUnwrap();
                 if (result.getN() == 1) {
                     numDeleted++;
                     doc.setCRUDOperationPerformed(CRUDOperation.DELETE);

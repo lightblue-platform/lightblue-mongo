@@ -96,7 +96,7 @@ public class AtomicIterateUpdate implements DocUpdater {
             try {
                 ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
                 // Find docs
-                cursor = new FindCommand(collection, query, null).execute();
+                cursor = new FindCommand(collection, query, null).executeAndUnwrap();
                 LOGGER.debug("Found {} documents", cursor.count());
                 ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_RESULTSET, ctx);
                 // read-update
@@ -116,7 +116,7 @@ public class AtomicIterateUpdate implements DocUpdater {
                                 false,
                                 mongoUpdateExpr,
                                 true,
-                                false).execute();
+                                false).executeAndUnwrap();
                         if (projector != null) {
                             LOGGER.debug("Projecting document {}", docIndex);
                             doc.setOutputDocument(projector.project(translator.toJson(modifiedDoc), nodeFactory));
