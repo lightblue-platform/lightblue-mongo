@@ -79,13 +79,13 @@ public class TranslatorTest extends AbstractMongoCrudTest {
     public void translateNullBsonObject() throws Exception {
         BasicDBObject obj=new BasicDBObject("field6",null).append("objectType","test");
         JsonDoc doc=translator.toJson(obj);
-        Assert.assertTrue(doc.get(new Path("field6")) instanceof NullNode);
+        Assert.assertNull(doc.get(new Path("field6")));
     }
     @Test
     public void translateNullBsonArray() throws Exception {
         BasicDBObject obj=new BasicDBObject("field7",null).append("objectType","test");
         JsonDoc doc=translator.toJson(obj);
-        Assert.assertTrue(doc.get(new Path("field7")) instanceof NullNode);
+        Assert.assertNull(doc.get(new Path("field7")));
     }
 
     @Test

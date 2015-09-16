@@ -446,9 +446,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         CRUDUpdateResponse upd = controller.update(ctx, query("{'field':'field2','op':'=','rvalue':'f2'}"),
                                                    update(" {'$set' : {'field3':3 }}"),
                                                    projection("{'field':'*','recursive':1}"));
-        Assert.assertEquals(1, upd.getNumUpdated());
-        Assert.assertEquals(0, upd.getNumFailed());
-        Assert.assertEquals(1,ctx.getDocuments().size());
+        Assert.assertEquals(0, upd.getNumUpdated());
+        Assert.assertEquals(1, upd.getNumFailed());
     }
 
 
