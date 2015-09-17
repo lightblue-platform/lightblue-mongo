@@ -23,7 +23,7 @@
         },
         "fields": {
             "objectType": {"type": "string"},
-            "_id": {"type": "string"},
+            "_id": {"type": "string", "constraints":{"identity":1}},
             "field1": {"type": "string","constraints":{"identity":1}},
             "field2": {"type": "string","constraints":{"identity":1}},
             "field3": {"type": "integer"},
