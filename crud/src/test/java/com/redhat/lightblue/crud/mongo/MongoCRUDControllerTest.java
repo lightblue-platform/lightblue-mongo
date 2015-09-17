@@ -1068,8 +1068,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         SimpleField id=(SimpleField)e.getFields().getField("_id");
         Assert.assertNotNull(id);
         Assert.assertEquals(StringType.TYPE,id.getType());
-        Assert.assertEquals(1,id.getConstraints().size());
-        Assert.assertTrue(id.getConstraints().get(0) instanceof IdentityConstraint);
+        Assert.assertEquals(0,id.getConstraints().size());
     }
 
     @Test

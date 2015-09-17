@@ -480,21 +480,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             }
         }
 
-        // Make sure _id has identity constraint
-        List<FieldConstraint> constraints = idField.getConstraints();
-        boolean identityConstraintFound = false;
-        for (FieldConstraint x : constraints) {
-            if (x instanceof IdentityConstraint) {
-                identityConstraintFound = true;
-                break;
-            }
-        }
-        if (!identityConstraintFound) {
-            LOGGER.debug("Adding identity constraint to _id field");
-            constraints.add(new IdentityConstraint());
-            idField.setConstraints(constraints);
-        }
-
         LOGGER.debug("ensureIdField: end");
     }
 
