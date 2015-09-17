@@ -148,12 +148,8 @@ public class BasicDocSaver implements DocSaver {
         BasicDBObject dbObject=new BasicDBObject();
         for(int i=0;i<fields.length;i++) {
             String path=Translator.translatePath(fields[i].getFullPath());
-            Object value;
-            if(path.equals(MongoCRUDController.ID_STR))
-                value=Translator.createIdFrom(values[i]);
-            else
-                value=values[i];
-            dbObject.append(path,value);
+            if(!path.equals(MongoCRUDController.ID_STR)) 
+                dbObject.append(path,values[i]);
         }
         return dbObject;
     }
