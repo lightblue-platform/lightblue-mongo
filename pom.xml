@@ -253,7 +253,7 @@
         <maven.compiler.debuglevel>lines,vars,source</maven.compiler.debuglevel>
         <maven.compiler.verbose>true</maven.compiler.verbose>
 
-        <lightblue.core.version>1.8.0-SNAPSHOT</lightblue.core.version>
+        <lightblue.core.version>1.8.0</lightblue.core.version>
     </properties>
     <build>
         <plugins>
