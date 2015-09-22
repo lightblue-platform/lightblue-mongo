@@ -166,7 +166,7 @@ public class MongoMetadata extends AbstractMetadata {
                     || (statusSet.contains(MetadataStatus.ACTIVE)
                     && statusSet.contains(MetadataStatus.DEPRECATED)
                     && statusSet.contains(MetadataStatus.DISABLED))) {
-                List l = new DistinctCommand(collection, LITERAL_NAME).executeAndUnwrap();
+                List l = new DistinctCommand(collection, LITERAL_NAME, new BasicDBObject(LITERAL_NAME,new BasicDBObject("$exists",1))).executeAndUnwrap();
                 String[] arr = new String[l.size()];
                 int i = 0;
                 for (Object x : l) {
