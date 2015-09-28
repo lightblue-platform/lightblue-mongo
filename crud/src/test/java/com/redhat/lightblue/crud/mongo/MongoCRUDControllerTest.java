@@ -399,7 +399,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         badNode.put("objectType", "test"); //has no id fields
         ctx.addDocument(new JsonDoc(badNode));
         ctx.addDocument(doc);
-        CRUDSaveResponse saveResponse = controller.save(ctx, false, projection("{'field':'_id'}"));
+        CRUDSaveResponse saveResponse = controller.save(ctx, true, projection("{'field':'_id'}"));
         Assert.assertEquals(1, saveResponse.getNumSaved());
         Assert.assertEquals(1, ctx.getDataErrors().size());
     }
