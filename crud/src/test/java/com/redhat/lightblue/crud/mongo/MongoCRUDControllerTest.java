@@ -380,31 +380,50 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
-    public void upsertDataErrorShouldNotAffectOtherSaves() throws Exception {
-        EntityMetadata md = getMd("./testMetadata_ids.json");
-        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
-
-        //Insert initial document
+    public void upsertWithIdsTest2() throws Exception {
+        EntityMetadata md = getMd("./testMetadata_ids_id_not_id.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
         ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
         ctx.addDocument(doc);
-        CRUDInsertionResponse insertResponse = controller.insert(ctx, projection("{'field':'_id'}"));
-        Assert.assertEquals(1, insertResponse.getNumInserted());
+        System.out.println("Write doc:" + doc);
+        controller.updatePredefinedFields(ctx,doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
+        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
 
-        //Save initial record again, along with bogus record. Bogus should not save nor interfere
-        //with the save of the other.
-        ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
+        //There should be 1 doc in the db
+        Assert.assertEquals(1,controller.find(ctx,null, projection("{'field':'*','recursive':1}"), null, null, null).getSize());
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
-        ObjectNode badNode = nodeFactory.objectNode();
-        badNode.put("objectType", "test"); //has no id fields
-        ctx.addDocument(new JsonDoc(badNode));
-        ctx.addDocument(doc);
-        CRUDSaveResponse saveResponse = controller.save(ctx, true, projection("{'field':'_id'}"));
-        Assert.assertEquals(1, saveResponse.getNumSaved());
-        Assert.assertEquals(1, ctx.getDataErrors().size());
+        controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
+                        projection("{'field':'*','recursive':1}"), null, null, null);
+        JsonDoc readDoc = ctx.getDocuments().get(0);
+
+        //Remove _id from the doc
+        readDoc.modify(new Path("_id"),null,false);
+        //Change a field
+        Assert.assertEquals(1,readDoc.get(new Path("field3")).asInt());
+        readDoc.modify(new Path("field3"),JsonNodeFactory.instance.numberNode(2),true);
+        ctx=new TestCRUDOperationContext(CRUDOperation.SAVE);
+        ctx.add(md);
+        ctx.addDocument(readDoc);
+        controller.updatePredefinedFields(ctx,readDoc);
+        CRUDSaveResponse sresponse=controller.save(ctx,true, projection("{'field':'_id'}"));
+        Assert.assertEquals(1,sresponse.getNumSaved());
+        //There should be 1 doc in the db
+        Assert.assertEquals(1,controller.find(ctx,null, projection("{'field':'*','recursive':1}"), null, null, null).getSize());
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
+                        projection("{'field':'*','recursive':1}"), null, null, null);
+        readDoc = ctx.getDocuments().get(0);
+
+        Assert.assertEquals(2,readDoc.get(new Path("field3")).asInt());
     }
 
-
+ 
     @Test
     public void updateTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");

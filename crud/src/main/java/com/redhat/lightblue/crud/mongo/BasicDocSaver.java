@@ -112,7 +112,7 @@ public class BasicDocSaver implements DocSaver {
                     if (paths == null || paths.isEmpty()) {
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, inputDoc);
                         translator.addInvisibleFields(oldDBObject, dbObject, md);
-                        result = new UpdateCommand(collection, q, dbObject, upsert, upsert, WriteConcern.SAFE).executeAndUnwrap();
+                        result = new UpdateCommand(collection, q, dbObject, upsert, false, WriteConcern.SAFE).executeAndUnwrap();
                         inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, inputDoc);
                     } else {
