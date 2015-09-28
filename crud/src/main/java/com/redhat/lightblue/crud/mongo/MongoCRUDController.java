@@ -369,12 +369,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     @Override
     public void updatePredefinedFields(CRUDOperationContext ctx, JsonDoc doc) {
-        JsonNode idNode = doc.get(Translator.ID_PATH);
-        if (idNode == null || idNode instanceof NullNode) {
-            doc.modify(Translator.ID_PATH,
-                    ctx.getFactory().getNodeFactory().textNode(ObjectId.get().toString()),
-                    false);
-        }
     }
 
     @Override
