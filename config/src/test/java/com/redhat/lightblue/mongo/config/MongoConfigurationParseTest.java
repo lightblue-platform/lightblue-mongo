@@ -2,11 +2,12 @@ package com.redhat.lightblue.mongo.config;
 
 import java.io.IOException;
 
-import org.junit.Assert;
+import static org.junit.Assert.*;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.mongodb.ReadPreference;
+import com.mongodb.WriteConcern;
 import com.redhat.lightblue.util.JsonUtils;
 
 public class MongoConfigurationParseTest {
@@ -22,8 +23,9 @@ public class MongoConfigurationParseTest {
         MongoConfiguration dataConfig = new MongoConfiguration();
         dataConfig.initializeFromJson(node.get("mongodata"));
 
-        Assert.assertEquals(ReadPreference.nearest(), metadataConfig.getMongoClientOptions().getReadPreference());
-        Assert.assertEquals(ReadPreference.secondary(), dataConfig.getMongoClientOptions().getReadPreference());
+        assertEquals(ReadPreference.nearest(), metadataConfig.getMongoClientOptions().getReadPreference());
+        assertEquals(ReadPreference.secondary(), dataConfig.getMongoClientOptions().getReadPreference());
+        assertEquals(WriteConcern.SAFE, metadataConfig.getWriteConcern());
     }
 
 }
