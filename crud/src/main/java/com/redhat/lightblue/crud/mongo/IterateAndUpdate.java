@@ -133,7 +133,7 @@ public class IterateAndUpdate implements DocUpdater {
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             LOGGER.debug("Number of rows affected : ", result.getN());
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
-                            doc.startModifications();
+                            doc.setUpdatedDocument(doc);
                         } catch (Exception e) {
                             LOGGER.warn("Update exception for document {}: {}", docIndex, e);
                             doc.addError(Error.get(MongoCrudConstants.ERR_UPDATE_ERROR, e.toString()));
