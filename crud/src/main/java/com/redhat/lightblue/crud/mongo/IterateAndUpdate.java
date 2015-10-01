@@ -101,6 +101,7 @@ public class IterateAndUpdate implements DocUpdater {
                     LOGGER.debug("Document {} modified, updating", docIndex);
                     PredefinedFields.updateArraySizes(md, nodeFactory, doc.getOutputDocument());
                     LOGGER.debug("Running constraint validations");
+                    ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC_VALIDATION, ctx, doc);
                     validator.clearErrors();
                     validator.validateDoc(doc.getOutputDocument());
                     List<Error> errors = validator.getErrors();
