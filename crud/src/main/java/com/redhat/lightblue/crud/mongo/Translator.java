@@ -1163,7 +1163,7 @@ public class Translator {
 
     /**
      * Creates appropriate identifier object given source data. If the source
-     * can be converted to an ObjectId it is, else it is returned as a String.
+     * can be converted to an ObjectId it is, else it is returned unmodified
      *
      * @param source input data
      * @return ObjectId if possible else String
@@ -1174,7 +1174,7 @@ public class Translator {
         } else if (ObjectId.isValid(source.toString())) {
             return new ObjectId(source.toString());
         } else {
-            return source.toString();
+            return source;
         }
     }
 }
