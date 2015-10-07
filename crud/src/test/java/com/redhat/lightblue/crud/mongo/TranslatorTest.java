@@ -247,13 +247,13 @@ public class TranslatorTest extends AbstractMongoCrudTest {
     @Test
     public void createIdFrom_integer() {
         Object idObj = Translator.createIdFrom(1234);
-        Assert.assertTrue(idObj instanceof String);
+        Assert.assertTrue(idObj instanceof Integer);
     }
 
     @Test
     public void createIdFrom_double() {
         Object idObj = Translator.createIdFrom(12.34);
-        Assert.assertTrue(idObj instanceof String);
+        Assert.assertTrue(idObj instanceof Double);
     }
 
     @Test
