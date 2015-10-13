@@ -136,7 +136,7 @@ public final class EmbeddedMongo {
             MongodStarter runtime = MongodStarter.getInstance(runtimeConfig);
             mongodExe = runtime.prepare(
                     new MongodConfigBuilder()
-                            .version(de.flapdoodle.embed.mongo.distribution.Version.V2_6_0)
+                            .version(de.flapdoodle.embed.mongo.distribution.Version.V2_6_8)
                             .net(new Net(mongoPort, Network.localhostIsIPv6()))
                             .build()
             );
