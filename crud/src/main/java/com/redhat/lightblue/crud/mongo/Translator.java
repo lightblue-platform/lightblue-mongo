@@ -48,6 +48,7 @@ import com.redhat.lightblue.metadata.ObjectArrayElement;
 import com.redhat.lightblue.metadata.ObjectField;
 import com.redhat.lightblue.metadata.ReferenceField;
 import com.redhat.lightblue.metadata.SimpleArrayElement;
+import com.redhat.lightblue.metadata.ResolvedReferenceField;
 import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.Type;
 import com.redhat.lightblue.query.ArrayContainsExpression;
@@ -380,21 +381,42 @@ public class Translator {
                                               Sort s) {
         Set<Path> fields=new HashSet<>();
         FieldCursor cursor=md.getFieldCursor();
-        while(cursor.next()) {
-            Path field=cursor.getCurrentPath();
-            FieldTreeNode node=cursor.getCurrentNode();
-            if( (node instanceof ObjectField) ||
-                (node instanceof ArrayField &&
-                 ((ArrayField)node).getElement() instanceof ObjectArrayElement) ) {
-                // include its member fields
-            } else if( (p!=null && p.isFieldRequiredToEvaluateProjection(field)) ||
-                       (q!=null && q.isRequired(field)) ||
-                       (s!=null && s.isRequired(field)) ) {
-                LOGGER.debug("{}: required",field);
-                fields.add(field);
-            } else {
-                LOGGER.debug("{}: not required", field);
-            }
+        // skipPrefix will be set to the root of a subtree that needs to be skipped.
+        // If it is non-null, all fields with a prefix 'skipPrefix' will be skipped.
+        Path skipPrefix=null;
+        if(cursor.next()) {
+            boolean done=false;
+            do {
+                Path field=cursor.getCurrentPath();
+                if(skipPrefix!=null) {
+                    if(!field.matchingDescendant(skipPrefix)) {
+                        skipPrefix=null;
+                    }
+                }
+                if(skipPrefix==null) {
+                    FieldTreeNode node=cursor.getCurrentNode();
+                    LOGGER.debug("Checking if {} is included ({})",field,node);
+                    if(node instanceof ResolvedReferenceField||
+                       node instanceof ReferenceField) {
+                        skipPrefix=field;
+                    } else  {
+                        if( (node instanceof ObjectField) ||
+                            (node instanceof ArrayField && ((ArrayField)node).getElement() instanceof ObjectArrayElement) ||
+                            (node instanceof ArrayElement)) {
+                            // include its member fields
+                        } else if( (p!=null && p.isFieldRequiredToEvaluateProjection(field)) ||
+                                   (q!=null && q.isRequired(field)) ||
+                                   (s!=null && s.isRequired(field)) ) {
+                            LOGGER.debug("{}: required",field);
+                            fields.add(field);
+                        } else {
+                            LOGGER.debug("{}: not required", field);
+                        }
+                        done=!cursor.next();
+                    }
+                } else
+                    done=!cursor.next();
+            } while(!done);
         }
         return fields;
     }
@@ -926,20 +948,21 @@ public class Translator {
                     convertSimpleFieldToJson(node, field, value, fieldName);
                 } else if (field instanceof ObjectField) {
                     convertObjectFieldToJson(node, fieldName, md, mdCursor, value, p);
+                } else if(field instanceof ResolvedReferenceField) {
+                    // This should not happen
                 } else if (field instanceof ArrayField && value instanceof List && mdCursor.firstChild()) {
                     convertArrayFieldToJson(node, fieldName, md, mdCursor, value);
                 } else if (field instanceof ReferenceField) {
                     convertReferenceFieldToJson(value);
                 }
-            } else
-                node.set(fieldName,factory.nullNode());
+            } // Don't add any null values to the document
         } while (mdCursor.nextSibling());
         return node;
     }
 
     private void convertSimpleFieldToJson(ObjectNode node, FieldTreeNode field, Object value, String fieldName) {
         JsonNode valueNode = field.getType().toJson(factory, value);
-        if (valueNode != null) {
+        if (valueNode != null &&!(valueNode instanceof NullNode)) {
             node.set(fieldName, valueNode);
         }
     }
@@ -948,7 +971,7 @@ public class Translator {
         if (value instanceof DBObject) {
             if (mdCursor.firstChild()) {
                 JsonNode valueNode = objectToJson((DBObject) value, md, mdCursor);
-                if (valueNode != null) {
+                if (valueNode != null && !(valueNode instanceof NullNode)) {
                     node.set(fieldName, valueNode);
                 }
                 mdCursor.parent();
@@ -1032,14 +1055,13 @@ public class Translator {
                         Path path,
                         JsonNode node) {
         Object value = toValue(fieldMd.getType(), node);
-        // Should we add fields with null values to the bson doc? Answer: yes
+        // Should we add fields with null values to the bson doc? Answer: no
         if (value != null) {
             if (path.equals(ID_PATH)) {
                 value = createIdFrom(value);
             }
             dest.append(path.tail(0), value);
-        } else
-            dest.append(path.tail(0), null);
+        } 
     }
 
     /**
@@ -1141,7 +1163,7 @@ public class Translator {
 
     /**
      * Creates appropriate identifier object given source data. If the source
-     * can be converted to an ObjectId it is, else it is returned as a String.
+     * can be converted to an ObjectId it is, else it is returned unmodified
      *
      * @param source input data
      * @return ObjectId if possible else String
@@ -1152,7 +1174,7 @@ public class Translator {
         } else if (ObjectId.isValid(source.toString())) {
             return new ObjectId(source.toString());
         } else {
-            return source.toString();
+            return source;
         }
     }
 }

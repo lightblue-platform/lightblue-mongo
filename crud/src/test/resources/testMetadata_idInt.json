@@ -23,9 +23,9 @@
         },
         "fields": {
             "objectType": {"type": "string"},
-            "_id": {"type": "string", "constraints":{"identity":1}},
-            "field1": {"type": "string","constraints":{"identity":1}},
-            "field2": {"type": "string","constraints":{"identity":1}},
+            "_id": {"type": "integer"},
+            "field1": {"type": "string"},
+            "field2": {"type": "string"},
             "field3": {"type": "integer"},
             "field4": {"type": "bigdecimal"},
             "field5": {"type": "boolean"},
@@ -63,6 +63,12 @@
                         "elemf3": {"type": "integer"}
                     }
                 }
+            },
+            "ref": {
+                "type":"reference",
+                "entity":"test",
+                "versionValue":"1.0",
+                "query":{"field":"_id","op":"=","rvalue":1}
             }
         }
     }

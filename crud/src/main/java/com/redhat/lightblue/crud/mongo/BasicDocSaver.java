@@ -85,7 +85,7 @@ public class BasicDocSaver implements DocSaver {
             if(!isNull(identityFieldValues)) {                            
                 DBObject lookupq=getLookupQ(identityFields,identityFieldValues);
                 LOGGER.debug("Lookup query: {}",lookupq);                            
-                oldDBObject=new FindOneCommand(collection,lookupq).execute();
+                oldDBObject=new FindOneCommand(collection,lookupq).executeAndUnwrap();
                 LOGGER.debug("Retrieved:{}",oldDBObject);
                 if(oldDBObject!=null)
                     id=oldDBObject.get(MongoCRUDController.ID_STR);
@@ -102,7 +102,7 @@ public class BasicDocSaver implements DocSaver {
             LOGGER.debug("Updating doc {}" + id);
             BasicDBObject q = new BasicDBObject(MongoCRUDController.ID_STR, Translator.createIdFrom(id));
             if(oldDBObject==null) {
-                oldDBObject = new FindOneCommand(collection, q).execute();
+                oldDBObject = new FindOneCommand(collection, q).executeAndUnwrap();
             }
             if (oldDBObject != null) {
                 if (md.getAccess().getUpdate().hasAccess(ctx.getCallerRoles())) {
@@ -112,7 +112,7 @@ public class BasicDocSaver implements DocSaver {
                     if (paths == null || paths.isEmpty()) {
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, inputDoc);
                         translator.addInvisibleFields(oldDBObject, dbObject, md);
-                        result = new UpdateCommand(collection, q, dbObject, upsert, upsert, WriteConcern.SAFE).execute();
+                        result = new UpdateCommand(collection, q, dbObject, upsert, false, WriteConcern.SAFE).executeAndUnwrap();
                         inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, inputDoc);
                     } else {
@@ -148,12 +148,8 @@ public class BasicDocSaver implements DocSaver {
         BasicDBObject dbObject=new BasicDBObject();
         for(int i=0;i<fields.length;i++) {
             String path=Translator.translatePath(fields[i].getFullPath());
-            Object value;
-            if(path.equals(MongoCRUDController.ID_STR))
-                value=Translator.createIdFrom(values[i]);
-            else
-                value=values[i];
-            dbObject.append(path,value);
+            if(!path.equals(MongoCRUDController.ID_STR)) 
+                dbObject.append(path,values[i]);
         }
         return dbObject;
     }
@@ -199,7 +195,7 @@ public class BasicDocSaver implements DocSaver {
             if (paths == null || paths.isEmpty()) {
                 try {
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_INSERT_DOC, ctx, inputDoc);
-                    WriteResult r = new InsertCommand(collection, dbObject, WriteConcern.SAFE).execute();
+                    WriteResult r = new InsertCommand(collection, dbObject, WriteConcern.SAFE).executeAndUnwrap();
                     inputDoc.setCRUDOperationPerformed(CRUDOperation.INSERT);
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_INSERT_DOC, ctx, inputDoc);
                     return r;

@@ -23,9 +23,13 @@
         },
         "fields": {
             "objectType": {"type": "string"},
-            "_id": {"type": "string", "constraints":{"identity":1}},
-            "field1": {"type": "string","constraints":{"identity":1}},
-            "field2": {"type": "string","constraints":{"identity":1}},
+            "_id": {"type": "uid"},
+            "field1": {"type": "string"},
+            "field2": {"type": "reference",
+                       "entity":"test",
+                       "versionValue":"1.0",
+                       "query":{"field":"_id","op":"=","rvalue":1}
+                      },
             "field3": {"type": "integer"},
             "field4": {"type": "bigdecimal"},
             "field5": {"type": "boolean"},
@@ -50,7 +54,11 @@
                             "nnf1": {"type": "string"},
                             "nnf2": {"type": "integer"}
                         }
-                    }
+                     },
+                     "nf8": { "type": "array", "items": {"type": "integer"} },
+                     "nf9": { "type": "array", "items": {"type": "integer"} },
+                     "nf10": { "type": "array", "items": {"type": "integer"} },
+                     "nf11": { "type": "array", "items": {"type": "integer"} }
                 }
             },
             "field7": {
@@ -58,7 +66,11 @@
                 "items": {
                     "type": "object",
                     "fields": {
-                        "elemf1": {"type": "string"},
+                        "elemf1": {"type": "reference",
+                                   "entity":"test",
+                                   "versionValue":"1.0",
+                                   "query":{"field":"_id","op":"=","rfield":"$parent.elemf2"}
+                                  },
                         "elemf2": {"type": "string"},
                         "elemf3": {"type": "integer"}
                     }

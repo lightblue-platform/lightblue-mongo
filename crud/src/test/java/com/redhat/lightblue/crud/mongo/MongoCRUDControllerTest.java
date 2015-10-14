@@ -18,52 +18,54 @@
  */
 package com.redhat.lightblue.crud.mongo;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.math.BigDecimal;
 
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Test;
 import org.junit.Ignore;
+import org.junit.Test;
 
-import com.mongodb.DBCollection;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
+import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.redhat.lightblue.common.mongo.DBResolver;
+import com.redhat.lightblue.common.mongo.MongoDataStore;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDInsertionResponse;
+import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDSaveResponse;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.DocCtx;
-import com.redhat.lightblue.crud.CRUDOperation;
+import com.redhat.lightblue.metadata.CompositeMetadata;
 import com.redhat.lightblue.metadata.EntityMetadata;
-import com.redhat.lightblue.metadata.Version;
-import com.redhat.lightblue.metadata.SimpleField;
-import com.redhat.lightblue.metadata.ObjectField;
-import com.redhat.lightblue.metadata.MetadataStatus;
-import com.redhat.lightblue.metadata.Index;
 import com.redhat.lightblue.metadata.FieldConstraint;
-import com.redhat.lightblue.metadata.types.StringType;
-import com.redhat.lightblue.metadata.types.IntegerType;
+import com.redhat.lightblue.metadata.FieldCursor;
+import com.redhat.lightblue.metadata.Index;
+import com.redhat.lightblue.metadata.MetadataStatus;
+import com.redhat.lightblue.metadata.ObjectField;
+import com.redhat.lightblue.metadata.SimpleField;
+import com.redhat.lightblue.metadata.Version;
 import com.redhat.lightblue.metadata.constraints.IdentityConstraint;
-
-import com.redhat.lightblue.common.mongo.MongoDataStore;
-import com.redhat.lightblue.common.mongo.DBResolver;
+import com.redhat.lightblue.metadata.types.IntegerType;
+import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.SortKey;
+import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
-import com.redhat.lightblue.util.Error;
 
 public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     private MongoCRUDController controller;
 
+    @Override
     @Before
     public void setup() throws Exception {
         super.setup();
@@ -96,7 +98,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
         Assert.assertEquals(1, coll.find(new BasicDBObject("_id", Translator.createIdFrom(id))).count());
     }
-    
+
     @Test
     public void insertTest_nullReqField() throws Exception {
         EntityMetadata md = getMd("./testMetadata-requiredFields2.json");
@@ -115,7 +117,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
         Assert.assertEquals(1, coll.find(new BasicDBObject("_id", Translator.createIdFrom(id))).count());
     }
-    
+
 
     @Test @Ignore
     public void insertTest_empty_array() throws Exception {
@@ -197,6 +199,29 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), saveResponse.getNumSaved());
     }
 
+    @Test
+    public void saveTest_duplicateKey() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        System.out.println("Write doc:" + doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+
+        doc.modify(new Path("_id"),nodeFactory.textNode(id),false);
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        ctx.addDocument(doc);
+        controller.insert(ctx,projection);
+
+        Assert.assertEquals(1,ctx.getDocuments().get(0).getErrors().size());
+        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE,ctx.getDocuments().get(0).getErrors().get(0).getErrorCode());
+
+    }
 
     @Test
     public void saveIdTypeUidTest() throws Exception {
@@ -354,7 +379,51 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(2,readDoc.get(new Path("field3")).asInt());
     }
 
+    @Test
+    public void upsertWithIdsTest2() throws Exception {
+        EntityMetadata md = getMd("./testMetadata_ids_id_not_id.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        ctx.addDocument(doc);
+        System.out.println("Write doc:" + doc);
+        controller.updatePredefinedFields(ctx,doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
+        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
 
+        //There should be 1 doc in the db
+        Assert.assertEquals(1,controller.find(ctx,null, projection("{'field':'*','recursive':1}"), null, null, null).getSize());
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
+                        projection("{'field':'*','recursive':1}"), null, null, null);
+        JsonDoc readDoc = ctx.getDocuments().get(0);
+
+        //Remove _id from the doc
+        readDoc.modify(new Path("_id"),null,false);
+        //Change a field
+        Assert.assertEquals(1,readDoc.get(new Path("field3")).asInt());
+        readDoc.modify(new Path("field3"),JsonNodeFactory.instance.numberNode(2),true);
+        ctx=new TestCRUDOperationContext(CRUDOperation.SAVE);
+        ctx.add(md);
+        ctx.addDocument(readDoc);
+        controller.updatePredefinedFields(ctx,readDoc);
+        CRUDSaveResponse sresponse=controller.save(ctx,true, projection("{'field':'_id'}"));
+        Assert.assertEquals(1,sresponse.getNumSaved());
+        //There should be 1 doc in the db
+        Assert.assertEquals(1,controller.find(ctx,null, projection("{'field':'*','recursive':1}"), null, null, null).getSize());
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
+                        projection("{'field':'*','recursive':1}"), null, null, null);
+        readDoc = ctx.getDocuments().get(0);
+
+        Assert.assertEquals(2,readDoc.get(new Path("field3")).asInt());
+    }
+
+ 
     @Test
     public void updateTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
@@ -438,15 +507,14 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Projection projection = projection("{'field':'_id'}");
         ctx.addDocument(doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
- 
+
         ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
         ctx.add(md);
         CRUDUpdateResponse upd = controller.update(ctx, query("{'field':'field2','op':'=','rvalue':'f2'}"),
                                                    update(" {'$set' : {'field3':3 }}"),
                                                    projection("{'field':'*','recursive':1}"));
-        Assert.assertEquals(1, upd.getNumUpdated());
-        Assert.assertEquals(0, upd.getNumFailed());
-        Assert.assertEquals(1,ctx.getDocuments().size());
+        Assert.assertEquals(0, upd.getNumUpdated());
+        Assert.assertEquals(1, upd.getNumFailed());
     }
 
 
@@ -515,6 +583,85 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         controller.find(ctx,query("{'field':'field4','op':'=','rvalue':'100'}"),
                         projection("{'field':'*','recursive':1}"),null,null,null);
         Assert.assertEquals(numDocs,ctx.getDocuments().size());
+
+    }
+
+    @Test
+    public void findInq() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+
+        ctx.add(md);
+        // Generate some docs
+        List<JsonDoc> docs = new ArrayList<>();
+        int numDocs = 20;
+        for (int i = 0; i < numDocs; i++) {
+            JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+            doc.modify(new Path("field1"), nodeFactory.textNode("doc" + i), false);
+            doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
+            doc.modify(new Path("field4"), nodeFactory.numberNode(new BigDecimal(100)),false);
+            docs.add(doc);
+        }
+        ctx.addDocuments(docs);
+        controller.insert(ctx, projection("{'field':'_id'}"));
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field4','op':'$in','values':[100]}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(numDocs,ctx.getDocuments().size());
+
+    }
+
+    @Test
+    public void findInqStr() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+
+        ctx.add(md);
+        // Generate some docs
+        List<JsonDoc> docs = new ArrayList<>();
+        int numDocs = 20;
+        for (int i = 0; i < numDocs; i++) {
+            JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+            doc.modify(new Path("field1"), nodeFactory.textNode("" + i), false);
+            doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
+            doc.modify(new Path("field4"), nodeFactory.numberNode(new BigDecimal(100)),false);
+            docs.add(doc);
+        }
+        ctx.addDocuments(docs);
+        controller.insert(ctx, projection("{'field':'_id'}"));
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field1','op':'$in','values':[0]}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+
+    }
+
+    @Test
+    public void findInqId() throws Exception {
+        EntityMetadata md = getMd("./testMetadata_idInt.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+
+        ctx.add(md);
+        // Generate some docs
+        List<JsonDoc> docs = new ArrayList<>();
+        int numDocs = 20;
+        for (int i = 0; i < numDocs; i++) {
+            JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+            doc.modify(new Path("_id"), nodeFactory.textNode("" + i), false);
+            docs.add(doc);
+        }
+        ctx.addDocuments(docs);
+        controller.insert(ctx, projection("{'field':'_id'}"));
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'_id','op':'$in','values':[1]}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
 
     }
 
@@ -593,7 +740,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         controller.find(ctx,query("{'field':'field6.nf3','op':'<','rfield':'field6.nf5'}"),
                         projection("{'field':'*','recursive':1}"),null,null,null);
         Assert.assertEquals(0,ctx.getDocuments().size());
-       
+
     }
 
     @Test
@@ -910,7 +1057,53 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
-    public void entityIndexUpdateTest() throws Exception {
+    public void entityIndexUpdateTest_notSparseUnique() throws Exception {
+        // verify that if an index already exists as unique and NOT sparse lightblue will not recreate it as sparse
+
+        // 1. create the index as unique but not sparse
+        DBCollection entityCollection = db.getCollection("testCollectionIndex2");
+
+        DBObject newIndex = new BasicDBObject();
+        newIndex.put("field1", -1);
+        BasicDBObject options = new BasicDBObject("unique", true);
+        options.append("sparse", false);
+        options.append("name", "testIndex");
+        entityCollection.createIndex(newIndex, options);
+
+        // 2. create metadata with same index
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex2"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+        Index index = new Index();
+        index.setName("testIndex");
+        index.setUnique(true);
+        List<SortKey> indexFields = new ArrayList<>();
+        indexFields.add(new SortKey(new Path("field1"), true));
+        index.setFields(indexFields);
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+        // 3. verify index in database is unique but not sparse
+        entityCollection = db.getCollection("testCollectionIndex2");
+
+        // should also have _id index
+        Assert.assertEquals("Unexpected number of indexes", 2, entityCollection.getIndexInfo().size());
+        DBObject mongoIndex = entityCollection.getIndexInfo().get(1);
+        Assert.assertTrue("Keys on index unexpected", mongoIndex.get("key").toString().contains("field1"));
+        Assert.assertEquals("Index is not unique", Boolean.TRUE, mongoIndex.get("unique"));
+        Assert.assertEquals("Index is sparse", Boolean.FALSE, mongoIndex.get("sparse"));
+    }
+
+    @Test
+    public void entityIndexUpdateTest_default() throws Exception {
 
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
@@ -952,6 +1145,14 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         for (DBObject mongoIndex : entityCollection.getIndexInfo()) {
             if ("testIndex2".equals(mongoIndex.get("name"))) {
                 if (mongoIndex.get("key").toString().contains("field1")) {
+                    if (mongoIndex.get("unique") != null) {
+                        // if it is null it is not unique, so no check is required
+                        Assert.assertEquals("Index is unique", Boolean.FALSE, mongoIndex.get("unique"));
+                    }
+                    if (mongoIndex.get("sparse") != null) {
+                        // if it is null it is not sparse, so no check is required
+                        Assert.assertEquals("Index is sparse", Boolean.FALSE, mongoIndex.get("sparse"));
+                    }
                     foundIndex = true;
                 }
             }
@@ -963,6 +1164,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         for (DBObject mongoIndex : entityCollection.getIndexInfo()) {
             if ("testIndex".equals(mongoIndex.get("name"))) {
                 if (mongoIndex.get("key").toString().contains("field1")) {
+                    Assert.assertEquals("Index is not unique", Boolean.TRUE, mongoIndex.get("unique"));
+                    Assert.assertEquals("Index is sparse", Boolean.TRUE, mongoIndex.get("sparse"));
                     foundIndex = true;
                 }
             }
@@ -988,8 +1191,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         SimpleField id=(SimpleField)e.getFields().getField("_id");
         Assert.assertNotNull(id);
         Assert.assertEquals(StringType.TYPE,id.getType());
-        Assert.assertEquals(1,id.getConstraints().size());
-        Assert.assertTrue(id.getConstraints().get(0) instanceof IdentityConstraint);
+        Assert.assertEquals(0,id.getConstraints().size());
     }
 
     @Test
@@ -1135,7 +1337,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     @Test
     public void idIndexRewriteTest() throws Exception {
         DBCollection coll=db.getCollection("data");
-        
+
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
         e.setStatus(MetadataStatus.ACTIVE);
@@ -1170,7 +1372,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
        Assert.assertEquals(1,coll.find().count());
-       
+
        Index ix2=new Index(new SortKey(new Path("field1"),false));
        e.getEntityInfo().getIndexes().add(ix2);
        // At this point, there must be an _id index in the collection
@@ -1180,11 +1382,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
        // This should not fail
        Assert.assertEquals(2,coll.getIndexInfo().size());
     }
-    
+
     @Test
     public void doubleidIndexRewriteTest() throws Exception {
         DBCollection coll=db.getCollection("data");
-        
+
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
         e.setStatus(MetadataStatus.ACTIVE);
@@ -1215,7 +1417,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ix3.setUnique(false);
         ix3.setName("nonunique");
         e.getEntityInfo().getIndexes().add(ix3);
-        
+
         controller.afterUpdateEntityInfo(null,e.getEntityInfo(),false);
         // lets insert a doc in the collection, so we can test indexes
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity",CRUDOperation.INSERT);
@@ -1229,7 +1431,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         Assert.assertEquals(1,coll.find().count());
-       
+
         // At this point, there must be only one _id index in the collection
         Assert.assertEquals(1,coll.getIndexInfo().size());
 
@@ -1238,11 +1440,43 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ilist.add(ix1);
         ilist.add(ix2);
         e.getEntityInfo().getIndexes().setIndexes(ilist);
-        
+
         // Lets overwrite
         controller.afterUpdateEntityInfo(null,e.getEntityInfo(),false);
         // This should not fail
         Assert.assertEquals(2,coll.getIndexInfo().size());
+    }
+
+    @Test
+    public void projectedRefComesNullTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadataRef.json");
+        CompositeMetadata cmd=CompositeMetadata.buildCompositeMetadata(md,new CompositeMetadata.GetMetadata() {
+                @Override
+                public EntityMetadata getMetadata(Path injectionField,
+                                                  String entityName,
+                                                  String version) {
+                    return null;
+                }
+            });
+
+        FieldCursor cursor=cmd.getFieldCursor();
+        while(cursor.next()) {
+            System.out.println(cursor.getCurrentPath()+":"+cursor.getCurrentNode());
+        }
+
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(cmd);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataref.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field1','op':'=','rvalue':'f1'}"),
+                        projection("{'field':'*','recursive':1}"),null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+        Assert.assertNull(ctx.getDocuments().get(0).get(new Path("field7.0.elemf1")));
     }
 
 }

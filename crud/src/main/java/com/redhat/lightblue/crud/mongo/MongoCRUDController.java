@@ -369,11 +369,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     @Override
     public void updatePredefinedFields(CRUDOperationContext ctx, JsonDoc doc) {
-        JsonNode idNode = doc.get(Translator.ID_PATH);
-        if (idNode == null || idNode instanceof NullNode) {
-            doc.modify(Translator.ID_PATH,
-                    ctx.getFactory().getNodeFactory().textNode(ObjectId.get().toString()),
-                    false);
+        // If it is a save operation, we rely on _id being passed by client, so we don't auto-generate that
+        // If not, it needs to be auto-generated
+        if(ctx.getCRUDOperation()!=CRUDOperation.SAVE) {
+            JsonNode idNode = doc.get(Translator.ID_PATH);
+            if (idNode == null || idNode instanceof NullNode) {
+                doc.modify(Translator.ID_PATH,
+                           ctx.getFactory().getNodeFactory().textNode(ObjectId.get().toString()),
+                           false);
+            }
         }
     }
 
@@ -480,21 +484,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             }
         }
 
-        // Make sure _id has identity constraint
-        List<FieldConstraint> constraints = idField.getConstraints();
-        boolean identityConstraintFound = false;
-        for (FieldConstraint x : constraints) {
-            if (x instanceof IdentityConstraint) {
-                identityConstraintFound = true;
-                break;
-            }
-        }
-        if (!identityConstraintFound) {
-            LOGGER.debug("Adding identity constraint to _id field");
-            constraints.add(new IdentityConstraint());
-            idField.setConstraints(constraints);
-        }
-
         LOGGER.debug("ensureIdField: end");
     }
 
@@ -575,6 +564,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                         newIndex.put(p.getField().toString(), p.isDesc() ? -1 : 1);
                     }
                     BasicDBObject options = new BasicDBObject("unique", index.isUnique());
+                    // if index is unique also make it a sparse index, so we can have non-required unique fields
+                    options.append("sparse", index.isUnique());
                     if (index.getName() != null && index.getName().trim().length() > 0) {
                         options.append("name", index.getName().trim());
                     }

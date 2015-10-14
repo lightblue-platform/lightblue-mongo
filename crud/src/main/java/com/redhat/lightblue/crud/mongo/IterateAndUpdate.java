@@ -86,7 +86,7 @@ public class IterateAndUpdate implements DocUpdater {
         int numUpdated = 0;
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
-            cursor = new FindCommand(collection, query, null).execute();
+            cursor = new FindCommand(collection, query, null).executeAndUnwrap();
             LOGGER.debug("Found {} documents", cursor.count());
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_RESULTSET, ctx);
             // read-update-write
@@ -95,28 +95,29 @@ public class IterateAndUpdate implements DocUpdater {
                 boolean hasErrors = false;
                 LOGGER.debug("Retrieved doc {}", docIndex);
                 DocCtx doc = ctx.addDocument(translator.toJson(document));
-                doc.setOutputDocument(doc.copy());
-                // From now on: doc contains the old copy, and doc.getOutputDocument contains the new copy
-                if (updater.update(doc.getOutputDocument(), md.getFieldTreeRoot(), Path.EMPTY)) {
+                doc.startModifications();
+                // From now on: doc contains the working copy, and doc.originalDoc contains the original copy
+                if (updater.update(doc, md.getFieldTreeRoot(), Path.EMPTY)) {
                     LOGGER.debug("Document {} modified, updating", docIndex);
-                    PredefinedFields.updateArraySizes(nodeFactory, doc.getOutputDocument());
+                    PredefinedFields.updateArraySizes(md, nodeFactory, doc);
                     LOGGER.debug("Running constraint validations");
+                    ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC_VALIDATION, ctx, doc);
                     validator.clearErrors();
-                    validator.validateDoc(doc.getOutputDocument());
+                    validator.validateDoc(doc);
                     List<Error> errors = validator.getErrors();
                     if (errors != null && !errors.isEmpty()) {
                         ctx.addErrors(errors);
                         hasErrors = true;
                         LOGGER.debug("Doc has errors");
                     }
-                    errors = validator.getDocErrors().get(doc.getOutputDocument());
+                    errors = validator.getDocErrors().get(doc);
                     if (errors != null && !errors.isEmpty()) {
                         doc.addErrors(errors);
                         hasErrors = true;
                         LOGGER.debug("Doc has data errors");
                     }
                     if (!hasErrors) {
-                        List<Path> paths = roleEval.getInaccessibleFields_Update(doc.getOutputDocument(), doc);
+                        List<Path> paths = roleEval.getInaccessibleFields_Update(doc, doc.getOriginalDocument());
                         LOGGER.debug("Inaccesible fields during update={}" + paths);
                         if (paths != null && !paths.isEmpty()) {
                             doc.addError(Error.get("update", CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
@@ -126,13 +127,13 @@ public class IterateAndUpdate implements DocUpdater {
                     if (!hasErrors) {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc);
-                            DBObject updatedObject = translator.toBson(doc.getOutputDocument());
+                            DBObject updatedObject = translator.toBson(doc);
                             translator.addInvisibleFields(document, updatedObject, md);
-                            WriteResult result = new SaveCommand(collection, updatedObject).execute();
+                            WriteResult result = new SaveCommand(collection, updatedObject).executeAndUnwrap();
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             LOGGER.debug("Number of rows affected : ", result.getN());
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
-                            doc.startModifications();
+                            doc.setUpdatedDocument(doc);
                         } catch (Exception e) {
                             LOGGER.warn("Update exception for document {}: {}", docIndex, e);
                             doc.addError(Error.get(MongoCrudConstants.ERR_UPDATE_ERROR, e.toString()));
@@ -145,12 +146,12 @@ public class IterateAndUpdate implements DocUpdater {
                 if (hasErrors) {
                     LOGGER.debug("Document {} has errors", docIndex);
                     numFailed++;
-                    doc.setOutputDocument(errorProjector.project(doc.getOutputDocument(), nodeFactory));
+                    doc.setOutputDocument(errorProjector.project(doc, nodeFactory));
                 } else {
                     numUpdated++;
                     if (projector != null) {
                         LOGGER.debug("Projecting document {}", docIndex);
-                        doc.setOutputDocument(projector.project(doc.getOutputDocument(), nodeFactory));
+                        doc.setOutputDocument(projector.project(doc, nodeFactory));
                     }
                 }
                 docIndex++;
