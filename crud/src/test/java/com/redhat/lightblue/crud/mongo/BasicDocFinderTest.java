@@ -172,6 +172,72 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         Assert.assertEquals("find count", 3, count);
         Assert.assertEquals(2, ctx.getDocumentsWithoutErrors().size());
     }
+    
+    @Test
+    public void testNoLimit() throws IOException, ProcessingException {
+        String id = "findLimit";
+        for(int i=0;i<20;i++)
+        {
+        insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
+        }
+       
+
+        Assert.assertEquals("count on collection", 20, coll.find(null).count());
+
+        BasicDocFinder finder = new BasicDocFinder(translator);
+
+        long count = finder.find(
+                // CRUDOperationContext
+                ctx,
+                //DBCollection
+                coll,
+                // DBObject (query)
+                null, // all
+                null,
+                // DBObject (sort)
+                null,
+                // Long (from)
+                12l,
+                // Long (to)
+                null);
+
+        Assert.assertEquals("find count", 20, count);
+        Assert.assertEquals(8, ctx.getDocumentsWithoutErrors().size());
+    }
+    
+    @Test
+    public void testNegativeLimit() throws IOException, ProcessingException {
+        String id = "findLimit";
+        for(int i=0;i<20;i++)
+        {
+        insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
+        }
+       
+
+        Assert.assertEquals("count on collection", 20, coll.find(null).count());
+
+        BasicDocFinder finder = new BasicDocFinder(translator);
+
+        long count = finder.find(
+                // CRUDOperationContext
+                ctx,
+                //DBCollection
+                coll,
+                // DBObject (query)
+                null, // all
+                null,
+                // DBObject (sort)
+                null,
+                // Long (from)
+                12l,
+                // Long (to)
+                -8l);
+
+        Assert.assertEquals("find count", 20, count);
+        Assert.assertEquals(8, ctx.getDocumentsWithoutErrors().size());
+    }
+
+
 
     @Test
     public void findSort() throws IOException, ProcessingException {
