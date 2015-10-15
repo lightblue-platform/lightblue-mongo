@@ -281,7 +281,7 @@ public class MongoMetadata extends AbstractMetadata {
             Error.push("writeEntity");
             try {
                 try {
-                    WriteResult result = new InsertCommand(collection, infoObj, WriteConcern.SAFE).executeAndUnwrap();
+                    WriteResult result = new InsertCommand(collection, infoObj).executeAndUnwrap();
                     LOGGER.debug("Inserted entityInfo");
                     String error = result.getError();
                     if (error != null) {
@@ -293,7 +293,7 @@ public class MongoMetadata extends AbstractMetadata {
                     throw Error.get(MongoMetadataConstants.ERR_DUPLICATE_METADATA, ver.getValue());
                 }
                 try {
-                    WriteResult result = new InsertCommand(collection, schemaObj, WriteConcern.SAFE).executeAndUnwrap();
+                    WriteResult result = new InsertCommand(collection, schemaObj).executeAndUnwrap();
                     String error = result.getError();
                     if (error != null) {
                         LOGGER.error("createNewMetadata: error in createSchema: {}" + error);
@@ -445,7 +445,7 @@ public class MongoMetadata extends AbstractMetadata {
 
             WriteResult result;
             try {
-                result = new InsertCommand(collection, schemaObj, WriteConcern.SAFE).executeAndUnwrap();
+                result = new InsertCommand(collection, schemaObj).executeAndUnwrap();
             } catch (MongoException.DuplicateKey dke) {
                 if(isSnapshot(md.getEntitySchema().getVersion().getValue())) {
                     LOGGER.debug("Rewriting {}",md.getEntitySchema().getVersion().getValue());

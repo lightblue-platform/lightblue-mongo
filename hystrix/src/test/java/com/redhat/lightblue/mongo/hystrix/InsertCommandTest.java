@@ -46,7 +46,7 @@ public class InsertCommandTest extends AbstractMongoTest {
     public void executeOne() {
         // doesn't support projection because there is no need at this time.
         DBObject query = new BasicDBObject("name", "obj");
-        WriteResult result = new InsertCommand(coll, query, WriteConcern.SAFE).execute();
+        WriteResult result = new InsertCommand(coll, query).execute();
 
         Assert.assertNotNull(result);
         Assert.assertNull(result.getError());
@@ -70,7 +70,7 @@ public class InsertCommandTest extends AbstractMongoTest {
             new BasicDBObject("name", "obj2"),
             new BasicDBObject("name", "obj3")
         };
-        WriteResult result = new InsertCommand(coll, data, WriteConcern.SAFE).execute();
+        WriteResult result = new InsertCommand(coll, data).execute();
 
         Assert.assertNotNull(result);
         Assert.assertNull(result.getError());

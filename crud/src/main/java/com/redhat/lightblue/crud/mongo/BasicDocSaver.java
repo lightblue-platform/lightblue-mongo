@@ -27,12 +27,11 @@ import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.MongoException;
-import com.mongodb.WriteConcern;
 import com.mongodb.WriteResult;
+import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CrudConstants;
 import com.redhat.lightblue.crud.DocCtx;
-import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.EntityMetadata;
@@ -112,7 +111,7 @@ public class BasicDocSaver implements DocSaver {
                     if (paths == null || paths.isEmpty()) {
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, inputDoc);
                         translator.addInvisibleFields(oldDBObject, dbObject, md);
-                        result = new UpdateCommand(collection, q, dbObject, upsert, false, WriteConcern.SAFE).executeAndUnwrap();
+                        result = new UpdateCommand(collection, q, dbObject, upsert, false).executeAndUnwrap();
                         inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, inputDoc);
                     } else {
@@ -195,7 +194,7 @@ public class BasicDocSaver implements DocSaver {
             if (paths == null || paths.isEmpty()) {
                 try {
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_INSERT_DOC, ctx, inputDoc);
-                    WriteResult r = new InsertCommand(collection, dbObject, WriteConcern.SAFE).executeAndUnwrap();
+                    WriteResult r = new InsertCommand(collection, dbObject).executeAndUnwrap();
                     inputDoc.setCRUDOperationPerformed(CRUDOperation.INSERT);
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_INSERT_DOC, ctx, inputDoc);
                     return r;

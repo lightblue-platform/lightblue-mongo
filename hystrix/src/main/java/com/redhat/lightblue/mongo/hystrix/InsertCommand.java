@@ -34,6 +34,9 @@ public class InsertCommand extends AbstractMongoCommand<WriteResult> {
     public InsertCommand(DBCollection collection, DBObject data, WriteConcern concern) {
         this(collection, new DBObject[]{data}, concern);
     }
+    public InsertCommand(DBCollection collection, DBObject data) {
+        this(collection, new DBObject[]{data}, null);
+    }
 
     public InsertCommand(DBCollection collection, DBObject[] data, WriteConcern concern) {
         super(InsertCommand.class.getSimpleName(), collection);
