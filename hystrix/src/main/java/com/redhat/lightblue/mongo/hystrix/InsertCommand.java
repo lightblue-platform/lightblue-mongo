@@ -40,9 +40,13 @@ public class InsertCommand extends AbstractMongoCommand<WriteResult> {
         this.data = data;
         this.concern = concern;
     }
+    
+    public InsertCommand(DBCollection collection, DBObject[] data) {
+        this(collection, data, null);
+    }
 
     @Override
     protected WriteResult runMongoCommand() {
-        return getDBCollection().insert(data, concern);
+        return concern == null ? getDBCollection().insert(data) : getDBCollection().insert(data, concern);
     }
 }
