@@ -68,7 +68,7 @@ public class BasicDocFinder implements DocFinder {
         if (from != null) {
             cursor.skip(from.intValue());
         }
-        if (to != null&& to>0) {
+        if (to != null) {
             cursor.limit(to.intValue() - (from == null ? 0 : from.intValue()) + 1);
         }
         LOGGER.debug("Retrieving results");
