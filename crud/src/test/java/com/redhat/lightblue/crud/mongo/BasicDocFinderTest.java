@@ -173,8 +173,50 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         Assert.assertEquals(2, ctx.getDocumentsWithoutErrors().size());
     }
     
+
     @Test
-    public void testNoLimit() throws IOException, ProcessingException {
+    public void testSkipLimit() throws IOException, ProcessingException {
+    	String id = "findLimit";
+        for(int i=0;i<20;i++)
+        {
+        insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
+        }
+
+        Assert.assertEquals("count on collection", 20, coll.find(null).count());
+
+        BasicDocFinder finder = new BasicDocFinder(translator);
+
+        long count = finder.find(
+                // CRUDOperationContext
+                ctx,
+                //DBCollection
+                coll,
+                // DBObject (query)
+                null, // all
+                null,
+                // DBObject (sort)
+                null,
+                // Long (from)
+                3l,
+                // Long (to)
+                9l);
+
+        Assert.assertEquals("find count", 20, count);
+        Assert.assertEquals(7, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(id + "3", ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "4", ctx.getDocuments().get(1).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "5", ctx.getDocuments().get(2).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "6", ctx.getDocuments().get(3).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "7", ctx.getDocuments().get(4).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "8", ctx.getDocuments().get(5).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "9", ctx.getDocuments().get(6).getOutputDocument().get(new Path("_id")).asText());
+        
+
+        
+    }
+    
+    @Test
+    public void testNullLimit() throws IOException, ProcessingException {
         String id = "findLimit";
         for(int i=0;i<20;i++)
         {
@@ -206,6 +248,39 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
     }
     
     @Test
+    public void testZeroLimit() throws IOException, ProcessingException {
+        String id = "findLimit";
+        for(int i=0;i<20;i++)
+        {
+        insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
+        }
+       
+
+        Assert.assertEquals("count on collection", 20, coll.find(null).count());
+
+        BasicDocFinder finder = new BasicDocFinder(translator);
+
+        long count = finder.find(
+                // CRUDOperationContext
+                ctx,
+                //DBCollection
+                coll,
+                // DBObject (query)
+                null, // all
+                null,
+                // DBObject (sort)
+                null,
+                // Long (from)
+                0l,
+                // Long (to)
+                0l);
+
+        Assert.assertEquals("find count", 20, count);
+        Assert.assertEquals(1, ctx.getDocumentsWithoutErrors().size());
+    }
+    
+    
+    @Test
     public void testNegativeLimit() throws IOException, ProcessingException {
         String id = "findLimit";
         for(int i=0;i<20;i++)
@@ -234,7 +309,39 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 -8l);
 
         Assert.assertEquals("find count", 20, count);
-        Assert.assertEquals(8, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(0, ctx.getDocumentsWithoutErrors().size());
+    }
+    
+    @Test
+    public void testLimitLesserThanSkip() throws IOException, ProcessingException {
+        String id = "findLimit";
+        for(int i=0;i<20;i++)
+        {
+        insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
+        }
+       
+
+        Assert.assertEquals("count on collection", 20, coll.find(null).count());
+
+        BasicDocFinder finder = new BasicDocFinder(translator);
+
+        long count = finder.find(
+                // CRUDOperationContext
+                ctx,
+                //DBCollection
+                coll,
+                // DBObject (query)
+                null, // all
+                null,
+                // DBObject (sort)
+                null,
+                // Long (from)
+                18l,
+                // Long (to)
+                8l);
+
+        Assert.assertEquals("find count", 20, count);
+        Assert.assertEquals(0, ctx.getDocumentsWithoutErrors().size());
     }
 
 
