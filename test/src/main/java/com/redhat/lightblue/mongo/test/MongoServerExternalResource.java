@@ -139,7 +139,7 @@ public class MongoServerExternalResource extends ExternalResource {
          * builds in some extra time to allow that process to finish.
          */
         try {
-            Thread.sleep(5000);
+            Thread.sleep(10000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
