@@ -31,6 +31,7 @@ import org.junit.Test;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
 import com.mongodb.ServerAddress;
+import com.mongodb.WriteConcern;
 
 public class MongoConfigurationTest {
 
@@ -47,7 +48,6 @@ public class MongoConfigurationTest {
         servers = new ArrayList<>();
         servers.add(serverAddress);
         config.addServerAddress("localhost", 27017);
-
     }
 
     @After
@@ -80,7 +80,7 @@ public class MongoConfigurationTest {
 
     @Test
     public void testGetMongoClientOptions() {
-        MongoClientOptions.Builder builder = MongoClientOptions.builder();
+        MongoClientOptions.Builder builder = MongoClientOptions.builder().writeConcern(WriteConcern.FSYNCED);
         builder.connectionsPerHost(10);
 
         Assert.assertEquals(builder.build(), config.getMongoClientOptions());
@@ -89,7 +89,7 @@ public class MongoConfigurationTest {
     @Test
     public void testGetMongoClientOptionsConnectionsPerHostNull() {
         config.setConnectionsPerHost(null);
-        MongoClientOptions.Builder builder = MongoClientOptions.builder();
+        MongoClientOptions.Builder builder = MongoClientOptions.builder().writeConcern(WriteConcern.FSYNCED);
 
         Assert.assertEquals(builder.build(), config.getMongoClientOptions());
     }

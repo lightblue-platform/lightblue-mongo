@@ -21,18 +21,16 @@ package com.redhat.lightblue.crud.mongo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.mongodb.DBCollection;
-import com.mongodb.DBObject;
-import com.mongodb.DBCursor;
 import com.mongodb.BasicDBObject;
+import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
+import com.mongodb.DBObject;
 import com.mongodb.WriteResult;
-import com.mongodb.WriteConcern;
-
-import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
+import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.DocCtx;
-import com.redhat.lightblue.crud.CRUDOperation;
+import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.mongo.hystrix.FindCommand;
 import com.redhat.lightblue.mongo.hystrix.RemoveCommand;
 
@@ -70,7 +68,7 @@ public class IterateDeleter implements DocDeleter {
                 DocCtx doc = ctx.addDocument(translator.toJson(document));
                 doc.setOriginalDocument(doc);
                 ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_DELETE_DOC, ctx, doc);
-                WriteResult result = new RemoveCommand(collection, new BasicDBObject("_id", id), WriteConcern.SAFE).executeAndUnwrap();
+                WriteResult result = new RemoveCommand(collection, new BasicDBObject("_id", id)).executeAndUnwrap();
                 if (result.getN() == 1) {
                     numDeleted++;
                     doc.setCRUDOperationPerformed(CRUDOperation.DELETE);

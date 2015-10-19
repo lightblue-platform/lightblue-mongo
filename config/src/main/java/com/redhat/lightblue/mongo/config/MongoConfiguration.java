@@ -43,6 +43,7 @@ import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoCredential;
 import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
+import com.mongodb.WriteConcern;
 import com.redhat.lightblue.config.DataSourceConfiguration;
 import com.redhat.lightblue.metadata.mongo.MongoDataStoreParser;
 import com.redhat.lightblue.metadata.parser.DataStoreParser;
@@ -78,6 +79,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
     private boolean noCertValidation = Boolean.FALSE;
     private Class metadataDataStoreParser = MongoDataStoreParser.class;
     private ReadPreference readPreference = null;
+    private WriteConcern writeConcern = WriteConcern.FSYNCED;
 
     public void addServerAddress(String hostname, int port) throws UnknownHostException {
         this.servers.add(new ServerAddress(hostname, port));
@@ -238,6 +240,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
             // construct a URI to connect
             builder.socketFactory(getSocketFactory());
         }
+        builder.writeConcern(writeConcern);
 
         return builder.build();
     }
@@ -267,6 +270,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
         bld.append("connectionsPerHost:").append(connectionsPerHost).append('\n').
                 append("database:").append(database).append('\n').
                 append("ssl:").append(ssl).append('\n').
+                append("writeConcern:").append(writeConcern).append('\n').
                 append("noCertValidation:").append(noCertValidation);
         bld.append("credentials:");
         boolean first = true;
@@ -390,6 +394,10 @@ public class MongoConfiguration implements DataSourceConfiguration {
             if (x != null) {
                 database = x.asText();
             }
+            x = node.get("writeConcern");
+            if(x != null){
+                writeConcern = WriteConcern.valueOf(x.asText());
+            }
             JsonNode jsonNodeServers = node.get("servers");
             if (jsonNodeServers != null && jsonNodeServers.isArray()) {
                 Iterator<JsonNode> elements = jsonNodeServers.elements();
@@ -446,6 +454,14 @@ public class MongoConfiguration implements DataSourceConfiguration {
         }
     }
 
+    public WriteConcern getWriteConcern() {
+        return writeConcern;
+    }
+
+    public void setWriteConcern(WriteConcern writeConcern) {
+        this.writeConcern = writeConcern;
+    }
+    
     public ReadPreference getReadPreference() {
         return readPreference;
     }

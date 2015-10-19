@@ -13,6 +13,7 @@
         "type": "com.redhat.lightblue.mongo.config.MongoConfiguration",
         "metadataDataStoreParser": "com.redhat.lightblue.metadata.mongo.MongoDataStoreParser",
         "ssl": true,
+        "writeConcern": "SAFE",
         "database": "metadata",
         "credentials": {
             "mechanism": "MONGODB_CR_MECHANISM",

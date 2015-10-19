@@ -34,15 +34,22 @@ public class InsertCommand extends AbstractMongoCommand<WriteResult> {
     public InsertCommand(DBCollection collection, DBObject data, WriteConcern concern) {
         this(collection, new DBObject[]{data}, concern);
     }
+    public InsertCommand(DBCollection collection, DBObject data) {
+        this(collection, new DBObject[]{data}, null);
+    }
 
     public InsertCommand(DBCollection collection, DBObject[] data, WriteConcern concern) {
         super(InsertCommand.class.getSimpleName(), collection);
         this.data = data;
         this.concern = concern;
     }
+    
+    public InsertCommand(DBCollection collection, DBObject[] data) {
+        this(collection, data, null);
+    }
 
     @Override
     protected WriteResult runMongoCommand() {
-        return getDBCollection().insert(data, concern);
+        return concern == null ? getDBCollection().insert(data) : getDBCollection().insert(data, concern);
     }
 }
