@@ -18,6 +18,7 @@
  */
 package com.redhat.lightblue.mongo.test;
 
+import com.mongodb.BasicDBObject;
 import static org.junit.Assert.assertNotNull;
 
 import java.net.UnknownHostException;
@@ -26,11 +27,25 @@ import org.junit.ClassRule;
 import org.junit.Test;
 
 import com.mongodb.MongoClient;
+import java.io.IOException;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
 
 public class MongoServerExternalResourceTest {
 
     @ClassRule
     public static final MongoServerExternalResource mongoServer = new MongoServerExternalResource();
+
+    @Before
+    public void before() throws IOException {
+        mongoServer.before();
+    }
+
+    @After
+    public void after() throws IOException {
+        mongoServer.after();
+    }
 
     @Test
     public void testGetConnection() throws UnknownHostException {
@@ -38,5 +53,44 @@ public class MongoServerExternalResourceTest {
 
         assertNotNull(client);
         assertNotNull(client.getDB("test"));
+    }
+
+    @Test
+    public void testRestart() throws UnknownHostException, IOException {
+        {
+            MongoClient client = mongoServer.getConnection();
+
+            Assert.assertNotNull(client.getDB("test"));
+            Assert.assertNotNull(client.getDB("test").getCollection("collection"));
+            Assert.assertEquals(0, client.getDB("test").getCollection("collection").count());
+            client.getDB("test").getCollection("collection").insert(new BasicDBObject("foo", "bar"));
+            Assert.assertEquals(1, client.getDB("test").getCollection("collection").count());
+        }
+
+        mongoServer.after();
+        mongoServer.before();
+
+        {
+            MongoClient client = mongoServer.getConnection();
+
+            Assert.assertNotNull(client.getDB("test"));
+            Assert.assertNotNull(client.getDB("test").getCollection("collection"));
+            Assert.assertEquals(0, client.getDB("test").getCollection("collection").count());
+            client.getDB("test").getCollection("collection").insert(new BasicDBObject("foo", "bar"));
+            Assert.assertEquals(1, client.getDB("test").getCollection("collection").count());
+        }
+
+        mongoServer.after();
+        mongoServer.before();
+
+        {
+            MongoClient client = mongoServer.getConnection();
+
+            Assert.assertNotNull(client.getDB("test"));
+            Assert.assertNotNull(client.getDB("test").getCollection("collection"));
+            Assert.assertEquals(0, client.getDB("test").getCollection("collection").count());
+            client.getDB("test").getCollection("collection").insert(new BasicDBObject("foo", "bar"));
+            Assert.assertEquals(1, client.getDB("test").getCollection("collection").count());
+        }
     }
 }
