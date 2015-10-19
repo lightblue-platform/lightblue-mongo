@@ -66,15 +66,20 @@ public class BasicDocFinder implements DocFinder {
         int size = cursor.size();
         long ret = size;
         LOGGER.debug("Applying limits: {} - {}", from, to);
+        
         if (from != null) {
             cursor.skip(from.intValue());
-            if(to!=null && from>to)            
+            if(to!=null && from>to) 
+            	//if 'to' is not null but lesser than 'from', skip the entire list to return nothing 
             	cursor.skip(size);	        
         }
         
+        
         if (to != null) {
+        	//if 'to' is not null, check if greater than or equal to 0 and set limit 
         	if(to >= 0)
             cursor.limit(to.intValue() - (from == null ? 0 : from.intValue()) + 1);
+        	// if to is less than 0, skip the entire list to return nothing
         	else if(to < 0)
         		cursor.skip(size);
         }
