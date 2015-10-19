@@ -18,14 +18,14 @@
  */
 package com.redhat.lightblue.mongo.hystrix;
 
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBCursor;
-import com.mongodb.DBObject;
-import com.mongodb.WriteConcern;
-import com.mongodb.WriteResult;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+
+import com.mongodb.BasicDBObject;
+import com.mongodb.DBCursor;
+import com.mongodb.DBObject;
+import com.mongodb.WriteResult;
 
 /**
  *

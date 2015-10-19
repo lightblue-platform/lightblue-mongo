@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.WriteConcern;
 
 /**
  * Sequence generation using a MongoDB collection. 
@@ -87,7 +88,7 @@ public class MongoSequenceGenerator {
                 append(INC,inc).
                 append(VALUE,init);
             try {
-                coll.insert(u);
+                coll.insert(u, WriteConcern.SAFE);
             } catch (Exception e) {
                 // Someone else might have inserted already, try to re-read
                 LOGGER.debug("Insertion failed with {}, trying to read",e);
