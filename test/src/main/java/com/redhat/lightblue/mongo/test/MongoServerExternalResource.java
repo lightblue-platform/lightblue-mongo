@@ -43,20 +43,29 @@ import de.flapdoodle.embed.mongo.distribution.Version;
 import de.flapdoodle.embed.process.runtime.Network;
 
 /**
- * <p>JUnit {@link ExternalResource} that will handle standing/shutting down an In-Memory Mongo instance
- * for testing purposes.</p>
- * <p>Example Usage:<br>
- *   Create an instance of MongoServerExternalResource with a {@link org.junit.Rule} or {@link org.junit.ClassRule} annotation.
- *   <p><code>
+ * <p>
+ * JUnit {@link ExternalResource} that will handle standing/shutting down an
+ * In-Memory Mongo instance for testing purposes.</p>
+ * <p>
+ * Example Usage:<br>
+ * Create an instance of MongoServerExternalResource with a
+ * {@link org.junit.Rule} or {@link org.junit.ClassRule} annotation.
+ * <p>
+ * <code>
  *      {@literal @}Rule<br>
- *      public MongoServerExternalResource mongoServer = new MongoServerExternalResource();
- *   </code></p>
- *   Then set the <code>{@literal @}InMemoryMongoServer</code> annotation on either the Class or Method
- *   level. This annotation allows properties of the Mongo instance to be configured, but is required even
- *   if only using the default values.
+ * public MongoServerExternalResource mongoServer = new
+ * MongoServerExternalResource();
+ * </code></p>
+ * Then set the <code>{@literal @}InMemoryMongoServer</code> annotation on
+ * either the Class or Method level. This annotation allows properties of the
+ * Mongo instance to be configured, but is required even if only using the
+ * default values.
  * </p>
- * <p>On occasion for debugging purposes, it is useful to connect to the running mongo instance. This can be achieved by
- * placing a breakpoint in the unit test and then running <code>mongo --host localhost --port 27777</code> from your console.<p>
+ * <p>
+ * On occasion for debugging purposes, it is useful to connect to the running
+ * mongo instance. This can be achieved by placing a breakpoint in the unit test
+ * and then running <code>mongo --host localhost --port 27777</code> from your
+ * console.<p>
  *
  * @author dcrissman
  */
@@ -125,24 +134,13 @@ public class MongoServerExternalResource extends ExternalResource {
 
     @Override
     protected void after() {
-        if (mongod != null) {
-            mongod.stop();
+        if (mongodExe != null) {
             mongodExe.stop();
         }
+
+        client = null;
         mongod = null;
         mongodExe = null;
-
-        /*
-         * There seems to be a race condition with multiple back to back
-         * test cases. Essentially, the mongo instance process must be
-         * still shutting down after the stop method returns. This sleep
-         * builds in some extra time to allow that process to finish.
-         */
-        try {
-            Thread.sleep(10000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
     }
 
     /**

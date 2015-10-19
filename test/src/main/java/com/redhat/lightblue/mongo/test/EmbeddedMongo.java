@@ -158,8 +158,7 @@ public final class EmbeddedMongo {
                 @Override
                 public void run() {
                     super.start();
-                    if (mongod != null) {
-                        mongod.stop();
+                    if (mongodExe != null) {
                         mongodExe.stop();
                     }
                     db = null;
