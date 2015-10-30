@@ -623,9 +623,11 @@ public class Translator {
 
     private DBObject translateValueComparisonExpression(FieldTreeNode context, ValueComparisonExpression expr) {
         Type t = resolve(context, expr.getField()).getType();
+
+        Object value=expr.getRvalue().getValue();
         if (expr.getOp() == BinaryComparisonOperator._eq
                 || expr.getOp() == BinaryComparisonOperator._neq) {
-            if (!t.supportsEq()) {
+            if (!t.supportsEq()&&value!=null) {
                 throw Error.get(ERR_INVALID_COMPARISON, expr.toString());
             }
         } else {
@@ -633,7 +635,7 @@ public class Translator {
                 throw Error.get(ERR_INVALID_COMPARISON, expr.toString());
             }
         }
-        Object valueObject = filterBigNumbers(t.cast(expr.getRvalue().getValue()));
+        Object valueObject = filterBigNumbers(t.cast(value));
         if (expr.getField().equals(ID_PATH)) {
             valueObject = createIdFrom(valueObject);
         }
