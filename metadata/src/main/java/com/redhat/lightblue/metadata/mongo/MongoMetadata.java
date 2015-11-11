@@ -393,7 +393,7 @@ public class MongoMetadata extends AbstractMetadata {
             DBCursor cursor = new FindCommand(collection,
                     new BasicDBObject(LITERAL_NAME, ei.getName()).
                             append(LITERAL_VERSION, new BasicDBObject("$exists", 1)).
-                            append(LITERAL_STATUS_VALUE, new BasicDBObject("$ne", MetadataStatus.DISABLED.toString())),
+                            append(LITERAL_STATUS_VALUE, new BasicDBObject("$ne", MetadataParser.toString(MetadataStatus.DISABLED))),
                     null).executeAndUnwrap();
             while (cursor.hasNext()) {
                 DBObject object = cursor.next();
