@@ -483,13 +483,14 @@ public class MongoMetadataTest {
 
     @Test
     public void validateAllVersions_InvalidDisabled() throws Exception {
-        String collectionName = "testCollection";
+        String metadataCollectionName = "metadata";
+        String disabledVersion = "1.0.0";
         // create two versions of metadata, disable the older one, then update it in mongo to make it invalid
         // confirm validateAllVersions doesn't fail
         EntityMetadata e = new EntityMetadata("testEntity");
-        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setVersion(new Version(disabledVersion, null, "some text blah blah"));
         e.setStatus(MetadataStatus.ACTIVE);
-        e.setDataStore(new MongoDataStore(null, null, collectionName));
+        e.setDataStore(new MongoDataStore(null, null, "testCollection"));
         e.getFields().put(new SimpleField("field1", StringType.TYPE));
         ObjectField o = new ObjectField("field2");
         o.getFields().put(new SimpleField("x", IntegerType.TYPE));
@@ -505,7 +506,7 @@ public class MongoMetadataTest {
         md.validateAllVersions(e.getEntityInfo());
 
         // invalidate the disabled version
-        mongo.getDB().getCollection(collectionName).update(new BasicDBObject("_id", e.getName() + "|" + e.getVersion().getValue()), 
+        mongo.getDB().getCollection(metadataCollectionName).update(new BasicDBObject("_id", e.getName() + "|" + disabledVersion), 
                 new BasicDBObject("$set", new BasicDBObject("fields.field1.type", "INVALID")));
 
         // shouldn't be valid now
@@ -517,17 +518,17 @@ public class MongoMetadataTest {
         }
         
         // fix the broken metadata
-        mongo.getDB().getCollection(collectionName).update(new BasicDBObject("_id", e.getName() + "|" + e.getVersion().getValue()), 
+        mongo.getDB().getCollection(metadataCollectionName).update(new BasicDBObject("_id", e.getName() + "|" + disabledVersion), 
                 new BasicDBObject("$set", new BasicDBObject("fields.field1.type", "string")));
         
         // disable 1.0.0
-        md.setMetadataStatus(e.getName(), "1.0.0", MetadataStatus.DISABLED, "test");
+        md.setMetadataStatus(e.getName(), disabledVersion, MetadataStatus.DISABLED, "test");
         
         // is still valid
         md.validateAllVersions(e.getEntityInfo());
         
         // break the disabled metadata
-        mongo.getDB().getCollection(collectionName).update(new BasicDBObject("_id", e.getName() + "|" + e.getVersion().getValue()), 
+        mongo.getDB().getCollection(metadataCollectionName).update(new BasicDBObject("_id", e.getName() + "|" + disabledVersion), 
                 new BasicDBObject("$set", new BasicDBObject("fields.field1.type", "INVALID")));
         
         // it should still be valid
