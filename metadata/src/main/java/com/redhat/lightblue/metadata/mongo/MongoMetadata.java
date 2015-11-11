@@ -386,7 +386,7 @@ public class MongoMetadata extends AbstractMetadata {
     /**
      * When EntityInfo is updated, we have to make sure any active/deprecated metadata is still valid
      */
-    private void validateAllVersions(EntityInfo ei) {
+    protected void validateAllVersions(EntityInfo ei) {
         LOGGER.debug("Validating all versions of {}", ei.getName());
         String version = null;
         try {

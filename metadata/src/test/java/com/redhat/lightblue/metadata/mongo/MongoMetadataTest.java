@@ -73,7 +73,7 @@ public class MongoMetadataTest {
         Extensions<BSONObject> x = new Extensions<>();
         x.addDefaultExtensions();
         x.registerDataStoreParser("mongo", new MongoDataStoreParser<BSONObject>());
-        md = new MongoMetadata(mongo.getDB(), x, new DefaultTypes(), factory,null);
+        md = new MongoMetadata(mongo.getDB(), x, new DefaultTypes(), factory, null);
         BasicDBObject index = new BasicDBObject("name", 1);
         index.put("version.value", 1);
         mongo.getDB().getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION).ensureIndex(index, "name", true);
@@ -365,20 +365,20 @@ public class MongoMetadataTest {
         ObjectField o = new ObjectField("field2");
         o.getFields().put(new SimpleField("x", IntegerType.TYPE));
         e.getFields().put(o);
-        com.redhat.lightblue.metadata.Enum enumdef=new  com.redhat.lightblue.metadata.Enum("en");
-        Set<String> envalues=new HashSet<>();
+        com.redhat.lightblue.metadata.Enum enumdef = new com.redhat.lightblue.metadata.Enum("en");
+        Set<String> envalues = new HashSet<>();
         envalues.add("value");
         enumdef.setValues(envalues);
         e.getEntityInfo().getEnums().addEnum(enumdef);
 
-        SimpleField s=new SimpleField("z",StringType.TYPE);
-        ArrayList<FieldConstraint> enumsc=new ArrayList<>();
-        EnumConstraint enumc=new EnumConstraint();
+        SimpleField s = new SimpleField("z", StringType.TYPE);
+        ArrayList<FieldConstraint> enumsc = new ArrayList<>();
+        EnumConstraint enumc = new EnumConstraint();
         enumc.setName("en");
         enumsc.add(enumc);
         s.setConstraints(enumsc);
         e.getFields().put(s);
-       
+
         md.createNewMetadata(e);
 
         e.getEntityInfo().getEnums().setEnums(new ArrayList());
@@ -399,9 +399,9 @@ public class MongoMetadataTest {
         ObjectField o = new ObjectField("field2");
         o.getFields().put(new SimpleField("x", IntegerType.TYPE));
         e.getFields().put(o);
-        SimpleField s=new SimpleField("z",StringType.TYPE);
-        ArrayList<FieldConstraint> enumsc=new ArrayList<>();
-        EnumConstraint enumc=new EnumConstraint();
+        SimpleField s = new SimpleField("z", StringType.TYPE);
+        ArrayList<FieldConstraint> enumsc = new ArrayList<>();
+        EnumConstraint enumc = new EnumConstraint();
         enumc.setName("en");
         enumsc.add(enumc);
         s.setConstraints(enumsc);
@@ -482,6 +482,59 @@ public class MongoMetadataTest {
     }
 
     @Test
+    public void validateAllVersions_InvalidDisabled() throws Exception {
+        String collectionName = "testCollection";
+        // create two versions of metadata, disable the older one, then update it in mongo to make it invalid
+        // confirm validateAllVersions doesn't fail
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, collectionName));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        md.createNewMetadata(e);
+
+        e.setVersion(new Version("2.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.getFields().put(new SimpleField("field3", IntegerType.TYPE));
+        md.createNewSchema(e);
+        
+        // confirm they're all good so far, expect no exception
+        md.validateAllVersions(e.getEntityInfo());
+
+        // invalidate the disabled version
+        mongo.getDB().getCollection(collectionName).update(new BasicDBObject("_id", e.getName() + "|" + e.getVersion().getValue()), 
+                new BasicDBObject("$set", new BasicDBObject("fields.field1.type", "INVALID")));
+
+        // shouldn't be valid now
+        try {
+            md.validateAllVersions(e.getEntityInfo());
+            Assert.fail("Expected validation to fail, active version is invalid!");
+        } catch (Exception ex) {
+            // expected to be invalid
+        }
+        
+        // fix the broken metadata
+        mongo.getDB().getCollection(collectionName).update(new BasicDBObject("_id", e.getName() + "|" + e.getVersion().getValue()), 
+                new BasicDBObject("$set", new BasicDBObject("fields.field1.type", "string")));
+        
+        // disable 1.0.0
+        md.setMetadataStatus(e.getName(), "1.0.0", MetadataStatus.DISABLED, "test");
+        
+        // is still valid
+        md.validateAllVersions(e.getEntityInfo());
+        
+        // break the disabled metadata
+        mongo.getDB().getCollection(collectionName).update(new BasicDBObject("_id", e.getName() + "|" + e.getVersion().getValue()), 
+                new BasicDBObject("$set", new BasicDBObject("fields.field1.type", "INVALID")));
+        
+        // it should still be valid
+        md.validateAllVersions(e.getEntityInfo());
+    }
+
+    @Test
     public void snapshotUpdates() throws Exception {
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0-SNAPSHOT", null, "some text blah blah"));
@@ -532,7 +585,8 @@ public class MongoMetadataTest {
         try {
             md.createNewSchema(e);
             Assert.fail();
-        } catch (Exception x) {}
+        } catch (Exception x) {
+        }
         v = md.getEntityVersions("testEntity");
         Assert.assertEquals(1, v.length);
     }
