@@ -386,14 +386,14 @@ public class MongoMetadata extends AbstractMetadata {
     /**
      * When EntityInfo is updated, we have to make sure any active/deprecated metadata is still valid
      */
-    private void validateAllVersions(EntityInfo ei) {
+    protected void validateAllVersions(EntityInfo ei) {
         LOGGER.debug("Validating all versions of {}", ei.getName());
         String version = null;
         try {
             DBCursor cursor = new FindCommand(collection,
                     new BasicDBObject(LITERAL_NAME, ei.getName()).
                             append(LITERAL_VERSION, new BasicDBObject("$exists", 1)).
-                            append(LITERAL_STATUS_VALUE, new BasicDBObject("$ne", MetadataStatus.DISABLED.toString())),
+                            append(LITERAL_STATUS_VALUE, new BasicDBObject("$ne", MetadataParser.toString(MetadataStatus.DISABLED))),
                     null).executeAndUnwrap();
             while (cursor.hasNext()) {
                 DBObject object = cursor.next();
