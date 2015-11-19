@@ -26,7 +26,7 @@ fi
 
 # check that local branch is equal to upstream master (assumes remote of origin)
 MERGE_BASE=`git merge-base HEAD origin/master`
-HEAD_HASH=`git rev-parse origin/master`
+HEAD_HASH=`git rev-parse HEAD`
 
 if [ $MERGE_BASE != $HEAD_HASH ]; then
     echo "Local branch is not in sync with origin/master.  Fix and run this script again."
@@ -50,4 +50,11 @@ git push origin master --tags
 # perform release
 mvn release:perform -P release || exit
 
+# update to latest lightblue snapshot dependencies
+mvn versions:use-latest-snapshots versions:update-properties -Dincludes=*lightblue* -DallowSnapshots=true
+git commit -m "Updated to latest snapshot dependencies"
+git push origin master
+
+# deploy updated snapshots
 mvn clean deploy
+
