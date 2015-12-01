@@ -95,7 +95,8 @@ public class BasicDocFinder implements DocFinder {
         } else
             realn=size-realFrom;
         if(realn>10000) {
-            LOGGER.warn("Too many results:{} for query {}",size,mongoQuery);
+            LOGGER.warn("Too many results:{}",size);
+            RESULTSET_LOGGER.debug("resultset_size={}, query={}",size,mongoQuery);
             throw Error.get(MongoCrudConstants.ERR_TOO_MANY_RESULTS,Integer.toString(size));
         }
         
