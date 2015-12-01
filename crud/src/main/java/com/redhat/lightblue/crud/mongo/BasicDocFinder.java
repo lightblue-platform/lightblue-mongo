@@ -34,6 +34,7 @@ import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.mongo.hystrix.FindCommand;
 
 import com.redhat.lightblue.util.JsonDoc;
+import com.redhat.lightblue.util.Error;
 
 /**
  * Basic doc search operation
@@ -71,22 +72,32 @@ public class BasicDocFinder implements DocFinder {
         int size = cursor.size();
         long ret = size;
         LOGGER.debug("Applying limits: {} - {}", from, to);
-        
+
+        int realFrom=-1;
         if (from != null) {
-            cursor.skip(from.intValue());
+            cursor.skip(realFrom=from.intValue());
             if(to!=null && from>to) 
             	//if 'to' is not null but lesser than 'from', skip the entire list to return nothing 
-            	cursor.skip(size);	        
-        }
+            	cursor.skip(realFrom=size);	        
+        } else
+            realFrom=0;
         
-        
+        int realn=-1;
         if (to != null) {
         	//if 'to' is not null, check if greater than or equal to 0 and set limit 
         	if(to >= 0)
-            cursor.limit(to.intValue() - (from == null ? 0 : from.intValue()) + 1);
+                    cursor.limit(realn=to.intValue() - (from == null ? 0 : from.intValue()) + 1);
         	// if to is less than 0, skip the entire list to return nothing
-        	else if(to < 0)
+        	else if(to < 0) {
         		cursor.skip(size);
+                        realn=0;
+                }
+        } else
+            realn=size-realFrom;
+        if(realn>10000) {
+            LOGGER.warn("Too many results:{}",size);
+            RESULTSET_LOGGER.debug("resultset_size={}, query={}",size,mongoQuery);
+            throw Error.get(MongoCrudConstants.ERR_TOO_MANY_RESULTS,Integer.toString(size));
         }
         
         
