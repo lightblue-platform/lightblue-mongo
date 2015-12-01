@@ -1,0 +1,51 @@
+{
+    "metadata": {
+        "documentation": [
+            "MongoDB makes a distinction between servers (a list) and ",
+            "server (a single address), even if servers contains a",
+            "single address. So, if servers field exists in this file,",
+            "then it assumes it is talking to a replica set, and will",
+            "want access to all the nodes. If instead server field ",
+            "exists, it only talks to that server.",
+            "WARNING: noCertValidation: this turns off all SSL certificate ",
+            "validations. It should be set to true only for development."
+        ],
+        "type": "com.redhat.lightblue.mongo.config.MongoConfiguration",
+        "metadataDataStoreParser": "com.redhat.lightblue.mongo.metadata.MongoDataStoreParser",
+        "ssl": true,
+        "writeConcern": "SAFE",
+        "database": "metadata",
+        "credentials": {
+            "mechanism": "MONGODB_CR_MECHANISM",
+            "userName": "lightblue",
+            "password": "password",
+            "source": "admin"
+        },
+        "server": {
+            "host": "lightbluemongo4.dev.int.phx1.redhat.com",
+            "port": "27017"
+        },
+        "driverOptions": {
+            "readPreference": "nearest"
+        }
+    },
+    "mongodata": {
+        "type": "com.redhat.lightblue.mongo.config.MongoConfiguration",
+        "metadataDataStoreParser": "com.redhat.lightblue.mongo.metadata.MongoDataStoreParser",
+        "ssl": true,
+        "database": "data",
+        "credentials": {
+            "mechanism": "MONGODB_CR_MECHANISM",
+            "userName": "lightblue",
+            "password": "password",
+            "source": "admin"
+        },
+        "server": {
+            "host": "lightbluemongo4.dev.int.phx1.redhat.com",
+            "port": "27017"
+        },
+        "driverOptions": {
+            "readPreference": "secondary"
+        }
+    }
+}
