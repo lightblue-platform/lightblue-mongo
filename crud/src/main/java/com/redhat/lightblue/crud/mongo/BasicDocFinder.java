@@ -41,6 +41,7 @@ import com.redhat.lightblue.util.JsonDoc;
 public class BasicDocFinder implements DocFinder {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BasicDocFinder.class);
+    private static final Logger RESULTSET_LOGGER = LoggerFactory.getLogger("com.redhat.lightblue.crud.mongo.resultsets");
 
     private final Translator translator;
 
@@ -57,7 +58,11 @@ public class BasicDocFinder implements DocFinder {
                      Long from,
                      Long to) {
         LOGGER.debug("Submitting query {}",mongoQuery);
+
+        long executionTime=System.currentTimeMillis();
         DBCursor cursor = new FindCommand(coll, mongoQuery, mongoProjection).executeAndUnwrap();
+        executionTime=System.currentTimeMillis()-executionTime;
+        
         LOGGER.debug("Query evaluated");
         if (mongoSort != null) {
             cursor = cursor.sort(mongoSort);
@@ -86,9 +91,18 @@ public class BasicDocFinder implements DocFinder {
         
         
         LOGGER.debug("Retrieving results");
+        long retrievalTime=System.currentTimeMillis();
         List<DBObject> mongoResults = cursor.toArray();
+        retrievalTime=System.currentTimeMillis()-retrievalTime;
+        
         LOGGER.debug("Retrieved {} results", mongoResults.size());
         List<JsonDoc> jsonDocs = translator.toJson(mongoResults);
+
+        if(RESULTSET_LOGGER.isInfoEnabled()) {
+            RESULTSET_LOGGER.info("Execution time:{}, Retrieval time:{}, Resultset size: {}, Data size:{}, Query:{}",
+                                  executionTime,retrievalTime,mongoResults.size(),Translator.size(jsonDocs),mongoQuery);
+        }
+        
         ctx.addDocuments(jsonDocs);
         for (DocCtx doc : ctx.getDocuments()) {
             doc.setCRUDOperationPerformed(CRUDOperation.FIND);
@@ -97,4 +111,5 @@ public class BasicDocFinder implements DocFinder {
         LOGGER.debug("Translated DBObjects to json");
         return ret;
     }
+
 }
