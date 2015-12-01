@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Iterator;
 
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
@@ -36,6 +37,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.NumericNode;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import com.redhat.lightblue.crud.MetadataResolver;
@@ -1179,4 +1181,34 @@ public class Translator {
             return source;
         }
     }
+
+    public static int size(JsonNode node) {
+        int size=0;
+        if(node instanceof ArrayNode) {
+            for(Iterator<JsonNode> elements=((ArrayNode)node).elements();elements.hasNext();)
+                size+=size(elements.next());
+        } else if(node instanceof ObjectNode) {
+            for(Iterator<Map.Entry<String,JsonNode>> fields=((ObjectNode)node).fields();fields.hasNext();) {
+                Map.Entry<String,JsonNode> field=fields.next();
+                size+=field.getKey().length();
+                size+=size(field.getValue());
+            }
+        } else if(node instanceof NumericNode)
+            size+=4;
+        else
+            size+=node.asText().length();
+        return size;
+    }
+
+    public static int size(JsonDoc doc) {
+        return size(doc.getRoot());
+    }
+
+    public static int size(List<JsonDoc> list) {
+        int size=0;
+        for(JsonDoc doc:list)
+            size+=size(doc);
+        return size;
+    }
+    
 }
