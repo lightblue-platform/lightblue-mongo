@@ -41,7 +41,7 @@ import com.redhat.lightblue.util.JsonDoc;
 public class BasicDocFinder implements DocFinder {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BasicDocFinder.class);
-    private static final Logger RESULTSET_LOGGER = LoggerFactory.getLogger("com.redhat.lightblue.crud.mongo.resultsets");
+    private static final Logger RESULTSET_LOGGER = LoggerFactory.getLogger("com.redhat.lightblue.crud.mongo.slowresults");
 
     private final Translator translator;
 
@@ -98,9 +98,9 @@ public class BasicDocFinder implements DocFinder {
         LOGGER.debug("Retrieved {} results", mongoResults.size());
         List<JsonDoc> jsonDocs = translator.toJson(mongoResults);
 
-        if(RESULTSET_LOGGER.isInfoEnabled()) {
-            RESULTSET_LOGGER.info("Execution time:{}, Retrieval time:{}, Resultset size: {}, Data size:{}, Query:{}",
-                                  executionTime,retrievalTime,mongoResults.size(),Translator.size(jsonDocs),mongoQuery);
+        if(RESULTSET_LOGGER.isDebugEnabled()&&(executionTime>100 || retrievalTime>100)) {
+            RESULTSET_LOGGER.debug("Execution time:{}, Retrieval time:{}, Resultset size: {}, Data size:{}, Query:{}",
+                                   executionTime,retrievalTime,mongoResults.size(),Translator.size(jsonDocs),mongoQuery);
         }
         
         ctx.addDocuments(jsonDocs);
