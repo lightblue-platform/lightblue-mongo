@@ -44,6 +44,8 @@ public final class MongoCrudConstants {
     public static final String ERR_CONFIGURATION_ERROR = "mongo=crud:ConfigurationError";
 
     public static final String ERR_NO_SEQUENCE_NAME = "mongo-crud:NoSequenceName";
+
+    public static final String ERR_TOO_MANY_RESULTS = "mongo-crud:TooManyResults";
     
     private MongoCrudConstants() {
 

@@ -34,6 +34,7 @@ import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.mongo.hystrix.FindCommand;
 
 import com.redhat.lightblue.util.JsonDoc;
+import com.redhat.lightblue.util.Error;
 
 /**
  * Basic doc search operation
@@ -64,6 +65,10 @@ public class BasicDocFinder implements DocFinder {
             LOGGER.debug("Result set sorted");
         }
         int size = cursor.size();
+        if(size>10000) {
+            LOGGER.warn("Too many results:{} for query {}",size,mongoQuery);
+            throw Error.get(MongoCrudConstants.ERR_TOO_MANY_RESULTS,Integer.toString(size));
+        }
         long ret = size;
         LOGGER.debug("Applying limits: {} - {}", from, to);
         
