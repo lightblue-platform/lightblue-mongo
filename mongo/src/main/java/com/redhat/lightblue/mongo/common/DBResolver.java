@@ -20,6 +20,8 @@ package com.redhat.lightblue.mongo.common;
 
 import com.mongodb.DB;
 
+import com.redhat.lightblue.mongo.config.MongoConfiguration;
+
 /**
  * Returns a DB object based on the MongoBackend.
  */
@@ -28,4 +30,5 @@ public interface DBResolver {
      * Returns a DB object based on the backend definition
      */
     DB get(MongoDataStore store);
+    MongoConfiguration getConfiguration(MongoDataStore store);
 }

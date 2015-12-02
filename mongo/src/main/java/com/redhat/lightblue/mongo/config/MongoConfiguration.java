@@ -80,6 +80,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
     private Class metadataDataStoreParser = MongoDataStoreParser.class;
     private ReadPreference readPreference = null;
     private WriteConcern writeConcern = WriteConcern.FSYNCED;
+    private int maxResultSetSize=10000;
 
     public void addServerAddress(String hostname, int port) throws UnknownHostException {
         this.servers.add(new ServerAddress(hostname, port));
@@ -110,6 +111,14 @@ public class MongoConfiguration implements DataSourceConfiguration {
 
     public ServerAddress getServer() {
         return theServer;
+    }
+
+    public int getMaxResultSetSize() {
+        return maxResultSetSize;
+    }
+
+    public void setMaxResultSetSize(int size) {
+        maxResultSetSize=size;
     }
 
     @Override
@@ -268,10 +277,11 @@ public class MongoConfiguration implements DataSourceConfiguration {
             bld.append("servers:").append(servers).append('\n');
         }
         bld.append("connectionsPerHost:").append(connectionsPerHost).append('\n').
-                append("database:").append(database).append('\n').
-                append("ssl:").append(ssl).append('\n').
-                append("writeConcern:").append(writeConcern).append('\n').
-                append("noCertValidation:").append(noCertValidation);
+            append("database:").append(database).append('\n').
+            append("ssl:").append(ssl).append('\n').
+            append("writeConcern:").append(writeConcern).append('\n').
+            append("noCertValidation:").append(noCertValidation).append('\n').
+            append("maxResultSetSize:").append(maxResultSetSize);
         bld.append("credentials:");
         boolean first = true;
         for (MongoCredential c : credentials) {
@@ -397,6 +407,10 @@ public class MongoConfiguration implements DataSourceConfiguration {
             x = node.get("writeConcern");
             if(x != null){
                 writeConcern = WriteConcern.valueOf(x.asText());
+            }
+            x = node.get("maxResultSetSize");
+            if(x!=null) {
+                maxResultSetSize=x.asInt();
             }
             JsonNode jsonNodeServers = node.get("servers");
             if (jsonNodeServers != null && jsonNodeServers.isArray()) {

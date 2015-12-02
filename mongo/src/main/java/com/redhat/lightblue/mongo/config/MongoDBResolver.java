@@ -43,6 +43,20 @@ public class MongoDBResolver implements DBResolver {
     }
 
     @Override
+    public MongoConfiguration getConfiguration(MongoDataStore store) {
+        if (store.getDatasourceName() != null) {
+            return datasources.get(store.getDatasourceName());
+        } else if (store.getDatabaseName() != null) {
+            for (DataSourceConfiguration cfg : datasources.values()) {
+                if (((MongoConfiguration) cfg).getDatabase().equals(store.getDatabaseName())) {
+                    return (MongoConfiguration) cfg;
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
     public DB get(MongoDataStore store) {
         LOGGER.debug("Returning DB for {}", store);
         DB db = null;
@@ -51,7 +65,7 @@ public class MongoDBResolver implements DBResolver {
                 LOGGER.debug("datasource:{}", store.getDatasourceName());
                 db = dsMap.get(store.getDatasourceName());
                 if (db == null) {
-                    MongoConfiguration cfg = datasources.get(store.getDatasourceName());
+                    MongoConfiguration cfg = getConfiguration(store);
                     if (cfg == null) {
                         throw new IllegalArgumentException("No datasources for " + store.getDatasourceName());
                     }
@@ -62,13 +76,9 @@ public class MongoDBResolver implements DBResolver {
                 LOGGER.debug("databaseName:{}", store.getDatabaseName());
                 db = dbMap.get(store.getDatabaseName());
                 if (db == null) {
-                    for (DataSourceConfiguration cfg : datasources.values()) {
-                        if (((MongoConfiguration) cfg).getDatabase().equals(store.getDatabaseName())) {
-                            db = ((MongoConfiguration) cfg).getDB();
-                            dbMap.put(store.getDatabaseName(), db);
-                            break;
-                        }
-                    }
+                    MongoConfiguration cfg=getConfiguration(store);
+                    db = cfg.getDB();
+                    dbMap.put(store.getDatabaseName(), db);
                 }
             }
         } catch (RuntimeException re) {

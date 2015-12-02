@@ -55,4 +55,9 @@ public interface DocFinder {
               DBObject mongoSort,
               Long from,
               Long to);
+
+    /**
+     * Sets the maximum allowed result set size. Any value <=0 means there is no limit
+     */
+    void setMaxResultSetSize(int size);
 }

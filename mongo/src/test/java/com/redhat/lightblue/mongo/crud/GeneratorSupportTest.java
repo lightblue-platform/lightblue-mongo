@@ -31,6 +31,7 @@ import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.ValueGenerator;
 import com.redhat.lightblue.mongo.common.DBResolver;
 import com.redhat.lightblue.mongo.common.MongoDataStore;
+import com.redhat.lightblue.mongo.config.MongoConfiguration;
 import com.redhat.lightblue.mongo.crud.MongoCRUDController;
 import com.redhat.lightblue.mongo.crud.MongoSequenceSupport;
 import com.redhat.lightblue.extensions.valuegenerator.ValueGeneratorSupport;
@@ -47,11 +48,13 @@ public class GeneratorSupportTest extends AbstractMongoCrudTest  {
         dbx.createCollection(COLL_NAME, null);
 
         controller = new MongoCRUDController(null,new DBResolver() {
-            @Override
-            public DB get(MongoDataStore store) {
-                return dbx;
-            }
-        });
+                @Override
+                public DB get(MongoDataStore store) {
+                    return dbx;
+                }
+                @Override
+                public MongoConfiguration getConfiguration(MongoDataStore store) {return null;}
+       });
     }
 
     @Test
