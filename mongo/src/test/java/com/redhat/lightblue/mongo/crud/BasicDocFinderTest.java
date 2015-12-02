@@ -279,6 +279,56 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         Assert.assertEquals("find count", 20, count);
         Assert.assertEquals(1, ctx.getDocumentsWithoutErrors().size());
     }
+
+    @Test
+    public void testResultSetLimit() throws IOException, ProcessingException {
+        String id = "findLimit";
+        for(int i=0;i<20;i++)
+        {
+        insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
+        }
+       
+
+        Assert.assertEquals("count on collection", 20, coll.find(null).count());
+
+        BasicDocFinder finder = new BasicDocFinder(translator);
+        finder.setMaxResultSetSize(10);
+
+        try {
+            finder.find(
+                        // CRUDOperationContext
+                        ctx,
+                        //DBCollection
+                        coll,
+                        // DBObject (query)
+                        null, // all
+                        null,
+                        // DBObject (sort)
+                        null,
+                        // Long (from)
+                        0l,
+                        // Long (to)
+                        null);
+            Assert.fail();
+        } catch(Exception e) {}
+        long count = finder.find(
+                                 // CRUDOperationContext
+                                 ctx,
+                                 //DBCollection
+                                 coll,
+                                 // DBObject (query)
+                                 null, // all
+                                 null,
+                                 // DBObject (sort)
+                                 null,
+                                 // Long (from)
+                                 0l,
+                                 // Long (to)
+                                 9l);
+
+        Assert.assertEquals("find count", 20, count);
+        Assert.assertEquals(10, ctx.getDocumentsWithoutErrors().size());
+    }
     
     
     @Test

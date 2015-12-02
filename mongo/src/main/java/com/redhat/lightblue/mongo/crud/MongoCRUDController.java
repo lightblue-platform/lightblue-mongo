@@ -34,6 +34,7 @@ import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.mongo.metadata.MongoMetadataConstants;
 import com.redhat.lightblue.mongo.common.DBResolver;
 import com.redhat.lightblue.mongo.common.MongoDataStore;
+import com.redhat.lightblue.mongo.config.MongoConfiguration;
 import com.redhat.lightblue.query.*;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
@@ -344,6 +345,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
                 LOGGER.debug("Retrieve db collection:" + coll);
                 DocFinder finder = new BasicDocFinder(translator);
+                MongoConfiguration cfg=dbResolver.getConfiguration( (MongoDataStore)md.getDataStore());
+                if(cfg!=null)
+                    finder.setMaxResultSetSize(cfg.getMaxResultSetSize());
                 ctx.setProperty(PROP_FINDER, finder);
                 response.setSize(finder.find(ctx, coll, mongoQuery, mongoProjection, mongoSort, from, to));
                 // Project results
