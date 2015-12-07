@@ -38,6 +38,7 @@ import com.mongodb.DBObject;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDInsertionResponse;
 import com.redhat.lightblue.crud.CRUDOperation;
+import com.redhat.lightblue.crud.CRUDFindResponse;
 import com.redhat.lightblue.crud.CRUDSaveResponse;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.DocCtx;
@@ -718,6 +719,41 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 i++;
             }
         }
+    }
+
+    @Test
+    public void limitTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+
+        ctx.add(md);
+        // Generate some docs
+        List<JsonDoc> docs = new ArrayList<>();
+        int numDocs = 20;
+        for (int i = 0; i < numDocs; i++) {
+            JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+            doc.modify(new Path("field1"), nodeFactory.textNode("doc" + i), false);
+            doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
+            docs.add(doc);
+        }
+        ctx.addDocuments(docs);
+        controller.insert(ctx, projection("{'field':'_id'}"));
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        CRUDFindResponse response=controller.find(ctx, query("{'field':'field3','op':'>=','rvalue':0}"),
+                                                  projection("{'field':'*','recursive':1}"),
+                                                  sort("{'field3':'$desc'}"), null, null);
+        Assert.assertEquals(numDocs, ctx.getDocuments().size());
+        Assert.assertEquals(numDocs,response.getSize());
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        response=controller.find(ctx, query("{'field':'field3','op':'>=','rvalue':0}"),
+                                                  projection("{'field':'*','recursive':1}"),
+                                                  sort("{'field3':'$desc'}"), 0l, 1l);
+        Assert.assertEquals(2, ctx.getDocuments().size());
+        Assert.assertEquals(numDocs,response.getSize());
     }
 
     @Test
