@@ -47,9 +47,11 @@ public class MergeTest extends AbstractJsonSchemaTest {
     private EntityMetadata md;
     private EntityMetadata md2;
     private EntityMetadata md3;
+    private EntityMetadata md6;
     private Merge merge;
     private Merge merge2;
     private Merge merge3;
+    private Merge merge6;
     private static final JsonNodeFactory nodeFactory = JsonNodeFactory.withExactBigDecimals(true);
 
     private class Resolver implements MetadataResolver {
@@ -82,9 +84,11 @@ public class MergeTest extends AbstractJsonSchemaTest {
         md = getMd("./testMetadata.json");
         md2 = getMd("./testMetadata2.json");
         md3 = getMd("./testMetadata3.json");
+        md6 = getMd("./testMetadata6.json");
         merge = new Merge(md);
         merge2 = new Merge(md2);
         merge3 = new Merge(md3);
+        merge6 = new Merge(md6);
     }
 
     @Test
@@ -176,6 +180,20 @@ public class MergeTest extends AbstractJsonSchemaTest {
         merge2.merge(oldDoc, newDoc);
         // verify result
         Assert.assertEquals("val1", ((List<DBObject>) newDoc.get("field7")).get(0).get("inv1"));
+    }
+
+    @Test
+    public void merge_nested_objarr() throws Exception {
+        JsonNode node = loadJsonNode("./testdata6.json");
+        Translator t = new Translator(new Resolver(md6), nodeFactory);
+        DBObject oldDoc = t.toBson(new JsonDoc(node));
+        DBObject newDoc = t.toBson(new JsonDoc(node));
+        ((DBObject)((List<DBObject>) oldDoc.get("field7")).get(0).get("nested")).put("inv1", "val1");
+
+        merge6.merge(oldDoc, newDoc);
+        
+        // verify result
+        Assert.assertEquals("val1", ((DBObject)((List<DBObject>) newDoc.get("field7")).get(0).get("nested")).get("inv1"));
     }
 
     private Object get(List<Merge.IField> list, String path) {

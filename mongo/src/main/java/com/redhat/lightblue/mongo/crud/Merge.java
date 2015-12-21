@@ -148,8 +148,8 @@ public final class Merge {
     }
 
     /**
-     * Tries to locate the parent DBObject object that will be the parent of the
-     * field that needs to be added to tbe newCopy to preverse the field
+     * Tries to locate the nearest ancestor List DBObject object that will be the parent of the
+     * field that needs to be added to the newCopy to preverse the field
      */
     private DBObject findMergeParent(DBObject oldCopy, DBObject newCopy, Path field) {
         LOGGER.debug("Attempting to merge in {}", field);
