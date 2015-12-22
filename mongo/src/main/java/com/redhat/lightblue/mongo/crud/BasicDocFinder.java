@@ -109,8 +109,9 @@ public class BasicDocFinder implements DocFinder {
         List<JsonDoc> jsonDocs = translator.toJson(mongoResults);
 
         if(RESULTSET_LOGGER.isDebugEnabled()&&(executionTime>100 || retrievalTime>100)) {
-            RESULTSET_LOGGER.debug("execution_time={}, retrieval_time={}, resultset_size={}, data_size={}, query={}",
-                                   executionTime,retrievalTime,mongoResults.size(),Translator.size(jsonDocs),mongoQuery);
+            RESULTSET_LOGGER.debug("execution_time={}, retrieval_time={}, resultset_size={}, data_size={}, query={}, from={}, to={}",
+                                   executionTime,retrievalTime,mongoResults.size(),Translator.size(jsonDocs),mongoQuery,
+                                   from,to);
         }
         
         ctx.addDocuments(jsonDocs);
