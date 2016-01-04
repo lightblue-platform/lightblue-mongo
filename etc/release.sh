@@ -42,13 +42,13 @@ mvn release:prepare -P release \
                     -DpushChanges=false \
                     -DreleaseVersion=$RELEASE_VERSION \
                     -DdevelopmentVersion=$DEVEL_VERSION \
-                    -Dtag=V${RELEASE_VERSION} || exit
+                    -Dtag=V${RELEASE_VERSION} | tee prepare.log || exit
 
 # push prepared changes (doing separate just to have control)
 git push origin master --tags
 
 # perform release
-mvn release:perform -P release || exit
+mvn release:perform -P release | tee release.log || exit
 
 # update to latest lightblue snapshot dependencies
 mvn versions:use-latest-snapshots versions:update-properties -Dincludes=*lightblue* -DallowSnapshots=true
@@ -56,5 +56,5 @@ git commit -m "Updated to latest snapshot dependencies"
 git push origin master
 
 # deploy updated snapshots
-mvn clean deploy
+mvn clean deploy | tee deploy.log
 
