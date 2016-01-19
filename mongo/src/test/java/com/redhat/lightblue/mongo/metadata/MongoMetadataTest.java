@@ -168,6 +168,7 @@ public class MongoMetadataTest {
         e.setDataStore(new MongoDataStore(null, null, "testCollection"));
         e.getFields().put(new SimpleField("field1", StringType.TYPE));
         ObjectField o = new ObjectField("field2");
+        o.setDescription("description");
         o.getFields().put(new SimpleField("x", IntegerType.TYPE));
         e.getFields().put(o);
         md.createNewMetadata(e);
@@ -181,6 +182,7 @@ public class MongoMetadataTest {
                 (g.resolve(new Path("field1"))).getType());
         Assert.assertEquals((e.resolve(new Path("field2.x"))).getType(),
                 (g.resolve(new Path("field2.x"))).getType());
+        Assert.assertEquals("description not set", o.getDescription(), e.getFields().getField(o.getName()).getDescription());
         Version[] v = md.getEntityVersions("testEntity");
         Assert.assertEquals(1, v.length);
         Assert.assertEquals("1.0.0", v[0].getValue());
