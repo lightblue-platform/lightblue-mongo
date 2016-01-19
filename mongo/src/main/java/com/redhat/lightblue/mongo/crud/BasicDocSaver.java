@@ -18,7 +18,7 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
-import java.util.List;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,7 +107,7 @@ public class BasicDocSaver implements DocSaver {
                 if (md.getAccess().getUpdate().hasAccess(ctx.getCallerRoles())) {
                     JsonDoc oldDoc = translator.toJson(oldDBObject);
                     inputDoc.setOriginalDocument(oldDoc);
-                    List<Path> paths = roleEval.getInaccessibleFields_Update(inputDoc, oldDoc);
+                    Set<Path> paths = roleEval.getInaccessibleFields_Update(inputDoc, oldDoc);
                     if (paths == null || paths.isEmpty()) {
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, inputDoc);
                         translator.addInvisibleFields(oldDBObject, dbObject, md);
@@ -189,7 +189,7 @@ public class BasicDocSaver implements DocSaver {
                     MongoCrudConstants.ERR_NO_ACCESS,
                     "insert:" + md.getName()));
         } else {
-            List<Path> paths = roleEval.getInaccessibleFields_Insert(inputDoc);
+            Set<Path> paths = roleEval.getInaccessibleFields_Insert(inputDoc);
             LOGGER.debug("Inaccessible fields:{}", paths);
             if (paths == null || paths.isEmpty()) {
                 try {

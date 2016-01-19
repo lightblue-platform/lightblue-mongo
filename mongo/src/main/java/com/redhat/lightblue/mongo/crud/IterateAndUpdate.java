@@ -19,6 +19,7 @@
 package com.redhat.lightblue.mongo.crud;
 
 import java.util.List;
+import java.util.Set;
 
 import com.redhat.lightblue.crud.*;
 import org.slf4j.Logger;
@@ -117,7 +118,7 @@ public class IterateAndUpdate implements DocUpdater {
                         LOGGER.debug("Doc has data errors");
                     }
                     if (!hasErrors) {
-                        List<Path> paths = roleEval.getInaccessibleFields_Update(doc, doc.getOriginalDocument());
+                        Set<Path> paths = roleEval.getInaccessibleFields_Update(doc, doc.getOriginalDocument());
                         LOGGER.debug("Inaccesible fields during update={}" + paths);
                         if (paths != null && !paths.isEmpty()) {
                             doc.addError(Error.get("update", CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
