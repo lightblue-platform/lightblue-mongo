@@ -355,7 +355,8 @@ public class MongoConfiguration implements DataSourceConfiguration {
                 list.add(credentialFromJson((ObjectNode) node));
             }
         } catch (ClassCastException e) {
-            throw new IllegalArgumentException("Invalid credentials node:" + node);
+            LOGGER.debug("Invalid credentials node: " + node);
+            throw new IllegalArgumentException("Invalid credentials node, see debug log for details");
         }
         return list;
     }
@@ -398,7 +399,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
                     metadataDataStoreParser = Class.forName(x.asText());
                 }
             } catch (ClassNotFoundException e) {
-                throw new IllegalArgumentException(node.toString() + ":" + e);
+                throw new IllegalArgumentException(e);
             }
             x = node.get("database");
             if (x != null) {
