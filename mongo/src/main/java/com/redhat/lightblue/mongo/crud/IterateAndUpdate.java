@@ -85,6 +85,7 @@ public class IterateAndUpdate implements DocUpdater {
         int docIndex = 0;
         int numFailed = 0;
         int numUpdated = 0;
+        BsonMerge merge=new BsonMerge(md);
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
             cursor = new FindCommand(collection, query, null).executeAndUnwrap();
@@ -129,7 +130,7 @@ public class IterateAndUpdate implements DocUpdater {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc);
                             DBObject updatedObject = translator.toBson(doc);
-                            translator.addInvisibleFields(document, updatedObject, md);
+                            merge.merge(document,updatedObject);
                             WriteResult result = new SaveCommand(collection, updatedObject).executeAndUnwrap();
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             LOGGER.debug("Number of rows affected : ", result.getN());
