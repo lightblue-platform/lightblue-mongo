@@ -64,12 +64,12 @@ public class BasicDocSaver implements DocSaver {
 
     @Override
     public void saveDoc(CRUDOperationContext ctx,
-            Op op,
-            boolean upsert,
-            DBCollection collection,
-            EntityMetadata md,
-            DBObject dbObject,
-            DocCtx inputDoc) {
+                        Op op,
+                        boolean upsert,
+                        DBCollection collection,
+                        EntityMetadata md,
+                        DBObject dbObject,
+                        DocCtx inputDoc) {
 
         WriteResult result = null;
         String error = null;
@@ -97,6 +97,7 @@ public class BasicDocSaver implements DocSaver {
             // Inserting
             result = insertDoc(ctx, collection, md, dbObject, inputDoc);
         } else if (op == DocSaver.Op.save && id!=null) {
+            BsonMerge merge=new BsonMerge(md);
             // Updating
             LOGGER.debug("Updating doc {}" + id);
             BasicDBObject q = new BasicDBObject(MongoCRUDController.ID_STR, Translator.createIdFrom(id));
@@ -110,7 +111,7 @@ public class BasicDocSaver implements DocSaver {
                     Set<Path> paths = roleEval.getInaccessibleFields_Update(inputDoc, oldDoc);
                     if (paths == null || paths.isEmpty()) {
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, inputDoc);
-                        translator.addInvisibleFields(oldDBObject, dbObject, md);
+                        merge.merge(oldDBObject,dbObject);
                         result = new UpdateCommand(collection, q, dbObject, upsert, false).executeAndUnwrap();
                         inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, inputDoc);
