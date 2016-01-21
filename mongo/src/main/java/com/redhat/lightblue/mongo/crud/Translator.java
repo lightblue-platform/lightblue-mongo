@@ -259,15 +259,6 @@ public class Translator {
         return list;
     }
 
-    /**
-     * Add any fields in the old object that are not in the metadata of the new
-     * object
-     */
-    public void addInvisibleFields(DBObject oldDBObject, DBObject newObject, EntityMetadata md) {
-        Merge merge = new Merge(md);
-        merge.merge(oldDBObject, newObject);
-    }
-
     public static Object getDBObject(DBObject start, Path p) {
         int n = p.numSegments();
         Object trc = start;
