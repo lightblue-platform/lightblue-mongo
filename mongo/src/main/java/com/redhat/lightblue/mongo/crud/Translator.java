@@ -21,6 +21,7 @@ package com.redhat.lightblue.mongo.crud;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,7 @@ import com.redhat.lightblue.metadata.ArrayField;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.FieldCursor;
 import com.redhat.lightblue.metadata.FieldTreeNode;
+import com.redhat.lightblue.metadata.Index;
 import com.redhat.lightblue.metadata.ObjectArrayElement;
 import com.redhat.lightblue.metadata.ObjectField;
 import com.redhat.lightblue.metadata.ReferenceField;
@@ -97,6 +99,7 @@ public class Translator {
     public static final Path OBJECT_TYPE = new Path(OBJECT_TYPE_STR);
 
     public static final Path ID_PATH = new Path("_id");
+    public static final Path HIDDEN_SUB_PATH = new Path("@hidden");
 
     public static final String ERR_NO_OBJECT_TYPE = "mongo-translation:no-object-type";
     public static final String ERR_INVALID_OBJECTTYPE = "mongo-translation:invalid-object-type";
@@ -323,7 +326,7 @@ public class Translator {
         Error.push("translateQuery");
         FieldTreeNode mdRoot = md.getFieldTreeRoot();
         try {
-            return translate(mdRoot, query);
+            return translate(mdRoot, query, md);
         } catch (Error e) {
             // rethrow lightblue error
             throw e;
@@ -573,24 +576,24 @@ public class Translator {
         return ret;
     }
 
-    private DBObject translate(FieldTreeNode context, QueryExpression query) {
+    private DBObject translate(FieldTreeNode context, QueryExpression query, EntityMetadata emd) {
         DBObject ret;
         if (query instanceof ArrayContainsExpression) {
             ret = translateArrayContains(context, (ArrayContainsExpression) query);
         } else if (query instanceof ArrayMatchExpression) {
-            ret = translateArrayElemMatch(context, (ArrayMatchExpression) query);
+            ret = translateArrayElemMatch(context, (ArrayMatchExpression) query, emd);
         } else if (query instanceof FieldComparisonExpression) {
             ret = translateFieldComparison(context, (FieldComparisonExpression) query);
         } else if (query instanceof NaryLogicalExpression) {
-            ret = translateNaryLogicalExpression(context, (NaryLogicalExpression) query);
+            ret = translateNaryLogicalExpression(context, (NaryLogicalExpression) query, emd);
         } else if (query instanceof NaryValueRelationalExpression) {
             ret = translateNaryValueRelationalExpression(context, (NaryValueRelationalExpression) query);
         } else if (query instanceof NaryFieldRelationalExpression) {
             ret = translateNaryFieldRelationalExpression(context, (NaryFieldRelationalExpression) query);
         } else if (query instanceof RegexMatchExpression) {
-            ret = translateRegexMatchExpression((RegexMatchExpression) query);
+            ret = translateRegexMatchExpression((RegexMatchExpression) query, emd);
         } else if (query instanceof UnaryLogicalExpression) {
-            ret = translateUnaryLogicalExpression(context, (UnaryLogicalExpression) query);
+            ret = translateUnaryLogicalExpression(context, (UnaryLogicalExpression) query, emd);
         } else {
             ret = translateValueComparisonExpression(context, (ValueComparisonExpression) query);
         }
@@ -649,11 +652,26 @@ public class Translator {
         }
     }
 
-    private DBObject translateRegexMatchExpression(RegexMatchExpression expr) {
+    private DBObject translateRegexMatchExpression(RegexMatchExpression expr, EntityMetadata emd) {
         StringBuilder options = new StringBuilder();
         BasicDBObject regex = new BasicDBObject("$regex", expr.getRegex());
+        Path field = new Path().mutableCopy();
+
         if (expr.isCaseInsensitive()) {
             options.append('i');
+
+            // Check if there is a useful index that's case insensitive
+            Map<Index, Set<Path>> indexMap = emd.getEntityInfo().getIndexes().getUsefulIndexes(Arrays.asList(expr.getField()));
+
+            boolean foundIndex = false;
+            for (Index index : indexMap.keySet()) {
+                if (index.isCaseSensitive()) {
+                    field.add(expr.getField().prefix(-1));
+                    field.add(HIDDEN_SUB_PATH); // @hidden
+                    field.add(new Path(expr.getField().getLast()));
+                    break;
+                }
+            }
         }
         if (expr.isMultiline()) {
             options.append('m');
@@ -668,7 +686,7 @@ public class Translator {
         if (opStr.length() > 0) {
             regex.append("$options", opStr);
         }
-        return new BasicDBObject(translatePath(expr.getField()), regex);
+        return new BasicDBObject(translatePath(field), regex);
     }
 
     private DBObject translateNaryValueRelationalExpression(FieldTreeNode context, NaryValueRelationalExpression expr) {
@@ -701,17 +719,17 @@ public class Translator {
         }
     }
 
-    private DBObject translateUnaryLogicalExpression(FieldTreeNode context, UnaryLogicalExpression expr) {
+    private DBObject translateUnaryLogicalExpression(FieldTreeNode context, UnaryLogicalExpression expr, EntityMetadata emd) {
         List<DBObject> l=new ArrayList<>(1);
-        l.add(translate(context,expr.getQuery()));
+        l.add(translate(context,expr.getQuery(), emd));
         return new BasicDBObject(UNARY_LOGICAL_OPERATOR_MAP.get(expr.getOp()), l);
     }
 
-    private DBObject translateNaryLogicalExpression(FieldTreeNode context, NaryLogicalExpression expr) {
+    private DBObject translateNaryLogicalExpression(FieldTreeNode context, NaryLogicalExpression expr, EntityMetadata emd) {
         List<QueryExpression> queries = expr.getQueries();
         List<DBObject> list = new ArrayList<>(queries.size());
         for (QueryExpression query : queries) {
-            list.add(translate(context, query));
+            list.add(translate(context, query, emd));
         }
         return new BasicDBObject(NARY_LOGICAL_OPERATOR_MAP.get(expr.getOp()), list);
     }
@@ -791,7 +809,7 @@ public class Translator {
                 return writeArrayArrayComparisonJS(field1,field2,op);
             } else {
                 return writeArrayFieldComparisonJS(field2,field1,BINARY_COMPARISON_OPERATOR_JS_MAP.get(op.invert()));
-            } 
+            }
         } else if(field2IsArray) {
             return writeArrayFieldComparisonJS(field1,field2,BINARY_COMPARISON_OPERATOR_JS_MAP.get(op));
         } else {
@@ -851,18 +869,18 @@ public class Translator {
             str.append(writeComparisonJS(lField,lIsArray,rField,rIsArray,expr.getOp()));
             str.append("return false;}");
         }
-        
+
         return new BasicDBObject("$where", str.toString());
     }
 
-    private DBObject translateArrayElemMatch(FieldTreeNode context, ArrayMatchExpression expr) {
+    private DBObject translateArrayElemMatch(FieldTreeNode context, ArrayMatchExpression expr, EntityMetadata emd) {
         FieldTreeNode arrayNode = resolve(context, expr.getArray());
         if (arrayNode instanceof ArrayField) {
             ArrayElement el = ((ArrayField) arrayNode).getElement();
             if (el instanceof ObjectArrayElement) {
                 return new BasicDBObject(translatePath(expr.getArray()),
                         new BasicDBObject("$elemMatch",
-                                translate(el, expr.getElemMatch())));
+                                translate(el, expr.getElemMatch(), emd)));
             }
         }
         throw Error.get(ERR_INVALID_FIELD, expr.toString());
@@ -1065,7 +1083,7 @@ public class Translator {
                 value = createIdFrom(value);
             }
             dest.append(path.tail(0), value);
-        } 
+        }
     }
 
     /**
@@ -1210,5 +1228,5 @@ public class Translator {
             size+=size(doc);
         return size;
     }
-    
+
 }
