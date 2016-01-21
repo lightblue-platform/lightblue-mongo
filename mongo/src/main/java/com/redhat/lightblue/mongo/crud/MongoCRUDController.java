@@ -747,34 +747,30 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         if(e instanceof Error)
             return (Error)e;
 
-        if (e instanceof CommandFailureException) {
-            CommandFailureException ce = (CommandFailureException) e;
-            // give a better Error.code in case auth failed which is represented in MongoDB by code == 18
-            if (ce.getCode() == 18) {
+        if(e instanceof MongoException) {
+            MongoException me=(MongoException)e;
+            if(me.getCode()==18) {
                 return Error.get(CrudConstants.ERR_AUTH_FAILED, e.getMessage());
             } else {
-                return Error.get(CrudConstants.ERR_DATASOURCE_UNKNOWN, e.getMessage());
-            }
-        } else if (e instanceof MongoClientException) {
-            if (e instanceof MongoTimeoutException) {
-                return Error.get(CrudConstants.ERR_DATASOURCE_TIMEOUT, e.getMessage());
-            } else {
-                return Error.get(CrudConstants.ERR_DATASOURCE_UNKNOWN, e.getMessage());
-            }
-        } else if (e instanceof MongoException) {
-            if (e instanceof MongoExecutionTimeoutException) {
-                return Error.get(CrudConstants.ERR_DATASOURCE_TIMEOUT, e.getMessage());
-            } else {
-                return Error.get(CrudConstants.ERR_DATASOURCE_UNKNOWN, e.getMessage());
+                if(me instanceof MongoTimeoutException||
+                   me instanceof MongoExecutionTimeoutException) {
+                    return Error.get(CrudConstants.ERR_DATASOURCE_TIMEOUT, e.getMessage());
+                } else if(me instanceof DuplicateKeyException) {
+                    return Error.get(MongoCrudConstants.ERR_DUPLICATE,e.getMessage());
+                } else if(me instanceof MongoSocketException) {
+                    return Error.get(MongoCrudConstants.ERR_CONNECTION_ERROR,e.getMessage());
+                } else {
+                    return Error.get(MongoCrudConstants.ERR_MONGO_ERROR,e.getMessage());
+                }
             }
         } else {
-            if (msg == null) {
-                return Error.get(otherwise, e.getMessage());
+            if(msg==null) {
+                return Error.get(otherwise,e.getMessage());
             } else {
-                if(specialHandling){
-                    return Error.get(otherwise, msg, e);
-                }else {
-                    return Error.get(otherwise, msg);
+                if(specialHandling) {
+                    return Error.get(otherwise,msg,e);
+                } else {
+                    return Error.get(otherwise,msg);
                 }
             }
         }
