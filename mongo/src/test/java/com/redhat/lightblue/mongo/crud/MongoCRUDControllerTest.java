@@ -77,6 +77,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         super.setup();
 
         final DB dbx = db;
+        // Cleanup stuff
+        dbx.getCollection(COLL_NAME).drop();
         dbx.createCollection(COLL_NAME, null);
 
         controller = new MongoCRUDController(null,new DBResolver() {
@@ -1146,6 +1148,41 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void saneIndex() throws Exception {
+
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex2"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+        Index index = new Index();
+        index.setName("testIndex1");
+        index.setUnique(true);
+        List<SortKey> indexFields = new ArrayList<>();
+        indexFields.add(new SortKey(new Path("field1"), true));
+        index.setFields(indexFields);
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index);
+        index = new Index();
+        index.setName("testIndex2");
+        index.setUnique(false);
+        indexFields = new ArrayList<>();
+        indexFields.add(new SortKey(new Path("field1"), true));
+        index.setFields(indexFields);
+        indexes.add(index);        
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        try {
+            controller.beforeUpdateEntityInfo(null, e.getEntityInfo(),false);
+            Assert.fail();
+        } catch (Exception x) {}
+    }
+    
+
+    @Test
     public void entityIndexUpdateTest_default() throws Exception {
 
         EntityMetadata e = new EntityMetadata("testEntity");
@@ -1171,7 +1208,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         DBCollection entityCollection = db.getCollection("testCollectionIndex2");
 
         index = new Index();
-        index.setName("testIndex2");
+        index.setName("testIndex");
         index.setUnique(false);
         indexFields = new ArrayList<>();
         indexFields.clear();
@@ -1186,7 +1223,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         boolean foundIndex = false;
 
         for (DBObject mongoIndex : entityCollection.getIndexInfo()) {
-            if ("testIndex2".equals(mongoIndex.get("name"))) {
+            if ("testIndex".equals(mongoIndex.get("name"))) {
                 if (mongoIndex.get("key").toString().contains("field1")) {
                     if (mongoIndex.get("unique") != null) {
                         // if it is null it is not unique, so no check is required
@@ -1201,19 +1238,62 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             }
         }
         Assert.assertTrue(foundIndex);
+    }
+    
+    @Test
+    public void entityIndexUpdateTest_addFieldToCompositeIndex_190() throws Exception {
+        
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex2"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        e.getFields().put(new SimpleField("field2", StringType.TYPE));
+        e.getFields().put(new SimpleField("field3", StringType.TYPE));
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+        Index index = new Index();
+        index.setName("modifiedIndex");
+        index.setUnique(true);
+        List<SortKey> indexFields = new ArrayList<>();
+        indexFields.add(new SortKey(new Path("field1"), true));
+        indexFields.add(new SortKey(new Path("field2"), true));
+        index.setFields(indexFields);        
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
-        foundIndex = false;
+        indexFields = new ArrayList<>();
+        indexFields.add(new SortKey(new Path("field1"), true));
+        indexFields.add(new SortKey(new Path("field2"), true));
+        indexFields.add(new SortKey(new Path("field3"), true));
+        index.setFields(indexFields);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+        DBCollection entityCollection = db.getCollection("testCollectionIndex2");       
+
+        boolean foundIndex = false;
 
         for (DBObject mongoIndex : entityCollection.getIndexInfo()) {
-            if ("testIndex".equals(mongoIndex.get("name"))) {
-                if (mongoIndex.get("key").toString().contains("field1")) {
-                    Assert.assertEquals("Index is not unique", Boolean.TRUE, mongoIndex.get("unique"));
-                    Assert.assertEquals("Index is sparse", Boolean.TRUE, mongoIndex.get("sparse"));
+            if ("modifiedIndex".equals(mongoIndex.get("name"))) {
+                if (mongoIndex.get("key").toString().contains("field1")&&
+                    mongoIndex.get("key").toString().contains("field2")&&
+                    mongoIndex.get("key").toString().contains("field3")) {
+                    if (mongoIndex.get("unique") != null) {
+                        // if it is null it is not unique, so no check is required
+                        Assert.assertEquals("Index is unique", Boolean.TRUE, mongoIndex.get("unique"));
+                    }
+                    if (mongoIndex.get("sparse") != null) {
+                        // if it is null it is not sparse, so no check is required
+                        Assert.assertEquals("Index is sparse", Boolean.TRUE, mongoIndex.get("sparse"));
+                    }
                     foundIndex = true;
                 }
             }
         }
-        Assert.assertTrue(!foundIndex);
+        Assert.assertTrue(foundIndex);
     }
 
     @Test

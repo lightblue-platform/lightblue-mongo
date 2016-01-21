@@ -408,6 +408,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     public void beforeUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
         validateIndexFields(ei);
         ensureIdIndex(ei);
+        validateSaneIndexSet(ei.getIndexes().getIndexes());
     }
 
     @Override
@@ -433,6 +434,36 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             }
         }
         return newPath.immutableCopy();
+    }
+
+    /**
+     * No two index should have the same field signature
+     */
+    private void validateSaneIndexSet(List<Index> indexes) {
+        int n=indexes.size();
+        for(int i=0;i<n;i++) {
+            List<SortKey> keys1=indexes.get(i).getFields();
+            for(int j=i+1;j<n;j++) {
+                List<SortKey> keys2=indexes.get(j).getFields();
+                if(sameSortKeys(keys1,keys2)) {
+                    throw Error.get(MongoCrudConstants.ERR_DUPLICATE_INDEX);
+                }
+            }
+        }
+    }
+
+    private  boolean sameSortKeys(List<SortKey> keys1,List<SortKey> keys2) {
+        if(keys1.size()==keys2.size()) {
+            for(int i=0;i<keys1.size();i++) {
+                SortKey k1=keys1.get(i);
+                SortKey k2=keys2.get(i);
+                if(!k1.getField().equals(k2.getField())||
+                   k1.isDesc()!=k2.isDesc())
+                    return false;
+            }
+            return true;
+        }
+        return false;
     }
 
     private void validateIndexFields(EntityInfo ei) {
@@ -532,60 +563,89 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         Error.push("createUpdateIndex");
         try {
             List<DBObject> existingIndexes = entityCollection.getIndexInfo();
-            Set<DBObject> deleteIndexes = new HashSet<>();
-            deleteIndexes.addAll(existingIndexes);
             LOGGER.debug("Existing indexes: {}", existingIndexes);
-            for (Index index : indexes.getIndexes()) {
-                boolean createIx = !isIdIndex(index);
-                if (createIx) {
-                    LOGGER.debug("Processing index {}", index);
-                    for (DBObject existingIndex : existingIndexes) {
-                        if (indexFieldsMatch(index, existingIndex)
-                                && indexOptionsMatch(index, existingIndex)) {
-                            LOGGER.debug("Same index exists, not creating");
-                            createIx = false;
-                            deleteIndexes.remove(existingIndex);
-                            break;
+
+            // This is how index creation/modification works:
+            //  - The _id index will remain untouched.
+            //  - If there is an index with name X in metadata, find the same named index, and compare
+            //    its fields/flags. If different, drop and recreate. Drop all indexes with the same field signature.
+            //
+            //  - If there is an index with null name in metadata, see if there is an index with same
+            //    fields and flags. If so, no change. Otherwise, create index. Drop all indexes with the same field signature.
+            
+            List<Index> createIndexes=new ArrayList<>();
+            List<DBObject> dropIndexes=new ArrayList<>();
+            for(Index index:indexes.getIndexes()) {
+                if(!isIdIndex(index)) {
+                    if(index.getName()!=null&&index.getName().trim().length()>0) {
+                        LOGGER.debug("Processing index {}",index.getName());
+                        DBObject found=null;
+                        for(DBObject existingIndex:existingIndexes) {
+                            if(index.getName().equals(existingIndex.get("name"))) {
+                                found=existingIndex;
+                                break;
+                            }
+                        }
+                        if(found!=null) {
+                            if(indexFieldsMatch(index,found) &&
+                               indexOptionsMatch(index,found) ) {
+                                LOGGER.debug("{} already exists",index.getName());
+                            } else {
+                                LOGGER.debug("{} modified, dropping and recreating index",index.getName());
+                                existingIndexes.remove(found);
+                                dropIndexes.add(found);
+                                createIndexes.add(index);
+                            }
+                        } else {
+                            LOGGER.debug("{} not found, checking if there is an index with same field signature",index.getName());
+                            found=findIndexWithSignature(existingIndexes,index);
+                            if(found==null) {
+                                LOGGER.debug("{} not found, creating",index.getName());
+                                createIndexes.add(index);
+                            } else {
+                                LOGGER.debug("There is an index with same field signature as {}, drop and recreate",index.getName());
+                                dropIndexes.add(found);
+                                createIndexes.add(index);
+                            }
+                        }
+                    } else {
+                        LOGGER.debug("Processing index with fields {}",index.getFields());
+                        DBObject found=findIndexWithSignature(existingIndexes,index);
+                        if(found!=null) {
+                            LOGGER.debug("An index with same keys found: {}",found);
+                            if(indexOptionsMatch(index,found)) {
+                                LOGGER.debug("Same options as well, not changing");
+                            } else {
+                                LOGGER.debug("Index with different options, drop/recreate");
+                                dropIndexes.add(found);
+                                createIndexes.add(index);
+                            }
+                        } else {
+                            LOGGER.debug("Creating index with fields {}",index.getFields());
+                            createIndexes.add(index);
                         }
                     }
-                }
-
-                if (createIx) {
-                    for (DBObject existingIndex : existingIndexes) {
-                        if (indexFieldsMatch(index, existingIndex)
-                                && !indexOptionsMatch(index, existingIndex)) {
-                            LOGGER.debug("Same index exists with different options, dropping index:{}", existingIndex);
-                            // Changing index options, drop the index using its name, recreate with new options
-                            entityCollection.dropIndex(existingIndex.get("name").toString());
-                            deleteIndexes.remove(existingIndex);
-                        }
-                    }
-                }
-
-                if (createIx) {
-                    DBObject newIndex = new BasicDBObject();
-                    for (SortKey p : index.getFields()) {
-                        newIndex.put(p.getField().toString(), p.isDesc() ? -1 : 1);
-                    }
-                    BasicDBObject options = new BasicDBObject("unique", index.isUnique());
-                    // if index is unique also make it a sparse index, so we can have non-required unique fields
-                    options.append("sparse", index.isUnique());
-                    if (index.getName() != null && index.getName().trim().length() > 0) {
-                        options.append("name", index.getName().trim());
-                    }
-                    options.append("background", true);
-                    LOGGER.debug("Creating index {} with options {}", newIndex, options);
-                    entityCollection.createIndex(newIndex, options);
                 }
             }
-
-            // for any indexes that remain in deleteIndexes set, delete them (except _id index!)
-            for (DBObject deleteIndex : deleteIndexes) {
-                if (((BasicDBObject) deleteIndex.get("key")).size() != 1
-                        || !((BasicDBObject) deleteIndex.get("key")).containsField(ID_STR)) {
-                    // it's a multi-key index or the one key is not _id, delete it
-                    entityCollection.dropIndex(deleteIndex.get("name").toString());
+            for(DBObject index:dropIndexes) {
+                LOGGER.info("Dropping {}",index.get("name"));
+                entityCollection.dropIndex(index.get("name").toString());
+            }
+            for(Index index:createIndexes) {
+                LOGGER.info("Creating index {} with {}",index.getName(),index.getFields());
+                DBObject newIndex = new BasicDBObject();
+                for (SortKey p : index.getFields()) {
+                    newIndex.put(p.getField().toString(), p.isDesc() ? -1 : 1);
                 }
+                BasicDBObject options = new BasicDBObject("unique", index.isUnique());
+                // if index is unique also make it a sparse index, so we can have non-required unique fields
+                options.append("sparse", index.isUnique());
+                if (index.getName() != null && index.getName().trim().length() > 0) {
+                    options.append("name", index.getName().trim());
+                }
+                options.append("background", true);
+                LOGGER.debug("Creating index {} with options {}", newIndex, options);
+                entityCollection.createIndex(newIndex, options);
             }
         } catch (MongoException me) {
             throw Error.get(MongoCrudConstants.ERR_ENTITY_INDEX_NOT_CREATED, me.getMessage());
@@ -601,6 +661,14 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("createUpdateEntityInfoIndexes: end");
     }
 
+    private DBObject findIndexWithSignature(List<DBObject> existingIndexes,Index index) {
+        for(DBObject existingIndex:existingIndexes) {
+            if(indexFieldsMatch(index,existingIndex))
+                return existingIndex;
+        }
+        return null;
+    }
+    
     private boolean isIdIndex(Index index) {
         List<SortKey> fields = index.getFields();
         return fields.size() == 1
