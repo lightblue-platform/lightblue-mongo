@@ -77,6 +77,9 @@ public class MongoDBResolver implements DBResolver {
                 db = dbMap.get(store.getDatabaseName());
                 if (db == null) {
                     MongoConfiguration cfg=getConfiguration(store);
+                    if (cfg == null) {
+                        throw new IllegalArgumentException("No datasources for " + store.getDatasourceName());
+                    }
                     db = cfg.getDB();
                     dbMap.put(store.getDatabaseName(), db);
                 }

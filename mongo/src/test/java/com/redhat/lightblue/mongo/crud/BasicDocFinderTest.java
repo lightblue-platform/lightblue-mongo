@@ -29,12 +29,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 
 import com.mongodb.BasicDBObject;
+import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.WriteResult;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.metadata.EntityMetadata;
-import com.redhat.lightblue.mongo.crud.BasicDocFinder;
-import com.redhat.lightblue.mongo.crud.Translator;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.JsonUtils;
 
@@ -48,6 +47,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
     private Translator translator;
 
     @Before
+    @Override
     public void setup() throws Exception {
         super.setup();
 
@@ -87,7 +87,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "2");
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "3");
 
-        Assert.assertEquals("count on collection", 3, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 3, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
 
@@ -118,7 +120,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "2");
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "3");
 
-        Assert.assertEquals("count on collection", 3, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 3, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
 
@@ -152,7 +156,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "2");
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "3");
 
-        Assert.assertEquals("count on collection", 3, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 3, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
 
@@ -178,12 +184,13 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
     @Test
     public void testSkipLimit() throws IOException, ProcessingException {
     	String id = "findLimit";
-        for(int i=0;i<20;i++)
-        {
-        insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
+        for (int i = 0; i < 20; i++) {
+            insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
         }
 
-        Assert.assertEquals("count on collection", 20, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 20, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
 
@@ -219,13 +226,13 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
     @Test
     public void testNullLimit() throws IOException, ProcessingException {
         String id = "findLimit";
-        for(int i=0;i<20;i++)
-        {
-        insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
+        for(int i = 0; i < 20; i++) {
+            insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
         }
        
-
-        Assert.assertEquals("count on collection", 20, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 20, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
 
@@ -251,13 +258,13 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
     @Test
     public void testZeroLimit() throws IOException, ProcessingException {
         String id = "findLimit";
-        for(int i=0;i<20;i++)
-        {
-        insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
+        for(int i = 0; i < 20; i++) {
+            insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
         }
        
-
-        Assert.assertEquals("count on collection", 20, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 20, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
 
@@ -283,13 +290,13 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
     @Test
     public void testResultSetLimit() throws IOException, ProcessingException {
         String id = "findLimit";
-        for(int i=0;i<20;i++)
-        {
-        insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
+        for(int i = 0; i < 20; i++) {
+            insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
         }
-       
 
-        Assert.assertEquals("count on collection", 20, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 20, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
         finder.setMaxResultSetSize(10);
@@ -334,13 +341,13 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
     @Test
     public void testNegativeLimit() throws IOException, ProcessingException {
         String id = "findLimit";
-        for(int i=0;i<20;i++)
-        {
-        insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
+        for(int i = 0; i < 20; i++) {
+            insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
         }
        
-
-        Assert.assertEquals("count on collection", 20, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 20, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
 
@@ -366,13 +373,13 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
     @Test
     public void testLimitLesserThanSkip() throws IOException, ProcessingException {
         String id = "findLimit";
-        for(int i=0;i<20;i++)
-        {
-        insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
+        for(int i = 0; i < 20; i++) {
+            insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
         }
-       
 
-        Assert.assertEquals("count on collection", 20, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 20, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
 
@@ -402,7 +409,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "1");
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "3");
 
-        Assert.assertEquals("count on collection", 3, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 3, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
 
@@ -440,7 +449,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "1");
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "3");
 
-        Assert.assertEquals("count on collection", 3, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 3, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
 
@@ -477,7 +488,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "2");
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "3");
 
-        Assert.assertEquals("count on collection", 3, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 3, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
 
@@ -511,7 +524,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "1");
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "3");
 
-        Assert.assertEquals("count on collection", 3, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 3, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
 
@@ -549,7 +564,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "4");
         insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + "3");
 
-        Assert.assertEquals("count on collection", 4, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 4, c.count());
+        }
 
         BasicDocFinder finder = new BasicDocFinder(translator);
 

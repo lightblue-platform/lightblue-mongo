@@ -21,6 +21,7 @@ package com.redhat.lightblue.mongo.hystrix;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.redhat.lightblue.mongo.test.EmbeddedMongo;
 import com.redhat.lightblue.util.test.AbstractJsonSchemaTest;
@@ -62,7 +63,9 @@ public abstract class AbstractMongoTest extends AbstractJsonSchemaTest {
             }
         }
 
-        Assert.assertEquals(count, coll.find().count());
+        try (DBCursor c = coll.find()) {
+            Assert.assertEquals(count, c.count());
+        }
     }
 
     @After
