@@ -62,6 +62,7 @@ import com.redhat.lightblue.query.BinaryComparisonOperator;
 import com.redhat.lightblue.query.CompositeSortKey;
 import com.redhat.lightblue.query.FieldAndRValue;
 import com.redhat.lightblue.query.FieldComparisonExpression;
+import com.redhat.lightblue.query.IndexSortKey;
 import com.redhat.lightblue.query.NaryLogicalExpression;
 import com.redhat.lightblue.query.NaryLogicalOperator;
 import com.redhat.lightblue.query.NaryValueRelationalExpression;
@@ -654,16 +655,20 @@ public class Translator {
             // Check if there is a useful index that's case insensitive
             Map<Index, Set<Path>> indexMap = emd.getEntityInfo().getIndexes().getUsefulIndexes(Arrays.asList(expr.getField()));
 
-            boolean foundIndex = false;
-            for (Index index : indexMap.keySet()) {
-                if (index.isCaseSensitive()) {
-                    field = new Path();
-                    field.add(expr.getField().prefix(-1));
-                    field.add(HIDDEN_SUB_PATH); // @hidden
-                    field.add(new Path(expr.getField().getLast()));
-                    break;
-                }
+            long count = indexMap.keySet().stream().parallel()
+                    .map(Index::getFields)
+                    .filter(i -> i instanceof IndexSortKey)
+                    .map(i -> ((IndexSortKey) i))
+                    .filter(IndexSortKey::isCaseInsensitive)
+                    .count();
+
+            if (count > 0) {
+                field = new Path();
+                field.add(expr.getField().prefix(-1));
+                field.add(HIDDEN_SUB_PATH); // @hidden
+                field.add(new Path(expr.getField().getLast()));
             }
+
         }
         if (expr.isMultiline()) {
             options.append('m');
