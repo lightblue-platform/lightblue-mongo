@@ -575,6 +575,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             
             List<Index> createIndexes=new ArrayList<>();
             List<DBObject> dropIndexes=new ArrayList<>();
+            List<DBObject> foundIndexes=new ArrayList<>();
             for(Index index:indexes.getIndexes()) {
                 if(!isIdIndex(index)) {
                     if(index.getName()!=null&&index.getName().trim().length()>0) {
@@ -587,6 +588,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                             }
                         }
                         if(found!=null) {
+                            foundIndexes.add(found);
                             if(indexFieldsMatch(index,found) &&
                                indexOptionsMatch(index,found) ) {
                                 LOGGER.debug("{} already exists",index.getName());
@@ -604,6 +606,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                                 createIndexes.add(index);
                             } else {
                                 LOGGER.debug("There is an index with same field signature as {}, drop and recreate",index.getName());
+                                foundIndexes.add(found);
                                 dropIndexes.add(found);
                                 createIndexes.add(index);
                             }
@@ -612,6 +615,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                         LOGGER.debug("Processing index with fields {}",index.getFields());
                         DBObject found=findIndexWithSignature(existingIndexes,index);
                         if(found!=null) {
+                            foundIndexes.add(found);
                             LOGGER.debug("An index with same keys found: {}",found);
                             if(indexOptionsMatch(index,found)) {
                                 LOGGER.debug("Same options as well, not changing");
@@ -624,6 +628,26 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                             LOGGER.debug("Creating index with fields {}",index.getFields());
                             createIndexes.add(index);
                         }
+                    }
+                }
+            }
+            // Any index in existingIndexes but not in foundIndexes should be deleted as well
+            for(DBObject index:existingIndexes) {
+                boolean found=false;
+                for(DBObject x:foundIndexes)
+                    if(x==index) {
+                        found=true;
+                        break;
+                    }
+                if(!found) {
+                    for(DBObject x:dropIndexes)
+                        if(x==index) {
+                            found=true;
+                            break;
+                        }
+                    if(!found&&!isIdIndex(index)) {
+                        LOGGER.info("Dropping {}",index.get("name"));
+                        entityCollection.dropIndex(index.get("name").toString());
                     }
                 }
             }
@@ -673,6 +697,13 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         List<SortKey> fields = index.getFields();
         return fields.size() == 1
                 && fields.get(0).getField().equals(Translator.ID_PATH);
+    }
+
+    private boolean isIdIndex(DBObject index) {
+        BasicDBObject keys=(BasicDBObject)index.get("key");
+        if(keys!=null&&keys.size()==1&&keys.containsKey("_id"))
+            return true;
+        return false;
     }
 
     private boolean compareSortKeys(SortKey sortKey, String fieldName, Object dir) {
