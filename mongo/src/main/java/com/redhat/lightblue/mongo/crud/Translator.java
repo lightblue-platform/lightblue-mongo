@@ -646,7 +646,7 @@ public class Translator {
     private DBObject translateRegexMatchExpression(RegexMatchExpression expr, EntityMetadata emd) {
         StringBuilder options = new StringBuilder();
         BasicDBObject regex = new BasicDBObject("$regex", expr.getRegex());
-        Path field = new Path().mutableCopy();
+        Path field = expr.getField();
 
         if (expr.isCaseInsensitive()) {
             options.append('i');
@@ -657,6 +657,7 @@ public class Translator {
             boolean foundIndex = false;
             for (Index index : indexMap.keySet()) {
                 if (index.isCaseSensitive()) {
+                    field = new Path();
                     field.add(expr.getField().prefix(-1));
                     field.add(HIDDEN_SUB_PATH); // @hidden
                     field.add(new Path(expr.getField().getLast()));
