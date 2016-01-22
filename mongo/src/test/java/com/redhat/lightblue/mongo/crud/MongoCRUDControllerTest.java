@@ -1123,6 +1123,58 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         }
         Assert.assertTrue(foundIndex);
     }
+    
+   @Test
+    public void entityIndexRemovalTest() throws Exception {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex1"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+        Index index = new Index();
+        index.setName("testIndex");
+        index.setUnique(true);
+        List<SortKey> indexFields = new ArrayList<>();
+        //TODO actually parse $asc/$desc here
+        indexFields.add(new SortKey(new Path("field1"), true));
+        index.setFields(indexFields);
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+        DBCollection entityCollection = db.getCollection("testCollectionIndex1");
+
+        boolean foundIndex = false;
+
+        for (DBObject mongoIndex : entityCollection.getIndexInfo()) {
+            if ("testIndex".equals(mongoIndex.get("name"))) {
+                if (mongoIndex.get("key").toString().contains("field1")) {
+                    foundIndex = true;
+                }
+            }
+        }
+        Assert.assertTrue(foundIndex);
+
+        e.getEntityInfo().getIndexes().setIndexes(new ArrayList<Index>());
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+        entityCollection = db.getCollection("testCollectionIndex1");
+
+        foundIndex = false;
+
+        for (DBObject mongoIndex : entityCollection.getIndexInfo()) {
+            if ("testIndex".equals(mongoIndex.get("name"))) {
+                if (mongoIndex.get("key").toString().contains("field1")) {
+                    foundIndex = true;
+                }
+            }
+        }
+        Assert.assertTrue(!foundIndex);
+    }
 
     @Test
     public void entityIndexUpdateTest_notSparseUnique() throws Exception {
