@@ -647,9 +647,7 @@ public class Translator {
         Path field = expr.getField();
 
         if (expr.isCaseInsensitive()) {
-            boolean caseInsens = emd.getEntityInfo().getIndexes().isCaseInsensitiveKey(field);
-
-            if (caseInsens) {
+            if (emd.getEntityInfo().getIndexes().isCaseInsensitiveKey(field)) {
                 field = expr.getField().prefix(-1).mutableCopy().push(HIDDEN_SUB_PATH).push(expr.getField().tail(0));
                 regex.replace("$regex", expr.getRegex().toUpperCase());
             } else {

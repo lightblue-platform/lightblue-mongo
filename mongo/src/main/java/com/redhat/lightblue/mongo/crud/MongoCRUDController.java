@@ -416,6 +416,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     @Override
     public void beforeCreateNewSchema(Metadata md, EntityMetadata emd) {
+        validateNoHiddenInMetaData(emd);
         validateIndexFields(emd.getEntityInfo());
         ensureIdField(emd);
     }
@@ -435,15 +436,21 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         return newPath.immutableCopy();
     }
 
+    private void validateNoHiddenInMetaData(EntityMetadata emd) {
+        if (emd.getFields().has(Translator.HIDDEN_SUB_PATH.toString())) {
+            throw Error.get(MongoCrudConstants.ERR_RESERVED_FIELD);
+        }
+    }
+
     /**
      * No two index should have the same field signature
      */
     private void validateSaneIndexSet(List<Index> indexes) {
         int n=indexes.size();
         for(int i=0;i<n;i++) {
-            List<SortKey> keys1=indexes.get(i).getFields();
+            List<IndexSortKey> keys1=indexes.get(i).getFields();
             for(int j=i+1;j<n;j++) {
-                List<SortKey> keys2=indexes.get(j).getFields();
+                List<IndexSortKey> keys2=indexes.get(j).getFields();
                 if(sameSortKeys(keys1,keys2)) {
                     throw Error.get(MongoCrudConstants.ERR_DUPLICATE_INDEX);
                 }
@@ -451,7 +458,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         }
     }
 
-    private  boolean sameSortKeys(List<SortKey> keys1,List<SortKey> keys2) {
+    private  boolean sameSortKeys(List<IndexSortKey> keys1,List<IndexSortKey> keys2) {
         if(keys1.size()==keys2.size()) {
             for(int i=0;i<keys1.size();i++) {
                 SortKey k1=keys1.get(i);
@@ -467,15 +474,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     private void validateIndexFields(EntityInfo ei) {
         for (Index ix : ei.getIndexes().getIndexes()) {
-            List<SortKey> fields = ix.getFields();
-            List<SortKey> newFields = null;
+            List<IndexSortKey> fields = ix.getFields();
+            List<IndexSortKey> newFields = null;
             boolean copied = false;
             int i = 0;
             for (SortKey key : fields) {
                 Path p = key.getField();
                 Path newPath = translateIndexPath(p);
                 if (!p.equals(newPath)) {
-                    SortKey newKey = new SortKey(newPath, key.isDesc());
+                    IndexSortKey newKey = new IndexSortKey(newPath, key.isDesc());
                     if (!copied) {
                         newFields = new ArrayList<>();
                         newFields.addAll(fields);
@@ -528,7 +535,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         // We are looking for a unique index on _id
         boolean found = false;
         for (Index ix : indexes.getIndexes()) {
-            List<SortKey> fields = ix.getFields();
+            List<IndexSortKey> fields = ix.getFields();
             if (fields.size() == 1 && fields.get(0).getField().equals(Translator.ID_PATH)
                     && ix.isUnique()) {
                 found = true;
@@ -539,8 +546,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             LOGGER.debug("Adding _id index");
             Index idIndex = new Index();
             idIndex.setUnique(true);
-            List<SortKey> fields = new ArrayList<>();
-            fields.add(new SortKey(Translator.ID_PATH, false));
+            List<IndexSortKey> fields = new ArrayList<>();
+            fields.add(new IndexSortKey(Translator.ID_PATH, false));
             idIndex.setFields(fields);
             List<Index> ix = indexes.getIndexes();
             ix.add(idIndex);
@@ -669,7 +676,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     }
 
     private boolean isIdIndex(Index index) {
-        List<SortKey> fields = index.getFields();
+        List<IndexSortKey> fields = index.getFields();
         return fields.size() == 1
                 && fields.get(0).getField().equals(Translator.ID_PATH);
     }
@@ -685,9 +692,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     protected boolean indexFieldsMatch(Index index, DBObject existingIndex) {
         BasicDBObject keys = (BasicDBObject) existingIndex.get("key");
         if (keys != null) {
-            List<SortKey> fields = index.getFields();
+            List<IndexSortKey> fields = index.getFields();
             if (keys.size() == fields.size()) {
-                Iterator<SortKey> sortKeyItr = fields.iterator();
+                Iterator<IndexSortKey> sortKeyItr = fields.iterator();
                 for (Map.Entry<String, Object> dbKeyEntry : keys.entrySet()) {
                     SortKey sortKey = sortKeyItr.next();
                     if (!compareSortKeys(sortKey, dbKeyEntry.getKey(), dbKeyEntry.getValue())) {
