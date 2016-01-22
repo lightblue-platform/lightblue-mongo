@@ -48,7 +48,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.stream.Stream;
 
 public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport {
 
@@ -409,7 +408,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         validateIndexFields(ei);
         ensureIdIndex(ei);
         validateSaneIndexSet(ei.getIndexes().getIndexes());
-        validateCaseInsensitiveIndexSet(ei.getIndexes().getIndexes(), md.getEntityMetadata(ei.getName(), ei.getDefaultVersion()));
     }
 
     @Override
@@ -420,7 +418,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     public void beforeCreateNewSchema(Metadata md, EntityMetadata emd) {
         validateIndexFields(emd.getEntityInfo());
         ensureIdField(emd);
-        validateCaseInsensitiveIndexSet(emd.getEntityInfo().getIndexes().getIndexes(), emd);
     }
 
     private Path translateIndexPath(Path p) {
@@ -452,24 +449,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 }
             }
         }
-    }
-
-
-    private void validateCaseInsensitiveIndexSet(List<Index> indexes, EntityMetadata emd) {
-        // get a list of all case insensitive Paths
-        Stream<Path> paths = indexes.stream().parallel()
-                .map(Index::getFields)
-                .filter(f -> f instanceof IndexSortKey)
-                .map(f -> ((IndexSortKey) f))
-                .filter(IndexSortKey::isCaseInsensitive)
-                .map(IndexSortKey::getField);
-
-        // All resolved Fields must be of type String in order to be case insensitive
-        paths.map(p -> emd.resolve(p)).forEach(f -> {
-            if (!(f.getType() instanceof StringType)) {
-                throw Error.get(MongoCrudConstants.ERR_INVALID_INDEX_FIELD_TYPE);
-            }
-        });
     }
 
     private  boolean sameSortKeys(List<SortKey> keys1,List<SortKey> keys2) {

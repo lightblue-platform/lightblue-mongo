@@ -21,7 +21,6 @@ package com.redhat.lightblue.mongo.crud;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +46,6 @@ import com.redhat.lightblue.metadata.ArrayField;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.FieldCursor;
 import com.redhat.lightblue.metadata.FieldTreeNode;
-import com.redhat.lightblue.metadata.Index;
 import com.redhat.lightblue.metadata.ObjectArrayElement;
 import com.redhat.lightblue.metadata.ObjectField;
 import com.redhat.lightblue.metadata.ReferenceField;
@@ -62,7 +60,6 @@ import com.redhat.lightblue.query.BinaryComparisonOperator;
 import com.redhat.lightblue.query.CompositeSortKey;
 import com.redhat.lightblue.query.FieldAndRValue;
 import com.redhat.lightblue.query.FieldComparisonExpression;
-import com.redhat.lightblue.query.IndexSortKey;
 import com.redhat.lightblue.query.NaryLogicalExpression;
 import com.redhat.lightblue.query.NaryLogicalOperator;
 import com.redhat.lightblue.query.NaryValueRelationalExpression;
@@ -650,25 +647,14 @@ public class Translator {
         Path field = expr.getField();
 
         if (expr.isCaseInsensitive()) {
-            options.append('i');
+            boolean caseInsens = emd.getEntityInfo().getIndexes().isCaseInsensitiveKey(field);
 
-            // Check if there is a useful index that's case insensitive
-            Map<Index, Set<Path>> indexMap = emd.getEntityInfo().getIndexes().getUsefulIndexes(Arrays.asList(expr.getField()));
-
-            long count = indexMap.keySet().stream().parallel()
-                    .map(Index::getFields)
-                    .filter(i -> i instanceof IndexSortKey)
-                    .map(i -> ((IndexSortKey) i))
-                    .filter(IndexSortKey::isCaseInsensitive)
-                    .count();
-
-            if (count > 0) {
-                field = new Path();
-                field.add(expr.getField().prefix(-1));
-                field.add(HIDDEN_SUB_PATH); // @hidden
-                field.add(new Path(expr.getField().getLast()));
+            if (caseInsens) {
+                field = expr.getField().prefix(-1).mutableCopy().push(HIDDEN_SUB_PATH).push(expr.getField().tail(0));
+                regex.replace("$regex", expr.getRegex().toUpperCase());
+            } else {
+                options.append('i');
             }
-
         }
         if (expr.isMultiline()) {
             options.append('m');
