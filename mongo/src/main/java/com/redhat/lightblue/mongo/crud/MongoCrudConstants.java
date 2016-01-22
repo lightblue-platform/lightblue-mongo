@@ -39,6 +39,7 @@ public final class MongoCrudConstants {
 
     public static final String ERR_ENTITY_INDEX_NOT_CREATED = "mongo-crud:EntityIndexNotCreated";
     public static final String ERR_INVALID_INDEX_FIELD = "mongo-crud:InvalidIndexField";
+    public static final String ERR_INVALID_INDEX_FIELD_TYPE = "mongo-crud:InvalidIndexFieldType";
     public static final String ERR_DUPLICATE_INDEX = "mongo-crud:DuplicateIndex";
 
     public static final String ERR_INVALID_LOCKING_DOMAIN = "mongo-crud:InvalidLockingDomain";
@@ -47,7 +48,7 @@ public final class MongoCrudConstants {
     public static final String ERR_NO_SEQUENCE_NAME = "mongo-crud:NoSequenceName";
 
     public static final String ERR_TOO_MANY_RESULTS = "mongo-crud:TooManyResults";
-    
+
     private MongoCrudConstants() {
 
     }
