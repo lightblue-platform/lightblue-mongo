@@ -51,15 +51,15 @@ public class InsertCommandTest extends AbstractMongoTest {
         Assert.assertNotNull(result);
         Assert.assertNull(result.getError());
 
-        DBCursor cur = coll.find(query, null);
+        try (DBCursor cur = coll.find(query, null)) {
+            Assert.assertNotNull(cur);
+            Assert.assertEquals(1, cur.size());
 
-        Assert.assertNotNull(cur);
-        Assert.assertEquals(1, cur.size());
+            DBObject obj = cur.next();
 
-        DBObject obj = cur.next();
-
-        Assert.assertNotNull(obj);
-        Assert.assertEquals("obj", obj.get("name"));
+            Assert.assertNotNull(obj);
+            Assert.assertEquals("obj", obj.get("name"));
+        }
     }
 
     @Test
@@ -75,15 +75,15 @@ public class InsertCommandTest extends AbstractMongoTest {
         Assert.assertNotNull(result);
         Assert.assertNull(result.getError());
 
-        DBCursor cur = coll.find(null, null);
+        try (DBCursor cur = coll.find(null, null)) {
+            Assert.assertNotNull(cur);
+            Assert.assertEquals(3, cur.size());
 
-        Assert.assertNotNull(cur);
-        Assert.assertEquals(3, cur.size());
+            // check first object
+            DBObject obj = cur.next();
 
-        // check first object
-        DBObject obj = cur.next();
-
-        Assert.assertNotNull(obj);
-        Assert.assertEquals("obj1", obj.get("name"));
+            Assert.assertNotNull(obj);
+            Assert.assertEquals("obj1", obj.get("name"));
+        }
     }
 }

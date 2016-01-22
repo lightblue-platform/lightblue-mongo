@@ -109,7 +109,10 @@ public class MongoServerExternalResource extends ExternalResource {
     public Statement apply(Statement base, Description description) {
         immsAnnotation = description.getAnnotation(InMemoryMongoServer.class);
         if ((immsAnnotation == null) && description.isTest()) {
-            immsAnnotation = description.getTestClass().getAnnotation(InMemoryMongoServer.class);
+            Class<?> clazz = description.getTestClass();
+            if (clazz != null) {
+                immsAnnotation = clazz.getAnnotation(InMemoryMongoServer.class);
+            }
         }
 
         return super.apply(base, description);

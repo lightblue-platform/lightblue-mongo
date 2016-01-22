@@ -34,6 +34,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDInsertionResponse;
@@ -57,10 +58,6 @@ import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.mongo.common.DBResolver;
 import com.redhat.lightblue.mongo.common.MongoDataStore;
 import com.redhat.lightblue.mongo.config.MongoConfiguration;
-import com.redhat.lightblue.mongo.crud.IterateAndUpdate;
-import com.redhat.lightblue.mongo.crud.MongoCRUDController;
-import com.redhat.lightblue.mongo.crud.MongoCrudConstants;
-import com.redhat.lightblue.mongo.crud.Translator;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.SortKey;
 import com.redhat.lightblue.util.Error;
@@ -106,7 +103,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
         String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
-        Assert.assertEquals(1, coll.find(new BasicDBObject("_id", Translator.createIdFrom(id))).count());
+        try (DBCursor c = coll.find(new BasicDBObject("_id", Translator.createIdFrom(id)))) {
+            Assert.assertEquals(1, c.count());
+        }
     }
 
     @Test
@@ -125,7 +124,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
         String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
-        Assert.assertEquals(1, coll.find(new BasicDBObject("_id", Translator.createIdFrom(id))).count());
+        try (DBCursor c = coll.find(new BasicDBObject("_id", Translator.createIdFrom(id)))) {
+            Assert.assertEquals(1, c.count());
+        }
     }
 
 
@@ -286,8 +287,6 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
         System.out.println("Saved id:" + id);
 
-        coll.find();
-
         // Read doc using mongo
         DBObject dbdoc = coll.findOne(new BasicDBObject("_id", Translator.createIdFrom(id)));
         Assert.assertNotNull(dbdoc);
@@ -343,13 +342,17 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.addDocument(readDoc);
         // This should not insert anything
         CRUDSaveResponse sr = controller.save(ctx, false, projection("{'field':'_id'}"));
-        Assert.assertEquals(1, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals(1, c.count());
+        }
 
         ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
         ctx.add(md);
         ctx.addDocument(readDoc);
         sr = controller.save(ctx, true, projection("{'field':'_id'}"));
-        Assert.assertEquals(2, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals(2, c.count());
+        }
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), sr.getNumSaved());
     }
 
@@ -450,7 +453,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         }
         ctx.addDocuments(docs);
         CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
-        Assert.assertEquals(numDocs, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals(numDocs, c.count());
+        }
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
 
         // Single doc update
@@ -463,13 +468,17 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(0, upd.getNumFailed());
         //Assert.assertEquals(AtomicIterateUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
         Assert.assertEquals(IterateAndUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
-        DBObject obj = coll.find(new BasicDBObject("field3", 1000), new BasicDBObject("_id", 1)).next();
-        Assert.assertNotNull(obj);
-        System.out.println("DBObject:" + obj);
-        System.out.println("Output doc:" + ctx.getDocuments().get(0).getOutputDocument());
-        Assert.assertEquals(ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText(),
-                obj.get("_id").toString());
-        Assert.assertEquals(1, coll.find(new BasicDBObject("field3", 1000)).count());
+        try (DBCursor c = coll.find(new BasicDBObject("field3", 1000), new BasicDBObject("_id", 1))) {
+            DBObject obj = c.next();
+            Assert.assertNotNull(obj);
+            System.out.println("DBObject:" + obj);
+            System.out.println("Output doc:" + ctx.getDocuments().get(0).getOutputDocument());
+            Assert.assertEquals(ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText(),
+                    obj.get("_id").toString());
+        }
+        try (DBCursor c = coll.find(new BasicDBObject("field3", 1000))) {
+            Assert.assertEquals(1, c.count());
+        }
 
         // Bulk update
         ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
@@ -481,7 +490,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(IterateAndUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
         Assert.assertEquals(10, upd.getNumUpdated());
         Assert.assertEquals(0, upd.getNumFailed());
-        Assert.assertEquals(10, coll.find(new BasicDBObject("field3", new BasicDBObject("$gt", 10))).count());
+        try (DBCursor c = coll.find(new BasicDBObject("field3", new BasicDBObject("$gt", 10)))) {
+            Assert.assertEquals(10, c.count());
+        }
 
         // Bulk direct update
         ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
@@ -492,7 +503,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(IterateAndUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
         Assert.assertEquals(10, upd.getNumUpdated());
         Assert.assertEquals(0, upd.getNumFailed());
-        Assert.assertEquals(10, coll.find(new BasicDBObject("field3", new BasicDBObject("$gt", 10))).count());
+        try (DBCursor c = coll.find(new BasicDBObject("field3", new BasicDBObject("$gt", 10)))) {
+            Assert.assertEquals(10, c.count());
+        }
 
         // Iterate update
         ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
@@ -503,7 +516,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(IterateAndUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
         Assert.assertEquals(10, upd.getNumUpdated());
         Assert.assertEquals(0, upd.getNumFailed());
-        Assert.assertEquals(10, coll.find(new BasicDBObject("field7.0.elemf1", "blah")).count());
+        try (DBCursor c = coll.find(new BasicDBObject("field7.0.elemf1", "blah"))) {
+            Assert.assertEquals(10, c.count());
+        }
     }
 
     @Test
@@ -544,7 +559,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         }
         ctx.addDocuments(docs);
         CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
-        Assert.assertEquals(numDocs, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals(numDocs, c.count());
+        }
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
 
         // Add element to array
@@ -1030,21 +1047,27 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         }
         ctx.addDocuments(docs);
         controller.insert(ctx, projection("{'field':'_id'}"));
-        Assert.assertEquals(numDocs, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals(numDocs, c.count());
+        }
 
         // Single doc delete
         ctx = new TestCRUDOperationContext(CRUDOperation.DELETE);
         ctx.add(md);
         CRUDDeleteResponse del = controller.delete(ctx, query("{'field':'field3','op':'$eq','rvalue':10}"));
         Assert.assertEquals(1, del.getNumDeleted());
-        Assert.assertEquals(numDocs - 1, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals(numDocs - 1, c.count());
+        }
 
         // Bulk delete
         ctx = new TestCRUDOperationContext(CRUDOperation.DELETE);
         ctx.add(md);
         del = controller.delete(ctx, query("{'field':'field3','op':'>','rvalue':10}"));
         Assert.assertEquals(9, del.getNumDeleted());
-        Assert.assertEquals(10, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals(10, c.count());
+        }
     }
 
     @Test
@@ -1389,12 +1412,12 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     public void indexFieldsMatch() {
         // order of kesys in an index matters to mongo, this test exists to ensure this is accounted for in the controller
 
-        DBCollection coll = db.getCollection("testIndexFieldMatch");
+        DBCollection collection = db.getCollection("testIndexFieldMatch");
         {
             BasicDBObject dbIndex = new BasicDBObject();
             dbIndex.append("x", 1);
             dbIndex.append("y", 1);
-            coll.createIndex(dbIndex);
+            collection.createIndex(dbIndex);
         }
 
         {
@@ -1405,7 +1428,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             ix.setFields(fields);
 
             boolean verified = false;
-            for (DBObject dbi: coll.getIndexInfo()) {
+            for (DBObject dbi: collection.getIndexInfo()) {
                 if (((BasicDBObject)dbi.get("key")).entrySet().iterator().next().getKey().equals("_id")) {
                     continue;
                 }
@@ -1424,7 +1447,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             ix.setFields(fields);
 
             boolean verified = false;
-            for (DBObject dbi: coll.getIndexInfo()) {
+            for (DBObject dbi: collection.getIndexInfo()) {
                 if (((BasicDBObject)dbi.get("key")).entrySet().iterator().next().getKey().equals("_id")) {
                     continue;
                 }
@@ -1459,7 +1482,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     @Test
     public void idIndexRewriteTest() throws Exception {
-        DBCollection coll=db.getCollection("data");
+        DBCollection collection=db.getCollection("data");
 
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
@@ -1494,21 +1517,21 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.addDocument(doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
-       Assert.assertEquals(1,coll.find().count());
+       Assert.assertEquals(1,collection.find().count());
 
        Index ix2=new Index(new SortKey(new Path("field1"),false));
        e.getEntityInfo().getIndexes().add(ix2);
        // At this point, there must be an _id index in the collection
-       Assert.assertEquals(1,coll.getIndexInfo().size());
+       Assert.assertEquals(1,collection.getIndexInfo().size());
        // Lets overwrite
        controller.afterUpdateEntityInfo(null,e.getEntityInfo(),false);
        // This should not fail
-       Assert.assertEquals(2,coll.getIndexInfo().size());
+       Assert.assertEquals(2,collection.getIndexInfo().size());
     }
 
     @Test
     public void doubleidIndexRewriteTest() throws Exception {
-        DBCollection coll=db.getCollection("data");
+        DBCollection collection=db.getCollection("data");
 
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
@@ -1553,10 +1576,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.addDocument(doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
-        Assert.assertEquals(1,coll.find().count());
+        Assert.assertEquals(1,collection.find().count());
 
         // At this point, there must be only one _id index in the collection
-        Assert.assertEquals(1,coll.getIndexInfo().size());
+        Assert.assertEquals(1,collection.getIndexInfo().size());
 
         // Remove the nonunique index
         List<Index> ilist=new ArrayList<>();
@@ -1567,7 +1590,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         // Lets overwrite
         controller.afterUpdateEntityInfo(null,e.getEntityInfo(),false);
         // This should not fail
-        Assert.assertEquals(2,coll.getIndexInfo().size());
+        Assert.assertEquals(2,collection.getIndexInfo().size());
     }
 
     @Test
