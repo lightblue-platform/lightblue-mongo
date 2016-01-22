@@ -19,6 +19,7 @@
 package com.redhat.lightblue.mongo.hystrix;
 
 import com.mongodb.BasicDBObject;
+import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.WriteResult;
 import org.junit.Assert;
@@ -48,21 +49,23 @@ public class SaveCommandTest extends AbstractMongoTest {
 
     @Test
     public void executeWithoutId() {
-        DBObject obj = coll.find(new BasicDBObject(key1, "obj2")).sort(new BasicDBObject("_id", -1)).next();
-        Object id = obj.get("_id");
+        try (DBCursor c = coll.find(new BasicDBObject(key1, "obj2")).sort(new BasicDBObject("_id", -1))) {
+            DBObject obj = c.next();
+            Object id = obj.get("_id");
 
-        DBObject save = new BasicDBObject(key1, obj.get(key1));
-        save.put("newKey", "key value");
+            DBObject save = new BasicDBObject(key1, obj.get(key1));
+            save.put("newKey", "key value");
 
-        WriteResult result = new SaveCommand(coll, save).execute();
+            WriteResult result = new SaveCommand(coll, save).execute();
 
-        Assert.assertNotNull(result);
-        Assert.assertNull(result.getError());
+            Assert.assertNotNull(result);
+            Assert.assertNull(result.getError());
 
-        DBObject updated = coll.findOne(new BasicDBObject("newKey", "key value"));
+            DBObject updated = coll.findOne(new BasicDBObject("newKey", "key value"));
 
-        // verify wrote new object
-        Assert.assertNotEquals(id, updated.get("_id"));
-        Assert.assertEquals("key value", updated.get("newKey"));
+            // verify wrote new object
+            Assert.assertNotEquals(id, updated.get("_id"));
+            Assert.assertEquals("key value", updated.get("newKey"));
+        }
     }
 }
