@@ -432,11 +432,18 @@ public class Translator {
         return ret;
     }
 
+    /**
+     * Populate mongo controlled hidden fields that may exist
+     *
+     * @param md
+     * @param dbo
+     * @return
+     */
     public static DBObject populateHiddenFields(EntityMetadata md, DBObject dbo) {
         md.getEntityInfo().getIndexes().getCaseInsensitiveIndexes().stream()
             .map(IndexSortKey::getField)
             .forEach(p -> {
-                Path hiddenPath = p.copy().prefix(-1).mutableCopy().push(HIDDEN_SUB_PATH).push(p.getLast());
+                Path hiddenPath = getHiddenForField(p);
                 Object object = dbo.get(p.toString());
                 if(object instanceof String) {
                     String val = (String) object;
@@ -665,7 +672,7 @@ public class Translator {
 
         if (expr.isCaseInsensitive()) {
             if (emd.getEntityInfo().getIndexes().isCaseInsensitiveKey(field)) {
-                field = expr.getField().prefix(-1).mutableCopy().push(HIDDEN_SUB_PATH).push(expr.getField().tail(0));
+                field = getHiddenForField(expr.getField());
                 regex.replace("$regex", expr.getRegex().toUpperCase());
             } else {
                 options.append('i');
@@ -685,6 +692,18 @@ public class Translator {
             regex.append("$options", opStr);
         }
         return new BasicDBObject(translatePath(field), regex);
+    }
+
+    /**
+     * Get a reference to the path's hidden sub-field.
+     *
+     * This does not guarantee the sub-path exists.
+     *
+     * @param path
+     * @return
+     */
+    public static Path getHiddenForField(Path path) {
+        return path.prefix(-1).mutableCopy().push(HIDDEN_SUB_PATH).push(path.getLast());
     }
 
     private DBObject translateNaryValueRelationalExpression(FieldTreeNode context, NaryValueRelationalExpression expr) {
