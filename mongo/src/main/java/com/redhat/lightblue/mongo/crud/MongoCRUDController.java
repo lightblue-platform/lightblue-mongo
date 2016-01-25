@@ -437,8 +437,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     }
 
     private void validateNoHiddenInMetaData(EntityMetadata emd) {
-        if (emd.getFields().has(Translator.HIDDEN_SUB_PATH.toString())) {
-            throw Error.get(MongoCrudConstants.ERR_RESERVED_FIELD);
+        FieldCursor cursor = emd.getFieldCursor();
+        while (cursor.next()) {
+            if(cursor.getCurrentPath().getLast().equals(Translator.HIDDEN_SUB_PATH.getLast())) {
+                throw Error.get(MongoCrudConstants.ERR_RESERVED_FIELD);
+            }
         }
     }
 

@@ -60,6 +60,7 @@ import com.redhat.lightblue.query.BinaryComparisonOperator;
 import com.redhat.lightblue.query.CompositeSortKey;
 import com.redhat.lightblue.query.FieldAndRValue;
 import com.redhat.lightblue.query.FieldComparisonExpression;
+import com.redhat.lightblue.query.IndexSortKey;
 import com.redhat.lightblue.query.NaryLogicalExpression;
 import com.redhat.lightblue.query.NaryLogicalOperator;
 import com.redhat.lightblue.query.NaryValueRelationalExpression;
@@ -97,7 +98,7 @@ public class Translator {
     public static final Path OBJECT_TYPE = new Path(OBJECT_TYPE_STR);
 
     public static final Path ID_PATH = new Path("_id");
-    public static final Path HIDDEN_SUB_PATH = new Path("@hidden");
+    public static final Path HIDDEN_SUB_PATH = new Path("@mongoHidden");
 
     public static final String ERR_NO_OBJECT_TYPE = "mongo-translation:no-object-type";
     public static final String ERR_INVALID_OBJECTTYPE = "mongo-translation:invalid-object-type";
@@ -429,6 +430,22 @@ public class Translator {
         }
         LOGGER.debug("Resulting projection:{}",ret);
         return ret;
+    }
+
+    public static DBObject populateHiddenFields(EntityMetadata md, DBObject dbo) {
+        md.getEntityInfo().getIndexes().getCaseInsensitiveIndexes().stream()
+            .map(IndexSortKey::getField)
+            .forEach(p -> {
+                Path hiddenPath = p.copy().prefix(-1).mutableCopy().push(HIDDEN_SUB_PATH).push(p.getLast());
+                Object object = dbo.get(p.toString());
+                if(object instanceof String) {
+                    String val = (String) object;
+                    dbo.put(hiddenPath.toString(), val.toUpperCase());
+                } else {
+                    throw new RuntimeException(new CannotTranslateException(p));
+                }
+            });
+        return dbo;
     }
 
     /**
