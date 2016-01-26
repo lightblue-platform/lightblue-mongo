@@ -668,6 +668,33 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void findNullProjection() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+
+        ctx.add(md);
+        // Generate some docs
+        List<JsonDoc> docs = new ArrayList<>();
+        int numDocs = 20;
+        for (int i = 0; i < numDocs; i++) {
+            JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+            doc.modify(new Path("field1"), nodeFactory.textNode("" + i), false);
+            doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
+            doc.modify(new Path("field4"), nodeFactory.numberNode(new BigDecimal(100)),false);
+            docs.add(doc);
+        }
+        ctx.addDocuments(docs);
+        controller.insert(ctx, projection("{'field':'_id'}"));
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx,query("{'field':'field1','op':'$in','values':[0]}"),
+                        null,null,null,null);
+        Assert.assertEquals(1,ctx.getDocuments().size());
+
+    }
+
+    @Test
     public void findInqId() throws Exception {
         EntityMetadata md = getMd("./testMetadata_idInt.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);

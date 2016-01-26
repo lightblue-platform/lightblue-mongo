@@ -87,6 +87,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoCRUDController.class);
 
     private static final Projection ID_PROJECTION = new FieldProjection(new Path(ID_STR), true, false);
+    private static final Projection EMPTY_PROJECTION = new FieldProjection(new Path("*"), false,false);
 
     private final DBResolver dbResolver;
     private final ControllerConfiguration controllerCfg;
@@ -321,9 +322,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         CRUDFindResponse response = new CRUDFindResponse();
         Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
         try {
-            if (projection == null) {
-                throw Error.get("find",MongoCrudConstants.ERR_NULL_PROJECTION,"");
-            }
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_FIND, ctx);
             EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
             if (md.getAccess().getFind().hasAccess(ctx.getCallerRoles())) {
@@ -351,7 +349,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 ctx.setProperty(PROP_FINDER, finder);
                 response.setSize(finder.find(ctx, coll, mongoQuery, mongoProjection, mongoSort, from, to));
                 // Project results
-                Projector projector = Projector.getInstance(Projection.add(projection, roleEval.getExcludedFields(FieldAccessRoleEvaluator.Operation.find)), md);
+                Projector projector = Projector.getInstance(projection==null?EMPTY_PROJECTION:
+                                                            Projection.add(projection, roleEval.getExcludedFields(FieldAccessRoleEvaluator.Operation.find)), md);
                 for (DocCtx document : ctx.getDocuments()) {
                     document.setOutputDocument(projector.project(document, ctx.getFactory().getNodeFactory()));
                 }
@@ -362,6 +361,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         } catch (Error e) {
             ctx.addError(e);
         } catch (Exception e) {
+            LOGGER.error("Error during find:",e);
             ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
