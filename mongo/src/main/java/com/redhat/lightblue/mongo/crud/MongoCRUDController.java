@@ -596,6 +596,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                             }
                         }
                         if(found!=null) {
+                            // indexFieldsMatch will handle checking for hidden versions of the index
                             if(indexFieldsMatch(index,found) &&
                                indexOptionsMatch(index,found) ) {
                                 LOGGER.debug("{} already exists",index.getName());
@@ -643,8 +644,13 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             for(Index index:createIndexes) {
                 LOGGER.info("Creating index {} with {}",index.getName(),index.getFields());
                 DBObject newIndex = new BasicDBObject();
-                for (SortKey p : index.getFields()) {
-                    newIndex.put(p.getField().toString(), p.isDesc() ? -1 : 1);
+                for (IndexSortKey p : index.getFields()) {
+                    String field = p.getField().toString();
+                    if (p.isCaseInsensitive()) {
+                        // if this is a case insensitive key, we need to change the field to how mongo actually stores the index
+                        field = Translator.getHiddenForField(p.getField()).toString();
+                    }
+                    newIndex.put(field, p.isDesc() ? -1 : 1);
                 }
                 BasicDBObject options = new BasicDBObject("unique", index.isUnique());
                 // if index is unique also make it a sparse index, so we can have non-required unique fields
@@ -684,8 +690,25 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 && fields.get(0).getField().equals(Translator.ID_PATH);
     }
 
-    private boolean compareSortKeys(SortKey sortKey, String fieldName, Object dir) {
-        if (sortKey.getField().toString().equals(fieldName)) {
+    private boolean hasHiddenKey(Index index) {
+        return index.getFields().stream().anyMatch(IndexSortKey::isCaseInsensitive);
+    }
+
+    private boolean hasHiddenKey(DBObject dbo) {
+        BasicDBObject keys = (BasicDBObject) dbo.get("key");
+        // check to see if the key is in the hidden path, ie `@mongoHidden.`
+        return keys.entrySet().stream().map(Map.Entry<String, Object>::getKey).anyMatch(f -> f.contains(Translator.HIDDEN_SUB_PATH.toString() + "."));
+    }
+
+
+    private boolean compareSortKeys(IndexSortKey sortKey, String fieldName, Object dir) {
+        String field = sortKey.getField().toString();
+        if (sortKey.isCaseInsensitive()) {
+            // if this is a case insensitive key, we need to change the field to how mongo actually stores the index
+            field = Translator.getHiddenForField(sortKey.getField()).toString();
+        }
+
+        if (field.equals(fieldName)) {
             int direction = ((Number) dir).intValue();
             return sortKey.isDesc() == (direction < 0);
         }
@@ -699,7 +722,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             if (keys.size() == fields.size()) {
                 Iterator<IndexSortKey> sortKeyItr = fields.iterator();
                 for (Map.Entry<String, Object> dbKeyEntry : keys.entrySet()) {
-                    SortKey sortKey = sortKeyItr.next();
+                    IndexSortKey sortKey = sortKeyItr.next();
                     if (!compareSortKeys(sortKey, dbKeyEntry.getKey(), dbKeyEntry.getValue())) {
                         return false;
                     }
