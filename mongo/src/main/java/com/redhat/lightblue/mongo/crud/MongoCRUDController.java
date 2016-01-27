@@ -690,17 +690,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 && fields.get(0).getField().equals(Translator.ID_PATH);
     }
 
-    private boolean hasHiddenKey(Index index) {
-        return index.getFields().stream().anyMatch(IndexSortKey::isCaseInsensitive);
-    }
-
-    private boolean hasHiddenKey(DBObject dbo) {
-        BasicDBObject keys = (BasicDBObject) dbo.get("key");
-        // check to see if the key is in the hidden path, ie `@mongoHidden.`
-        return keys.entrySet().stream().map(Map.Entry<String, Object>::getKey).anyMatch(f -> f.contains(Translator.HIDDEN_SUB_PATH.toString() + "."));
-    }
-
-
     private boolean compareSortKeys(IndexSortKey sortKey, String fieldName, Object dir) {
         String field = sortKey.getField().toString();
         if (sortKey.isCaseInsensitive()) {
