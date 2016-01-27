@@ -268,9 +268,9 @@ public class Translator {
             String segment = p.head(seg);
             if (segment.equals(Path.ANY)) {
                 throw Error.get(MongoCrudConstants.ERR_TRANSLATION_ERROR, p.toString());
-            } else if (Util.isNumber(segment)) {
+            } else if (trc != null && Util.isNumber(segment)) {
                 trc = ((List) trc).get(Integer.valueOf(segment));
-            } else {
+            } else if (trc != null) {
                 trc = ((DBObject) trc).get(segment);
             }
             if (trc == null&&seg+1<n) {

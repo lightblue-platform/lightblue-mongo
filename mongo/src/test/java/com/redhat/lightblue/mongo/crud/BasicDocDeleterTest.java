@@ -19,11 +19,11 @@
 package com.redhat.lightblue.mongo.crud;
 
 import com.mongodb.BasicDBObject;
+import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.WriteResult;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDOperationContext;
-import com.redhat.lightblue.mongo.crud.BasicDocDeleter;
 import com.redhat.lightblue.crud.CRUDOperation;
 import org.junit.Assert;
 import org.junit.Test;
@@ -44,7 +44,9 @@ public class BasicDocDeleterTest extends AbstractMongoCrudTest {
         // check that insert happened
         Assert.assertTrue(wr.getError() == null);
 
-        Assert.assertEquals("count on collection", 1, coll.find(null).count());
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals("count on collection", 1, c.count());
+        }
 
         // execute delete
         BasicDocDeleter deleter = new BasicDocDeleter();
