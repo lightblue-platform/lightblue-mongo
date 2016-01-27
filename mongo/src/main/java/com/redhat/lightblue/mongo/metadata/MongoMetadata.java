@@ -26,11 +26,13 @@ import com.redhat.lightblue.DataError;
 import com.redhat.lightblue.OperationStatus;
 import com.redhat.lightblue.Response;
 import com.redhat.lightblue.mongo.common.MongoDataStore;
+import com.redhat.lightblue.mongo.crud.Translator;
 import com.redhat.lightblue.crud.Factory;
 import com.redhat.lightblue.metadata.*;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.parser.MetadataParser;
 import com.redhat.lightblue.mongo.hystrix.*;
+import com.redhat.lightblue.query.IndexSortKey;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.Path;
 import org.bson.BSONObject;
@@ -83,7 +85,7 @@ public class MongoMetadata extends AbstractMetadata {
         if (entityName == null || entityName.length() == 0) {
             throw new IllegalArgumentException(LITERAL_ENTITY_NAME);
         }
-        
+
         Error.push("getEntityMetadata(" + entityName + ":" + version + ")");
         try {
             EntityMetadata md;
@@ -92,7 +94,7 @@ public class MongoMetadata extends AbstractMetadata {
                 if(md!=null)
                     return md;
             }
-            
+
             EntityInfo info = getEntityInfo(entityName);
             if (version == null || version.length() == 0) {
                 if (info.getDefaultVersion() == null || info.getDefaultVersion().length() == 0) {
@@ -136,7 +138,13 @@ public class MongoMetadata extends AbstractMetadata {
             BasicDBObject query = new BasicDBObject(LITERAL_ID, entityName + BSONParser.DELIMITER_ID);
             DBObject ei = new FindOneCommand(collection, query).executeAndUnwrap();
             if (ei != null) {
-                return mdParser.parseEntityInfo(ei);
+                EntityInfo entityInfo = mdParser.parseEntityInfo(ei);
+                // we need to do this here, since it is specific to Mongo and not Core
+                entityInfo.getIndexes().getCaseInsensitiveIndexes()
+                    .replaceAll(i ->
+                        i = new IndexSortKey(Translator.getFieldForHidden(i.getField()), i.isDesc(), true)
+                    );
+                return entityInfo;
             } else {
                 return null;
             }
@@ -412,7 +420,7 @@ public class MongoMetadata extends AbstractMetadata {
     private static boolean isSnapshot(String s) {
         return s.indexOf("SNAPSHOT")!=-1;
     }
-    
+
     /**
      * Creates a new schema (versioned data) for an existing metadata.
      *

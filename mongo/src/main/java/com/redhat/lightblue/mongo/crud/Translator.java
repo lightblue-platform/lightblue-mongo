@@ -706,6 +706,18 @@ public class Translator {
         return path.prefix(-1).mutableCopy().push(HIDDEN_SUB_PATH).push(path.getLast());
     }
 
+    /**
+     * Get a reference to the hidden path's actual field.
+     *
+     * This does not guarantee the sub-path exists.
+     *
+     * @param path
+     * @return
+     */
+    public static Path getFieldForHidden(Path hiddenPath) {
+        return hiddenPath.prefix(-2).mutableCopy().push(hiddenPath.getLast());
+    }
+
     private DBObject translateNaryValueRelationalExpression(FieldTreeNode context, NaryValueRelationalExpression expr) {
         Type t = resolve(context, expr.getField()).getType();
         if (t.supportsEq()) {
