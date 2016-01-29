@@ -26,13 +26,11 @@ import com.redhat.lightblue.DataError;
 import com.redhat.lightblue.OperationStatus;
 import com.redhat.lightblue.Response;
 import com.redhat.lightblue.mongo.common.MongoDataStore;
-import com.redhat.lightblue.mongo.crud.Translator;
 import com.redhat.lightblue.crud.Factory;
 import com.redhat.lightblue.metadata.*;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.parser.MetadataParser;
 import com.redhat.lightblue.mongo.hystrix.*;
-import com.redhat.lightblue.query.IndexSortKey;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.Path;
 import org.bson.BSONObject;
@@ -138,13 +136,7 @@ public class MongoMetadata extends AbstractMetadata {
             BasicDBObject query = new BasicDBObject(LITERAL_ID, entityName + BSONParser.DELIMITER_ID);
             DBObject ei = new FindOneCommand(collection, query).executeAndUnwrap();
             if (ei != null) {
-                EntityInfo entityInfo = mdParser.parseEntityInfo(ei);
-                // we need to do this here, since it is specific to Mongo and not Core
-                entityInfo.getIndexes().getCaseInsensitiveIndexes()
-                    .replaceAll(i ->
-                        i = new IndexSortKey(Translator.getFieldForHidden(i.getField()), i.isDesc(), true)
-                    );
-                return entityInfo;
+                return mdParser.parseEntityInfo(ei);
             } else {
                 return null;
             }
