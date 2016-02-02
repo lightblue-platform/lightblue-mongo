@@ -74,6 +74,56 @@
             <artifactId>jsonassert</artifactId>
         </dependency>
     </dependencies>
+    <profiles>
+       <profile>
+          <id>rpm</id>
+          <build>
+            <plugins>
+                <!-- RPM packing -->
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>rpm-maven-plugin</artifactId>
+                    <version>2.1.4</version>
+                    <extensions>true</extensions>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>attached-rpm</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                    <configuration>
+                        <name>${rpm.name}</name>
+                        <copyright>Red Hat</copyright>
+                        <distribution>RHEL</distribution>
+                        <group>Lightblue Platform</group>
+                        <packager>${user.name}</packager>
+                        <defaultFilemode>744</defaultFilemode>
+                        <defaultUsername>jboss</defaultUsername>
+                        <defaultGroupname>jboss</defaultGroupname>
+                        <mappings>
+                            <mapping>
+                                <directory>${rpm.install.basedir}</directory>
+                                <directoryIncluded>false</directoryIncluded>
+                                <sources>
+                                    <source>
+                                        <location>target/${project.artifactId}-${project.version}.${project.packaging}</location>
+                                    </source>
+                                </sources>
+                              <dependency>
+                                <includes>
+                                  <include>${project.groupId}:*</include>
+                                  <include>org.mongodb:*</include>
+                                </includes>
+                              </dependency>
+                            </mapping>
+                        </mappings>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </build>
+      </profile>
+    </profiles>
     <build>
         <plugins>
             <plugin>

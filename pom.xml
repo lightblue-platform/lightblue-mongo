@@ -244,6 +244,9 @@
         <sonar.host.url>http://127.0.0.1:8080</sonar.host.url>
         <sonar.projectName>lightblue-mongo</sonar.projectName>
 
+        <rpm.name>${project.artifactId}</rpm.name>
+        <rpm.install.basedir>/usr/share/java/lightblue/${project.artifactId}</rpm.install.basedir>
+
         <maven.compiler.showWarnings>true</maven.compiler.showWarnings>
         <maven.compiler.showDeprecation>true</maven.compiler.showDeprecation>
         <maven.compiler.debuglevel>lines,vars,source</maven.compiler.debuglevel>
