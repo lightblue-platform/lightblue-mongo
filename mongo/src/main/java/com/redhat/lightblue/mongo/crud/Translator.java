@@ -21,12 +21,14 @@ package com.redhat.lightblue.mongo.crud;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
@@ -46,6 +48,7 @@ import com.redhat.lightblue.metadata.ArrayField;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.FieldCursor;
 import com.redhat.lightblue.metadata.FieldTreeNode;
+import com.redhat.lightblue.metadata.Index;
 import com.redhat.lightblue.metadata.IndexSortKey;
 import com.redhat.lightblue.metadata.ObjectArrayElement;
 import com.redhat.lightblue.metadata.ObjectField;
@@ -440,7 +443,8 @@ public class Translator {
      * @return
      */
     public static DBObject populateHiddenFields(EntityMetadata md, DBObject dbo) {
-        md.getEntityInfo().getIndexes().getCaseInsensitiveIndexes().stream()
+        // for each case insensitive index, traverse through the tree and populate the proper hidden fields
+        getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes())
             .map(IndexSortKey::getField)
             .forEach(p -> {
                 Path hiddenPath = getHiddenForField(p);
@@ -453,6 +457,13 @@ public class Translator {
                 }
             });
         return dbo;
+    }
+
+    public static Stream<IndexSortKey> getCaseInsensitiveIndexes(List<Index> indexes) {
+        return indexes.stream()
+                .map(Index::getFields)
+                .flatMap(Collection::stream)
+                .filter(IndexSortKey::isCaseInsensitive);
     }
 
     /**
@@ -671,12 +682,16 @@ public class Translator {
         Path field = expr.getField();
 
         if (expr.isCaseInsensitive()) {
-            if (emd.getEntityInfo().getIndexes().isCaseInsensitiveKey(field)) {
-                field = getHiddenForField(expr.getField());
-                regex.replace("$regex", expr.getRegex().toUpperCase());
-            } else {
-                options.append('i');
+            options.append('i');
+            for(Index index : emd.getEntityInfo().getIndexes().getIndexes()){
+                if(index.isCaseInsensitiveKey(field)){
+                    field = getHiddenForField(expr.getField());
+                    regex.replace("$regex", expr.getRegex().toUpperCase());
+                    options.deleteCharAt(options.length() - 1);
+                    break;
+                }
             }
+
         }
         if (expr.isMultiline()) {
             options.append('m');

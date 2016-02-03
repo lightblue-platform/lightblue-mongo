@@ -669,10 +669,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 LOGGER.info("Creating index {} with {}",index.getName(),index.getFields());
                 DBObject newIndex = new BasicDBObject();
                 for (IndexSortKey p : index.getFields()) {
-                    String field = p.getField().toString();
+                    String field = Translator.translatePath(p.getField());
                     if (p.isCaseInsensitive()) {
                         // if this is a case insensitive key, we need to change the field to how mongo actually stores the index
-                        field = Translator.getHiddenForField(p.getField()).toString();
+                        field = Translator.translatePath(Translator.getHiddenForField(p.getField()));
                     }
                     newIndex.put(field, p.isDesc() ? -1 : 1);
                 }
@@ -721,12 +721,12 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             return true;
         return false;
     }
-    
+
     private boolean compareSortKeys(IndexSortKey sortKey, String fieldName, Object dir) {
         String field = sortKey.getField().toString();
         if (sortKey.isCaseInsensitive()) {
             // if this is a case insensitive key, we need to change the field to how mongo actually stores the index
-            field = Translator.getHiddenForField(sortKey.getField()).toString();
+            field = Translator.translatePath(Translator.getHiddenForField(sortKey.getField()));
         }
 
         if (field.equals(fieldName)) {
