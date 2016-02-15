@@ -112,7 +112,6 @@ public class BasicDocSaver implements DocSaver {
                     if (paths == null || paths.isEmpty()) {
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, inputDoc);
                         merge.merge(oldDBObject,dbObject);
-                        Translator.populateHiddenFields(md, dbObject);
                         result = new UpdateCommand(collection, q, dbObject, upsert, false).executeAndUnwrap();
                         inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, inputDoc);
@@ -195,7 +194,6 @@ public class BasicDocSaver implements DocSaver {
             LOGGER.debug("Inaccessible fields:{}", paths);
             if (paths == null || paths.isEmpty()) {
                 try {
-                    Translator.populateHiddenFields(md, dbObject);
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_INSERT_DOC, ctx, inputDoc);
                     WriteResult r = new InsertCommand(collection, dbObject).executeAndUnwrap();
                     inputDoc.setCRUDOperationPerformed(CRUDOperation.INSERT);

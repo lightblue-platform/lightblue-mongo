@@ -131,7 +131,6 @@ public class IterateAndUpdate implements DocUpdater {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc);
                             DBObject updatedObject = translator.toBson(doc);
                             merge.merge(document,updatedObject);
-                            Translator.populateHiddenFields(md, updatedObject);
                             WriteResult result = new SaveCommand(collection, updatedObject).executeAndUnwrap();
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             LOGGER.debug("Number of rows affected : ", result.getN());

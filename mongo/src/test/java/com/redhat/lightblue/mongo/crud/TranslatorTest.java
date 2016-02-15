@@ -22,6 +22,8 @@ import static org.junit.Assert.assertEquals;
 import java.io.IOException;
 import java.util.Set;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.mongodb.DBObject;
 import com.mongodb.BasicDBObject;
@@ -66,20 +68,25 @@ public class TranslatorTest extends AbstractMongoCrudTest {
 
     @Test
     public void populateHiddenFields() throws IOException, ProcessingException {
-        BasicDBObject dbo = new BasicDBObject("objectType", "test")
-                .append("field1", "testField1")
-                .append("field2", "testField2")
-                .append("field3", "testField3");
+        // use a different md for this test
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        md = getMd("./testMetadata_index.json");
+        ctx.add(md);
+        translator = new Translator(ctx, nodeFactory);
 
-        EntityMetadata indexMd = getMd("./testMetadata_index.json");
+        ObjectNode obj = JsonNodeFactory.instance.objectNode();
+        obj.put(Translator.OBJECT_TYPE_STR, "test")
+            .put("field1", "testField1")
+            .put("field2", "testField2")
+            .put("field3", "testField3");
 
-        Translator.populateHiddenFields(indexMd, dbo);
+        DBObject bson = translator.toBson(new JsonDoc(obj));
 
-        Assert.assertEquals("TESTFIELD1", dbo.get(Translator.HIDDEN_SUB_PATH + ".field1"));
+        Assert.assertEquals("TESTFIELD1", bson.get(Translator.HIDDEN_SUB_PATH + ".field1"));
 
-        Assert.assertNull("testField2", dbo.get(Translator.HIDDEN_SUB_PATH + ".field2"));
+        Assert.assertNull("testField2", bson.get(Translator.HIDDEN_SUB_PATH + ".field2"));
 
-        Assert.assertEquals("TESTFIELD3", dbo.get(Translator.HIDDEN_SUB_PATH + ".field3"));
+        Assert.assertEquals("TESTFIELD3", bson.get(Translator.HIDDEN_SUB_PATH + ".field3"));
     }
 
     @Test
@@ -104,11 +111,8 @@ public class TranslatorTest extends AbstractMongoCrudTest {
         QueryExpression queryExp = RegexMatchExpression.fromJson(JsonUtils.json(query.replace('\'', '\"')));
         EntityMetadata indexMd = getMd("./testMetadata_index.json");
 
-        // TODO: this method works just fix test
-
         BasicDBObject trans = (BasicDBObject) translator.translate(indexMd, queryExp);
         assertEquals(expected, trans);
-        return;
     }
 
     @Test

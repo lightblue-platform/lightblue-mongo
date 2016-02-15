@@ -57,6 +57,7 @@ import com.redhat.lightblue.metadata.ResolvedReferenceField;
 import com.redhat.lightblue.metadata.SimpleArrayElement;
 import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.Type;
+import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.query.ArrayContainsExpression;
 import com.redhat.lightblue.query.ArrayMatchExpression;
 import com.redhat.lightblue.query.ArrayUpdateExpression;
@@ -433,30 +434,6 @@ public class Translator {
         }
         LOGGER.debug("Resulting projection:{}",ret);
         return ret;
-    }
-
-    /**
-     * Populate mongo controlled hidden fields that may exist
-     *
-     * @param md
-     * @param dbo
-     * @return
-     */
-    public static DBObject populateHiddenFields(EntityMetadata md, DBObject dbo) {
-        // for each case insensitive index, traverse through the tree and populate the proper hidden fields
-        getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes())
-            .map(IndexSortKey::getField)
-            .forEach(p -> {
-                Path hiddenPath = getHiddenForField(p);
-                Object object = dbo.get(p.toString());
-                if(object instanceof String) {
-                    String val = (String) object;
-                    dbo.put(hiddenPath.toString(), val.toUpperCase());
-                } else {
-                    throw new RuntimeException(new CannotTranslateException(p));
-                }
-            });
-        return dbo;
     }
 
     public static Stream<IndexSortKey> getCaseInsensitiveIndexes(List<Index> indexes) {
@@ -1119,12 +1096,18 @@ public class Translator {
     private void toBson(BasicDBObject dest,
                         SimpleField fieldMd,
                         Path path,
-                        JsonNode node) {
+                        JsonNode node, EntityMetadata md) {
         Object value = toValue(fieldMd.getType(), node);
         // Should we add fields with null values to the bson doc? Answer: no
         if (value != null) {
             if (path.equals(ID_PATH)) {
                 value = createIdFrom(value);
+            }
+            if (getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes()).anyMatch(i -> i.getField().equals(path))) {
+                if (fieldMd.getType().equals(StringType.TYPE)) {
+                    Path hidden = getHiddenForField(new Path(path.tail(0)));
+                    dest.append(hidden.toString(), value.toString().toUpperCase());
+                }
             }
             dest.append(path.tail(0), value);
         }
@@ -1145,7 +1128,7 @@ public class Translator {
             }
 
             if (fieldMdNode instanceof SimpleField) {
-                toBson(ret, (SimpleField) fieldMdNode, path, node);
+                toBson(ret, (SimpleField) fieldMdNode, path, node, md);
             } else if (fieldMdNode instanceof ObjectField) {
                 convertObjectFieldToBson(node, cursor, ret, path, md);
             } else if (fieldMdNode instanceof ArrayField) {

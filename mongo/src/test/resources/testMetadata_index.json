@@ -11,7 +11,7 @@
                 "fields": [
                     {"field":"field1",
                      "dir":"$asc",
-                     "caseInsensitive":"true"
+                     "caseInsensitive":true
                     },
                     {"field":"field2",
                      "dir":"$asc"
@@ -23,7 +23,7 @@
 	            "fields": [
 	                {"field":"field3",
 	                 "dir":"$asc",
-	                 "caseInsensitive":"true"
+	                 "caseInsensitive":true
 	                }
 	            ]
             }
