@@ -89,6 +89,21 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void modifyExistingIndex_CI() {
+
+    }
+
+    @Test
+    public void createNewIndex_CI() {
+
+    }
+
+    @Test
+    public void dropExistingIndex_CI() {
+
+    }
+
+    @Test
     public void insertTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);

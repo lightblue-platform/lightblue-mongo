@@ -665,6 +665,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 LOGGER.info("Dropping {}",index.get("name"));
                 entityCollection.dropIndex(index.get("name").toString());
             }
+            boolean background = true;
             for(Index index:createIndexes) {
                 LOGGER.info("Creating index {} with {}",index.getName(),index.getFields());
                 DBObject newIndex = new BasicDBObject();
@@ -673,6 +674,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     if (p.isCaseInsensitive()) {
                         // if this is a case insensitive key, we need to change the field to how mongo actually stores the index
                         field = Translator.translatePath(Translator.getHiddenForField(p.getField()));
+                        // if we have a case insensitive index, we want this operation to be blocking because we need to generate fields afterwards
+                        background = false;
                     }
                     newIndex.put(field, p.isDesc() ? -1 : 1);
                 }
@@ -682,9 +685,13 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 if (index.getName() != null && index.getName().trim().length() > 0) {
                     options.append("name", index.getName().trim());
                 }
-                options.append("background", true);
+                options.append("background", background);
                 LOGGER.debug("Creating index {} with options {}", newIndex, options);
                 entityCollection.createIndex(newIndex, options);
+                if (!background) {
+                    // if we're not running in the background, we need to execute the items in this block afterwards
+                    entityDB.doEval("populateHiddenFields()");
+                }
             }
         } catch (MongoException me) {
             throw Error.get(MongoCrudConstants.ERR_ENTITY_INDEX_NOT_CREATED, me.getMessage());
