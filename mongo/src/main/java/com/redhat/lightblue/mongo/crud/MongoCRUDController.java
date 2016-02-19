@@ -400,7 +400,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     @Override
     public void afterUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
-        createUpdateEntityInfoIndexes(ei);
+        createUpdateEntityInfoIndexes(ei, md);
     }
 
     @Override
@@ -561,7 +561,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("ensureIdIndex: end");
     }
 
-    private void createUpdateEntityInfoIndexes(EntityInfo ei) {
+    private void createUpdateEntityInfoIndexes(EntityInfo ei, Metadata md) {
         LOGGER.debug("createUpdateEntityInfoIndexes: begin");
 
         Indexes indexes = ei.getIndexes();
@@ -666,14 +666,22 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 entityCollection.dropIndex(index.get("name").toString());
             }
             boolean background = true;
+            // fieldMap is <canonicalPath, hiddenPath>
+            Map<String, String> fieldMap = new HashMap<>();
+            EntityMetadata emd = md.getEntityMetadata(ei.getName(), ei.getDefaultVersion());
+
             for(Index index:createIndexes) {
                 LOGGER.info("Creating index {} with {}",index.getName(),index.getFields());
                 DBObject newIndex = new BasicDBObject();
                 for (IndexSortKey p : index.getFields()) {
                     String field = Translator.translatePath(p.getField());
                     if (p.isCaseInsensitive()) {
-                        // if this is a case insensitive key, we need to change the field to how mongo actually stores the index
-                        field = Translator.translatePath(Translator.getHiddenForField(p.getField()));
+
+                        // build the full path representation of the index.  this includes * references for arrays
+                        Path fieldForIndex = Translator.getFieldByIndex(emd, p.getField()).getFullPath();
+                        // build a map of the index's field to it's actual @mongoHidden pathd
+                        fieldMap.put(fieldForIndex.toString(), Translator.getHiddenForField(fieldForIndex).toString());
+
                         // if we have a case insensitive index, we want this operation to be blocking because we need to generate fields afterwards
                         background = false;
                     }
@@ -688,10 +696,13 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 options.append("background", background);
                 LOGGER.debug("Creating index {} with options {}", newIndex, options);
                 entityCollection.createIndex(newIndex, options);
-                if (!background) {
-                    // if we're not running in the background, we need to execute the items in this block afterwards
-                    entityDB.doEval("populateHiddenFields()");
-                }
+            }
+            if (!background) {
+                // if we're not running in the background, we need to execute the items in this block afterwards
+                // caseInsensitive indexes have been updated or created, run the server-side updater on mongo to recalculate all hidden fields
+                entityDB.doEval("populateHiddenFields()", fieldMap);
+
+                // TODO: remove hidden fields on index deletions?
             }
         } catch (MongoException me) {
             throw Error.get(MongoCrudConstants.ERR_ENTITY_INDEX_NOT_CREATED, me.getMessage());
