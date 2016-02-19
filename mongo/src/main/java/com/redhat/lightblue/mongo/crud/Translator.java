@@ -46,7 +46,6 @@ import com.redhat.lightblue.crud.MetadataResolver;
 import com.redhat.lightblue.metadata.ArrayElement;
 import com.redhat.lightblue.metadata.ArrayField;
 import com.redhat.lightblue.metadata.EntityMetadata;
-import com.redhat.lightblue.metadata.Field;
 import com.redhat.lightblue.metadata.FieldCursor;
 import com.redhat.lightblue.metadata.FieldTreeNode;
 import com.redhat.lightblue.metadata.Index;
@@ -91,6 +90,7 @@ import com.redhat.lightblue.query.ValueComparisonExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.JsonNodeCursor;
+import com.redhat.lightblue.util.MutablePath;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.Util;
 
@@ -215,17 +215,16 @@ public class Translator {
      * @return
      */
     public static FieldTreeNode getFieldByIndex(EntityMetadata md, Path index) {
-        StringBuilder sb = new StringBuilder();
+        MutablePath p = new MutablePath();
         index = new Path(translatePath(index));
         for (int i = 0; i < index.numSegments(); i++) {
             String seg = index.head(i);
-            Field field = md.getFields().getField(seg);
-            sb.append(seg);
-            if (field.getType().equals(ArrayType.TYPE)) {
-                sb.append("*");
+            p.push(seg);
+            if (md.resolve(index.prefix(i + 1)).equals(ArrayType.TYPE)) {
+                p.push("*");
             }
         }
-        return new SimpleField(sb.toString());
+        return md.resolve(p);
     }
 
     /**

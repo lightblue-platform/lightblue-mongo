@@ -23,6 +23,7 @@
     function doArrayMap(doc, field, hidden, arrayIndex) {
         // get the left and right hand side of the array path so we can loop through
         // pre is the actual array ref
+	// post is the field in the array obj
         var fieldPre = field.substring(0, arrayIndex - 1);
         var fieldPost = field.substring(arrayIndex + 2);
 
