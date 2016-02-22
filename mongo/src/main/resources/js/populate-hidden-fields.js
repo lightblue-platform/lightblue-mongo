@@ -12,11 +12,14 @@
                 if (arrayIndex > -1) {
                     doArrayMap(doc, k, fieldMap[k], arrayIndex);
                 } else {
-                    // if no array, just do a direct update
-                    doc[fieldMap[k]] = doc[k].toUpperCase();
+                    // only update if the matching field exists
+                    if(doc[k] !== null) {
+                        // if no array, just do a direct update
+                	doc[fieldMap[k]] = doc[k].toUpperCase();
+                    }
                 }
             }
-            db.collection.update(doc);
+            db.collection.save(doc);
         });
     }
 
@@ -30,15 +33,23 @@
         var hiddenPre = hidden.substring(0, arrayIndex - 1);
         var hiddenPost = hidden.substring(arrayIndex + 2);
 
-        for (int i = 0; doc[fieldPre].length; i++) {
+        // make sure the array exists, if not just break out of this iteration
+        if (doc[fieldPre] === null) {
+            return;
+        }
+        
+        for (int i = 0; i < doc[fieldPre].length; i++) {
             // check if there's an array in the index
             var arrayIndex = fieldPost.lastIndexOf("*");
             if (arrayIndex > -1) {
         	// if we have another array, descend
                 doArrayMap(doc, fieldPre + i + fieldPost, hiddenPre + i + hiddenPost, arrayIndex)
             } else {
-        	// if no more arrays, set the field and continue
-                doc[hiddenPre + i + hiddenPost] = doc[fieldPre + i + fieldPost].toUpperCase();
+        	// only update if the matching field exists
+        	if((doc[fieldPre + i + fieldPost]) !== null) {
+        	    // if no more arrays, set the field and continue
+        	    doc[hiddenPre + i + hiddenPost] = doc[fieldPre + i + fieldPost].toUpperCase();
+        	}
             }
         }
     }
