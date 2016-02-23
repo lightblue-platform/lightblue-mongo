@@ -57,7 +57,6 @@ import com.redhat.lightblue.metadata.ResolvedReferenceField;
 import com.redhat.lightblue.metadata.SimpleArrayElement;
 import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.Type;
-import com.redhat.lightblue.metadata.types.ArrayType;
 import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.query.ArrayContainsExpression;
 import com.redhat.lightblue.query.ArrayMatchExpression;
@@ -90,7 +89,6 @@ import com.redhat.lightblue.query.ValueComparisonExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.JsonNodeCursor;
-import com.redhat.lightblue.util.MutablePath;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.Util;
 
@@ -205,26 +203,6 @@ public class Translator {
             }
         }
         return str.toString();
-    }
-
-    /**
-     * Return a full field representation of the given index based on the provided entity metadata.  This will include asterisks to represent array indexes.
-     *
-     * @param md
-     * @param index
-     * @return
-     */
-    public static FieldTreeNode getFieldByIndex(EntityMetadata md, Path index) {
-        MutablePath p = new MutablePath();
-        index = new Path(translatePath(index));
-        for (int i = 0; i < index.numSegments(); i++) {
-            String seg = index.head(i);
-            p.push(seg);
-            if (md.resolve(index.prefix(i + 1)).equals(ArrayType.TYPE)) {
-                p.push("*");
-            }
-        }
-        return md.resolve(p);
     }
 
     /**

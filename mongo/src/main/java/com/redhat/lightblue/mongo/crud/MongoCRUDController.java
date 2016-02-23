@@ -47,6 +47,8 @@ import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 
 public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport {
@@ -668,22 +670,18 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             boolean background = true;
             // fieldMap is <canonicalPath, hiddenPath>
             Map<String, String> fieldMap = new HashMap<>();
-            EntityMetadata emd = md.getEntityMetadata(ei.getName(), ei.getDefaultVersion());
-
             for(Index index:createIndexes) {
                 LOGGER.info("Creating index {} with {}",index.getName(),index.getFields());
                 DBObject newIndex = new BasicDBObject();
                 for (IndexSortKey p : index.getFields()) {
                     String field = Translator.translatePath(p.getField());
                     if (p.isCaseInsensitive()) {
-
-                        // build the full path representation of the index.  this includes * references for arrays
-                        Path fieldForIndex = Translator.getFieldByIndex(emd, p.getField()).getFullPath();
                         // build a map of the index's field to it's actual @mongoHidden pathd
-                        fieldMap.put(fieldForIndex.toString(), Translator.getHiddenForField(fieldForIndex).toString());
+                        fieldMap.put(p.getField().toString(), Translator.getHiddenForField(p.getField()).toString());
 
                         // if we have a case insensitive index, we want this operation to be blocking because we need to generate fields afterwards
                         background = false;
+                        LOGGER.info("Index creation will be blocking.");
                     }
                     newIndex.put(field, p.isDesc() ? -1 : 1);
                 }
@@ -698,9 +696,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 entityCollection.createIndex(newIndex, options);
             }
             if (!background) {
+                LOGGER.info("Executing post-index creation updates...");
                 // if we're not running in the background, we need to execute the items in this block afterwards
                 // caseInsensitive indexes have been updated or created, run the server-side updater on mongo to recalculate all hidden fields
-                entityDB.doEval("populateHiddenFields()", fieldMap);
+                String js = new String(Files.readAllBytes(Paths.get("populate-hidden-fields.js")));
+                entityDB.doEval(js, fieldMap);
 
                 // TODO: remove hidden fields on index deletions?
             }

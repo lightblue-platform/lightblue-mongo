@@ -37,7 +37,6 @@
         if (doc[fieldPre] === null) {
             return;
         }
-        
         for (int i = 0; i < doc[fieldPre].length; i++) {
             // check if there's an array in the index
             var arrayIndex = fieldPost.lastIndexOf("*");
