@@ -34,6 +34,18 @@ import com.mongodb.TaggableReadPreference;
 
 import com.redhat.lightblue.util.JsonUtils;
 
+/**
+ *
+ * The read preferences can be nearest, primary, primaryPreferred, secondary, and secondaryPreferred, with
+ * optional tags. The tags are specified as:
+ * <pre>
+ *    readPreference ( tags1, tags2,... )
+ * <pre>
+ * where each 'tags' is a JSON string containing name/value pairs:
+ * <pre>
+ *    { name:value, name:value, ... }
+ * </pre>
+ */
 public class MongoReadPreference {
 
     public static class InvalidReadPreference extends RuntimeException {
