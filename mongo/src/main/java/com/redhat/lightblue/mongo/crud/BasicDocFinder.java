@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.ReadPreference;
 import com.mongodb.DBCursor;
 
 import com.redhat.lightblue.interceptor.InterceptPoint;
@@ -46,9 +47,11 @@ public class BasicDocFinder implements DocFinder {
 
     private final Translator translator;
     private int maxResultSetSize=0;
+    private ReadPreference readPreference;
 
-    public BasicDocFinder(Translator translator) {
+    public BasicDocFinder(Translator translator,ReadPreference readPreference) {
         this.translator = translator;
+        this.readPreference=readPreference;
     }
 
     public void setMaxResultSetSize(int size) {
@@ -67,6 +70,8 @@ public class BasicDocFinder implements DocFinder {
 
         long executionTime=System.currentTimeMillis();
         DBCursor cursor = new FindCommand(coll, mongoQuery, mongoProjection).executeAndUnwrap();
+        if(readPreference!=null)
+            cursor.setReadPreference(readPreference);
         executionTime=System.currentTimeMillis()-executionTime;
         
         LOGGER.debug("Query evaluated");

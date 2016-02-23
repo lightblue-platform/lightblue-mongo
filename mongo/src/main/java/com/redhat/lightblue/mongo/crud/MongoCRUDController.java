@@ -342,7 +342,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 DB db = dbResolver.get((MongoDataStore) md.getDataStore());
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
                 LOGGER.debug("Retrieve db collection:" + coll);
-                DocFinder finder = new BasicDocFinder(translator);
+                DocFinder finder = new BasicDocFinder(translator,MongoExecutionOptions.
+                                                      getReadPreference(ctx.getExecutionOptions()));
                 MongoConfiguration cfg=dbResolver.getConfiguration( (MongoDataStore)md.getDataStore());
                 if(cfg!=null)
                     finder.setMaxResultSetSize(cfg.getMaxResultSetSize());

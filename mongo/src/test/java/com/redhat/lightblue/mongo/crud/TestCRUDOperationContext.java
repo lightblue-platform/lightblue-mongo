@@ -40,7 +40,7 @@ public class TestCRUDOperationContext extends CRUDOperationContext {
     }
 
     public TestCRUDOperationContext(String name,CRUDOperation op) {
-        super(op, name, factory, null);
+        super(op, name, factory, null,null);
     }
 
     public void add(EntityMetadata md) {
