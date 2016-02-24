@@ -43,6 +43,7 @@ import com.redhat.lightblue.extensions.ExtensionSupport;
 import com.redhat.lightblue.extensions.Extension;
 import com.redhat.lightblue.extensions.synch.LockingSupport;
 import com.redhat.lightblue.extensions.valuegenerator.ValueGeneratorSupport;
+
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -676,8 +677,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 for (IndexSortKey p : index.getFields()) {
                     String field = Translator.translatePath(p.getField());
                     if (p.isCaseInsensitive()) {
-                        // build a map of the index's field to it's actual @mongoHidden pathd
-                        fieldMap.put(p.getField().toString(), Translator.getHiddenForField(p.getField()).toString());
+                        // build a map of the index's field to it's actual @mongoHidden path
+
+                        field = Translator.getHiddenForField(p.getField()).toString();
+
+                        fieldMap.put(p.getField().toString(), field);
 
                         // if we have a case insensitive index, we want this operation to be blocking because we need to generate fields afterwards
                         background = false;
@@ -699,7 +703,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 LOGGER.info("Executing post-index creation updates...");
                 // if we're not running in the background, we need to execute the items in this block afterwards
                 // caseInsensitive indexes have been updated or created, run the server-side updater on mongo to recalculate all hidden fields
-                String js = new String(Files.readAllBytes(Paths.get("populate-hidden-fields.js")));
+                String js = new String(Files.readAllBytes(Paths.get(ClassLoader.getSystemResource("js/populate-hidden-fields.js").toURI())));
+
                 entityDB.doEval(js, fieldMap);
 
                 // TODO: remove hidden fields on index deletions?

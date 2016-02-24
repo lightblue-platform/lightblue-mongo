@@ -18,10 +18,12 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
+import static org.junit.Assert.assertTrue;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-
+import java.util.stream.Collectors;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -43,6 +45,7 @@ import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDSaveResponse;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.DocCtx;
+import com.redhat.lightblue.metadata.ArrayField;
 import com.redhat.lightblue.metadata.CompositeMetadata;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.FieldConstraint;
@@ -51,6 +54,7 @@ import com.redhat.lightblue.metadata.Index;
 import com.redhat.lightblue.metadata.IndexSortKey;
 import com.redhat.lightblue.metadata.MetadataStatus;
 import com.redhat.lightblue.metadata.ObjectField;
+import com.redhat.lightblue.metadata.SimpleArrayElement;
 import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.Version;
 import com.redhat.lightblue.metadata.constraints.IdentityConstraint;
@@ -95,7 +99,58 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     @Test
     public void createNewIndex_CI() {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex1"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
 
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+
+        SimpleArrayElement saSub = new SimpleArrayElement(StringType.TYPE);
+        ArrayField afSub = new ArrayField("subArrayField", saSub);
+        o.getFields().put(afSub);
+
+        // TODO: arrayField.*.field
+        // TODO: field
+        // TODO: field2.subArrayField.*.field
+
+        e.getFields().put(o);
+
+
+        SimpleArrayElement sa = new SimpleArrayElement(StringType.TYPE);
+        ArrayField af = new ArrayField("arrayField", sa);
+        e.getFields().put(af);
+
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+        Index index = new Index();
+        index.setName("testIndex");
+        index.setUnique(true);
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("arrayField.*"), true, true));
+        indexFields.add(new IndexSortKey(new Path("field2.subArrayField.*"), true, true));
+
+        index.setFields(indexFields);
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+        DBCollection entityCollection = db.getCollection("testCollectionIndex1");
+
+        List<DBObject> indexInfo2 = entityCollection.getIndexInfo();
+
+        List<String> indexInfo = entityCollection.getIndexInfo().stream()
+                .filter(i -> "testIndex".equals(i.get("name")))
+                .map(j -> j.get("key"))
+                .map(i -> i.toString())
+                .collect(Collectors.toList());
+
+        assertTrue(indexInfo.toString().contains("field1"));
+        assertTrue(indexInfo.toString().contains("arrayField.@mongoHidden.*"));
+        assertTrue(indexInfo.toString().contains("field2.subArrayField.@mongoHidden.*"));
     }
 
     @Test
