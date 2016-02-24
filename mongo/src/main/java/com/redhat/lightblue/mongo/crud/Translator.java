@@ -695,6 +695,9 @@ public class Translator {
      * @return
      */
     public static Path getHiddenForField(Path path) {
+        // TODO: need special handling for arrays
+        // currenly does this arrayField.@mongoHidden.*
+        // instead of @mongoHidden.arrayField.*
         return path.prefix(-1).mutableCopy().push(HIDDEN_SUB_PATH).push(path.getLast());
     }
 

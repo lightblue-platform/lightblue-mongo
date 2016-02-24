@@ -18,6 +18,7 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.math.BigDecimal;
@@ -53,6 +54,7 @@ import com.redhat.lightblue.metadata.FieldCursor;
 import com.redhat.lightblue.metadata.Index;
 import com.redhat.lightblue.metadata.IndexSortKey;
 import com.redhat.lightblue.metadata.MetadataStatus;
+import com.redhat.lightblue.metadata.ObjectArrayElement;
 import com.redhat.lightblue.metadata.ObjectField;
 import com.redhat.lightblue.metadata.SimpleArrayElement;
 import com.redhat.lightblue.metadata.SimpleField;
@@ -94,16 +96,93 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     @Test
     public void modifyExistingIndex_CI() {
+        EntityMetadata e = createCIMetadata();
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+        e.getEntityInfo().getIndexes().getIndexes().clear();
+
+        Index index = new Index();
+        index.setName("testIndex");
+        index.setUnique(true);
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true, true));
+        indexFields.add(new IndexSortKey(new Path("field3"), true));
+        indexFields.add(new IndexSortKey(new Path("arrayField.*"), true));
+        indexFields.add(new IndexSortKey(new Path("arrayObj.*.x"), true));
+        indexFields.add(new IndexSortKey(new Path("arrayObj.*.arraySubObj.*"), true));
+        indexFields.add(new IndexSortKey(new Path("field2.x"), true));
+        indexFields.add(new IndexSortKey(new Path("field2.subArrayField.*"), true));
+
+        index.setFields(indexFields);
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+        DBCollection entityCollection = db.getCollection("testCollectionIndex1");
+
+        List<String> indexInfo = entityCollection.getIndexInfo().stream()
+                .filter(i -> "testIndex".equals(i.get("name")))
+                .map(j -> j.get("key"))
+                .map(i -> i.toString())
+                .collect(Collectors.toList());
+
+        // make sure the indexes are there correctly
+        assertTrue(indexInfo.toString().contains("@mongoHidden.field1"));
+
+        assertFalse(indexInfo.toString().contains("@mongoHidden.field3"));
+        assertTrue(indexInfo.toString().contains("field3"));
+
+        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.x"));
+        assertTrue(indexInfo.toString().contains("arrayObj.x"));
+
+        assertFalse(indexInfo.toString().contains("arrayObj.*.arraySubObj.@mongoHidden.*"));
+        assertTrue(indexInfo.toString().contains("arrayObj.arraySubObj"));
+
+        assertFalse(indexInfo.toString().contains("arrayField.@mongoHidden.*"));
+        assertTrue(indexInfo.toString().contains("arrayField"));
+
+        assertFalse(indexInfo.toString().contains("field2.@mongoHidden.x"));
+        assertTrue(indexInfo.toString().contains("field2.x"));
+
+        assertFalse(indexInfo.toString().contains("field2.subArrayField.@mongoHidden.*"));
+        assertTrue(indexInfo.toString().contains("field2.subArrayField"));
 
     }
 
     @Test
     public void createNewIndex_CI() {
+        EntityMetadata e = createCIMetadata();
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+
+        DBCollection entityCollection = db.getCollection("testCollectionIndex1");
+
+        List<String> indexInfo = entityCollection.getIndexInfo().stream()
+                .filter(i -> "testIndex".equals(i.get("name")))
+                .map(j -> j.get("key"))
+                .map(i -> i.toString())
+                .collect(Collectors.toList());
+
+        assertTrue(indexInfo.toString().contains("field1"));
+        assertTrue(indexInfo.toString().contains("field3"));
+        assertTrue(indexInfo.toString().contains("@mongoHidden.field3"));
+        assertTrue(indexInfo.toString().contains("arrayObj.*.@mongoHidden.x"));
+        assertTrue(indexInfo.toString().contains("arrayObj.*.arraySubObj.@mongoHidden.*"));
+        assertTrue(indexInfo.toString().contains("arrayField.@mongoHidden.*"));
+        assertTrue(indexInfo.toString().contains("field2.@mongoHidden.x"));
+        assertTrue(indexInfo.toString().contains("field2.subArrayField.@mongoHidden.*"));
+    }
+
+    private EntityMetadata createCIMetadata() {
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
         e.setStatus(MetadataStatus.ACTIVE);
         e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex1"));
         e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        e.getFields().put(new SimpleField("field3", StringType.TYPE));
+
 
         ObjectField o = new ObjectField("field2");
         o.getFields().put(new SimpleField("x", IntegerType.TYPE));
@@ -112,9 +191,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ArrayField afSub = new ArrayField("subArrayField", saSub);
         o.getFields().put(afSub);
 
-        // TODO: arrayField.*.field
-        // TODO: field
-        // TODO: field2.subArrayField.*.field
+        ObjectArrayElement oaObject = new ObjectArrayElement();
+        oaObject.getFields().put(new SimpleField("x", StringType.TYPE));
+
+        SimpleArrayElement saSubSub = new SimpleArrayElement(StringType.TYPE);
+        ArrayField afSubSub = new ArrayField("arraySubObj", saSubSub);
+        oaObject.getFields().put(afSubSub);
+
+        ArrayField afObject = new ArrayField("arrayObj", oaObject);
+        e.getFields().put(afObject);
 
         e.getFields().put(o);
 
@@ -129,28 +214,19 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         index.setUnique(true);
         List<IndexSortKey> indexFields = new ArrayList<>();
         indexFields.add(new IndexSortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("field3"), true, true));
         indexFields.add(new IndexSortKey(new Path("arrayField.*"), true, true));
+        indexFields.add(new IndexSortKey(new Path("arrayObj.*.x"), true, true));
+        indexFields.add(new IndexSortKey(new Path("arrayObj.*.arraySubObj.*"), true, true));
+        indexFields.add(new IndexSortKey(new Path("field2.x"), true, true));
         indexFields.add(new IndexSortKey(new Path("field2.subArrayField.*"), true, true));
 
         index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
-        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
-        DBCollection entityCollection = db.getCollection("testCollectionIndex1");
-
-        List<DBObject> indexInfo2 = entityCollection.getIndexInfo();
-
-        List<String> indexInfo = entityCollection.getIndexInfo().stream()
-                .filter(i -> "testIndex".equals(i.get("name")))
-                .map(j -> j.get("key"))
-                .map(i -> i.toString())
-                .collect(Collectors.toList());
-
-        assertTrue(indexInfo.toString().contains("field1"));
-        assertTrue(indexInfo.toString().contains("arrayField.@mongoHidden.*"));
-        assertTrue(indexInfo.toString().contains("field2.subArrayField.@mongoHidden.*"));
+        return e;
     }
 
     @Test
