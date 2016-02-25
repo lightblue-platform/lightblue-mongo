@@ -26,7 +26,6 @@ import org.slf4j.LoggerFactory;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
-import com.mongodb.MongoException;
 import com.mongodb.WriteResult;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
@@ -75,15 +74,15 @@ public class BasicDocSaver implements DocSaver {
         String error = null;
 
         DBObject oldDBObject=null;
-        
+
         Object id=dbObject.get(MongoCRUDController.ID_STR);
         if(id==null) {
             LOGGER.debug("Null _id, looking up the doc using identity fields");
             Field[] identityFields=md.getEntitySchema().getIdentityFields();
             Object[] identityFieldValues=fill(dbObject,identityFields);
-            if(!isNull(identityFieldValues)) {                            
+            if(!isNull(identityFieldValues)) {
                 DBObject lookupq=getLookupQ(identityFields,identityFieldValues);
-                LOGGER.debug("Lookup query: {}",lookupq);                            
+                LOGGER.debug("Lookup query: {}",lookupq);
                 oldDBObject=new FindOneCommand(collection,lookupq).executeAndUnwrap();
                 LOGGER.debug("Retrieved:{}",oldDBObject);
                 if(oldDBObject!=null)
@@ -91,7 +90,7 @@ public class BasicDocSaver implements DocSaver {
                 LOGGER.debug("Retrieved id:{}",id);
             }
         }
-        
+
         if (op == DocSaver.Op.insert
             || (id==null && upsert)) {
             // Inserting
@@ -135,9 +134,6 @@ public class BasicDocSaver implements DocSaver {
 
         LOGGER.debug("Write result {}", result);
         if (result != null) {
-            if (error == null) {
-                error = result.getError();
-            }
             if (error != null) {
                 inputDoc.addError(Error.get(op.toString(), MongoCrudConstants.ERR_SAVE_ERROR, error));
             }
@@ -148,7 +144,7 @@ public class BasicDocSaver implements DocSaver {
         BasicDBObject dbObject=new BasicDBObject();
         for(int i=0;i<fields.length;i++) {
             String path=Translator.translatePath(fields[i].getFullPath());
-            if(!path.equals(MongoCRUDController.ID_STR)) 
+            if(!path.equals(MongoCRUDController.ID_STR))
                 dbObject.append(path,values[i]);
         }
         return dbObject;
@@ -177,7 +173,7 @@ public class BasicDocSaver implements DocSaver {
         }
         return true;
     }
-                     
+
 
     private WriteResult insertDoc(CRUDOperationContext ctx,
             DBCollection collection,
@@ -193,16 +189,11 @@ public class BasicDocSaver implements DocSaver {
             Set<Path> paths = roleEval.getInaccessibleFields_Insert(inputDoc);
             LOGGER.debug("Inaccessible fields:{}", paths);
             if (paths == null || paths.isEmpty()) {
-                try {
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_INSERT_DOC, ctx, inputDoc);
                     WriteResult r = new InsertCommand(collection, dbObject).executeAndUnwrap();
                     inputDoc.setCRUDOperationPerformed(CRUDOperation.INSERT);
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_INSERT_DOC, ctx, inputDoc);
                     return r;
-                } catch (MongoException.DuplicateKey dke) {
-                    LOGGER.error("saveOrInsert failed: {}", dke);
-                    inputDoc.addError(Error.get("insert", MongoCrudConstants.ERR_DUPLICATE, dke));
-                }
             } else {
                 for(Path path : paths){
                     inputDoc.addError(Error.get("insert", CrudConstants.ERR_NO_FIELD_INSERT_ACCESS, path.toString()));

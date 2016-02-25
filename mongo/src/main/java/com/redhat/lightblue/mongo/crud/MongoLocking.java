@@ -28,7 +28,6 @@ import com.mongodb.WriteConcern;
 import com.mongodb.WriteResult;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
-import com.mongodb.MongoException;
 import com.mongodb.DBObject;
 
 import com.redhat.lightblue.extensions.synch.InvalidLockException;
@@ -45,7 +44,7 @@ public class MongoLocking implements Locking {
     public static final String VERSION="ver";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoLocking.class);
-   
+
     private DBCollection coll;
     private long defaultTTL=60l*60l*1000l;// 1 hr
 
@@ -58,7 +57,8 @@ public class MongoLocking implements Locking {
         this.coll=coll;
         BasicDBObject keys=new BasicDBObject(RESOURCEID,1);
         BasicDBObject options=new BasicDBObject("unique",1);
-        this.coll.ensureIndex(keys,options);
+        // ensureIndex was deprecated, changed to an alias of createIndex, and removed in a more recent version
+        this.coll.createIndex(keys,options);
     }
 
     public void setDefaultTTL(long l) {
@@ -80,12 +80,8 @@ public class MongoLocking implements Locking {
             append(COUNT,1).
             append(VERSION,1);
 
-        try {
-            LOGGER.debug("insert: {}",update);
-            coll.insert(update,WriteConcern.SAFE);
-        } catch (MongoException.DuplicateKey e) {
-            return false;
-        }
+        LOGGER.debug("insert: {}", update);
+        coll.insert(update, WriteConcern.ACKNOWLEDGED);
         return true;
     }
 
@@ -98,7 +94,7 @@ public class MongoLocking implements Locking {
           easy. The key is to use the uniqueness of a unique index, in
           this case, a unique index on resourceId. There can be at
           most one lock record for a resource in the db at any given
-          time. 
+          time.
 
           The insertion operation is atomic: if it is successful, we
           acquire the lock. We assume the update operation is
@@ -147,7 +143,7 @@ public class MongoLocking implements Locking {
             readVer=((Number)lockObject.get(VERSION)).intValue();
             readCallerId=(String)lockObject.get(CALLERID);
             readCount=((Number)lockObject.get(COUNT)).intValue();
-            
+
             // Lock already exists
             // Possibilities:
             //  - lock is not expired, but ours : increment count
@@ -170,7 +166,7 @@ public class MongoLocking implements Locking {
                     append("$inc",new BasicDBObject(VERSION,1).
                            append(COUNT,1));
                 LOGGER.debug("update: {} {}",query,update);
-                wr=coll.update(query,update,false,false,WriteConcern.SAFE);
+                wr=coll.update(query,update,false,false,WriteConcern.ACKNOWLEDGED);
                 if(wr.getN()==1) {
                     LOGGER.debug("{}/{} locked again",callerId,resourceId);
                     locked=true;
@@ -193,7 +189,7 @@ public class MongoLocking implements Locking {
                        append(COUNT,1)).
                 append("$inc",new BasicDBObject(VERSION,1));
             LOGGER.debug("update: {} {}",query,update);
-            wr=coll.update(query,update,false,false,WriteConcern.SAFE);
+            wr=coll.update(query,update,false,false,WriteConcern.ACKNOWLEDGED);
             if(wr.getN()==1) {
                 LOGGER.debug("{}/{} locked",callerId,resourceId);
                 locked=true;
@@ -216,7 +212,7 @@ public class MongoLocking implements Locking {
             append(EXPIRATION,new BasicDBObject("$gt",now)).
             append(COUNT,1);
         LOGGER.debug("remove {}",query);
-        WriteResult wr=coll.remove(query,WriteConcern.SAFE);
+        WriteResult wr=coll.remove(query,WriteConcern.ACKNOWLEDGED);
         if(wr.getN()==1) {
             LOGGER.debug("{}/{} released",callerId,resourceId);
             return true;
@@ -242,7 +238,7 @@ public class MongoLocking implements Locking {
                        append(TIMESTAMP,now)).
                 append("$inc",new BasicDBObject(COUNT,-1).
                        append(VERSION,1));
-            wr=coll.update(query,update,false,false,WriteConcern.SAFE);
+            wr=coll.update(query,update,false,false,WriteConcern.ACKNOWLEDGED);
             if(wr.getN()==1) {
                 LOGGER.debug("{}/{} lock count decremented, still locked",callerId,resourceId);
                 return false;
@@ -285,7 +281,7 @@ public class MongoLocking implements Locking {
                        append(EXPIRATION,expiration)).
                 append("$inc",new BasicDBObject(VERSION,1));
             q=q.append(VERSION,ver);
-            WriteResult wr=coll.update(q,update,false,false,WriteConcern.SAFE);
+            WriteResult wr=coll.update(q,update,false,false,WriteConcern.ACKNOWLEDGED);
             if(wr.getN()!=1)
                 throw new InvalidLockException(resourceId);
             LOGGER.debug("{}/{} pinged",callerId,resourceId);

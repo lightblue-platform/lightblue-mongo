@@ -40,7 +40,6 @@ public class SaveCommandTest extends AbstractMongoTest {
         WriteResult result = new SaveCommand(coll, obj).execute();
 
         Assert.assertNotNull(result);
-        Assert.assertNull(result.getError());
 
         DBObject updated = coll.findOne(new BasicDBObject("_id", id));
 
@@ -59,7 +58,6 @@ public class SaveCommandTest extends AbstractMongoTest {
             WriteResult result = new SaveCommand(coll, save).execute();
 
             Assert.assertNotNull(result);
-            Assert.assertNull(result.getError());
 
             DBObject updated = coll.findOne(new BasicDBObject("newKey", "key value"));
 

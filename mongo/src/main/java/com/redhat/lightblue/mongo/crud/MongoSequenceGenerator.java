@@ -27,7 +27,7 @@ import com.mongodb.DBObject;
 import com.mongodb.WriteConcern;
 
 /**
- * Sequence generation using a MongoDB collection. 
+ * Sequence generation using a MongoDB collection.
  *
  * Each sequence is a document uniquely identified by the sequence name. The document contains
  * initial value for the sequence, the increment, and the value.
@@ -40,8 +40,8 @@ public class MongoSequenceGenerator {
     public static final String VALUE="value";
 
     private static final Logger LOGGER=LoggerFactory.getLogger(MongoSequenceGenerator.class);
-    
-    private DBCollection coll;
+
+    private final DBCollection coll;
 
     public MongoSequenceGenerator(DBCollection coll) {
         this.coll=coll;
@@ -51,7 +51,8 @@ public class MongoSequenceGenerator {
         // Make sure we have a unique index on name
         BasicDBObject keys=new BasicDBObject(NAME,1);
         BasicDBObject options=new BasicDBObject("unique",1);
-        coll.ensureIndex(keys,options);
+        // ensureIndex was deprecated, changed to an alias of createIndex, and removed in a more recent version
+        coll.createIndex(keys,options);
     }
 
     /**
@@ -88,7 +89,7 @@ public class MongoSequenceGenerator {
                 append(INC,inc).
                 append(VALUE,init);
             try {
-                coll.insert(u, WriteConcern.SAFE);
+                coll.insert(u, WriteConcern.ACKNOWLEDGED);
             } catch (Exception e) {
                 // Someone else might have inserted already, try to re-read
                 LOGGER.debug("Insertion failed with {}, trying to read",e);

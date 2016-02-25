@@ -49,7 +49,6 @@ public class InsertCommandTest extends AbstractMongoTest {
         WriteResult result = new InsertCommand(coll, query).execute();
 
         Assert.assertNotNull(result);
-        Assert.assertNull(result.getError());
 
         try (DBCursor cur = coll.find(query, null)) {
             Assert.assertNotNull(cur);
@@ -73,7 +72,6 @@ public class InsertCommandTest extends AbstractMongoTest {
         WriteResult result = new InsertCommand(coll, data).execute();
 
         Assert.assertNotNull(result);
-        Assert.assertNull(result.getError());
 
         try (DBCursor cur = coll.find(null, null)) {
             Assert.assertNotNull(cur);

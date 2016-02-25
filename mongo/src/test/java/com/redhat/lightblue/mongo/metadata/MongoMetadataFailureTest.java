@@ -55,7 +55,7 @@ public class MongoMetadataFailureTest {
         md = new MongoMetadata(mongo.getDB(), x, new DefaultTypes(), factory,null);
         BasicDBObject index = new BasicDBObject("name", 1);
         index.put("version.value", 1);
-        mongo.getDB().getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION).ensureIndex(index, "name", true);
+        mongo.getDB().getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION).createIndex(index, "name", true);
 
         boolean passed = false;
         try {
