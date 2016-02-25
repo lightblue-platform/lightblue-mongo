@@ -137,16 +137,16 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.x"));
         assertTrue(indexInfo.toString().contains("arrayObj.x"));
 
-        assertFalse(indexInfo.toString().contains("arrayObj.*.arraySubObj.@mongoHidden.*"));
+        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.arraySubObj.*"));
         assertTrue(indexInfo.toString().contains("arrayObj.arraySubObj"));
 
-        assertFalse(indexInfo.toString().contains("arrayField.@mongoHidden.*"));
+        assertFalse(indexInfo.toString().contains("@mongoHidden.arrayField.*"));
         assertTrue(indexInfo.toString().contains("arrayField"));
 
         assertFalse(indexInfo.toString().contains("field2.@mongoHidden.x"));
         assertTrue(indexInfo.toString().contains("field2.x"));
 
-        assertFalse(indexInfo.toString().contains("field2.subArrayField.@mongoHidden.*"));
+        assertFalse(indexInfo.toString().contains("field2.@mongoHidden.subArrayField.*"));
         assertTrue(indexInfo.toString().contains("field2.subArrayField"));
 
     }
@@ -166,13 +166,51 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 .collect(Collectors.toList());
 
         assertTrue(indexInfo.toString().contains("field1"));
-        assertTrue(indexInfo.toString().contains("field3"));
         assertTrue(indexInfo.toString().contains("@mongoHidden.field3"));
         assertTrue(indexInfo.toString().contains("arrayObj.*.@mongoHidden.x"));
-        assertTrue(indexInfo.toString().contains("arrayObj.*.arraySubObj.@mongoHidden.*"));
-        assertTrue(indexInfo.toString().contains("arrayField.@mongoHidden.*"));
+        assertTrue(indexInfo.toString().contains("arrayObj.*.@mongoHidden.arraySubObj.*"));
+        assertTrue(indexInfo.toString().contains("@mongoHidden.arrayField.*"));
         assertTrue(indexInfo.toString().contains("field2.@mongoHidden.x"));
-        assertTrue(indexInfo.toString().contains("field2.subArrayField.@mongoHidden.*"));
+        assertTrue(indexInfo.toString().contains("field2.@mongoHidden.subArrayField.*"));
+    }
+
+
+    @Test
+    public void dropExistingIndex_CI() {
+        EntityMetadata e = createCIMetadata();
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+        e.getEntityInfo().getIndexes().getIndexes().clear();
+
+        Index index = new Index();
+        index.setName("testIndex");
+        index.setUnique(true);
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
+
+        index.setFields(indexFields);
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+        DBCollection entityCollection = db.getCollection("testCollectionIndex1");
+
+        List<String> indexInfo = entityCollection.getIndexInfo().stream()
+                .filter(i -> "testIndex".equals(i.get("name")))
+                .map(j -> j.get("key"))
+                .map(i -> i.toString())
+                .collect(Collectors.toList());
+
+        assertTrue(indexInfo.toString().contains("field1"));
+
+        assertFalse(indexInfo.toString().contains("@mongoHidden.field3"));
+        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.x"));
+        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.arraySubObj.*"));
+        assertFalse(indexInfo.toString().contains("@mongoHidden.arrayField.*"));
+        assertFalse(indexInfo.toString().contains("field2.@mongoHidden.x"));
+        assertFalse(indexInfo.toString().contains("field2.@mongoHidden.subArrayField.*"));
     }
 
     private EntityMetadata createCIMetadata() {
@@ -227,11 +265,6 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         e.getEntityInfo().getIndexes().setIndexes(indexes);
 
         return e;
-    }
-
-    @Test
-    public void dropExistingIndex_CI() {
-
     }
 
     @Test
