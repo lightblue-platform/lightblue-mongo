@@ -29,7 +29,7 @@ import com.mongodb.WriteResult;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
-
+import com.mongodb.DuplicateKeyException;
 import com.redhat.lightblue.extensions.synch.InvalidLockException;
 import com.redhat.lightblue.extensions.synch.Locking;
 
@@ -61,7 +61,7 @@ public class MongoLocking implements Locking {
         this.coll.createIndex(keys,options);
     }
 
-    public void setDefaultTTL(long l) {
+    public void acquire(long l) {
         defaultTTL=l;
     }
 
@@ -80,8 +80,12 @@ public class MongoLocking implements Locking {
             append(COUNT,1).
             append(VERSION,1);
 
-        LOGGER.debug("insert: {}", update);
-        coll.insert(update, WriteConcern.ACKNOWLEDGED);
+        try {
+            LOGGER.debug("insert: {}", update);
+            coll.insert(update, WriteConcern.ACKNOWLEDGED);
+        } catch (DuplicateKeyException dke) {
+            return false;
+        }
         return true;
     }
 

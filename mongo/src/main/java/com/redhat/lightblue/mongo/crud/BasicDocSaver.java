@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.DuplicateKeyException;
 import com.mongodb.WriteResult;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
@@ -189,11 +190,16 @@ public class BasicDocSaver implements DocSaver {
             Set<Path> paths = roleEval.getInaccessibleFields_Insert(inputDoc);
             LOGGER.debug("Inaccessible fields:{}", paths);
             if (paths == null || paths.isEmpty()) {
+                try {
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_INSERT_DOC, ctx, inputDoc);
                     WriteResult r = new InsertCommand(collection, dbObject).executeAndUnwrap();
                     inputDoc.setCRUDOperationPerformed(CRUDOperation.INSERT);
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_INSERT_DOC, ctx, inputDoc);
                     return r;
+                } catch (DuplicateKeyException dke) {
+                    LOGGER.error("saveOrInsert failed: {}", dke);
+                    inputDoc.addError(Error.get("insert", MongoCrudConstants.ERR_DUPLICATE, dke));
+                }
             } else {
                 for(Path path : paths){
                     inputDoc.addError(Error.get("insert", CrudConstants.ERR_NO_FIELD_INSERT_ACCESS, path.toString()));
