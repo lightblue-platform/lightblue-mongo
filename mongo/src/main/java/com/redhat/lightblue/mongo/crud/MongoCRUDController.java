@@ -705,7 +705,12 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 // caseInsensitive indexes have been updated or created, run the server-side updater on mongo to recalculate all hidden fields
                 String js = new String(Files.readAllBytes(Paths.get(ClassLoader.getSystemResource("js/populate-hidden-fields.js").toURI())));
 
+                //  BsonDocument myAddFunction = new BsonDocument("value", new BsonJavaScript("function (x, y){ return x + y; }"));
+
                 entityDB.doEval(js, fieldMap);
+                /*DBObject q;
+                DBObject o;
+                entityCollection.updateMulti(q, o);*/
 
                 // TODO: remove hidden fields on index deletions?
             }
