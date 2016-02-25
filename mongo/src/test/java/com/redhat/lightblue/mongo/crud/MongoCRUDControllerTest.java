@@ -129,6 +129,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 .collect(Collectors.toList());
 
         // make sure the indexes are there correctly
+        assertFalse(indexInfo.toString().contains("\"field1\""));
         assertTrue(indexInfo.toString().contains("@mongoHidden.field1"));
 
         assertFalse(indexInfo.toString().contains("@mongoHidden.field3"));
