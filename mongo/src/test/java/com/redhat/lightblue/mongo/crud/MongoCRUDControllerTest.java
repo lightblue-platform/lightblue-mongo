@@ -436,7 +436,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(2,readDoc.get(new Path("field3")).asInt());
     }
 
- 
+
     @Test
     public void updateTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
@@ -1150,7 +1150,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         }
         Assert.assertTrue(foundIndex);
     }
-    
+
    @Test
     public void entityIndexRemovalTest() throws Exception {
         EntityMetadata e = new EntityMetadata("testEntity");
@@ -1275,14 +1275,14 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         indexFields = new ArrayList<>();
         indexFields.add(new SortKey(new Path("field1"), true));
         index.setFields(indexFields);
-        indexes.add(index);        
+        indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
         try {
             controller.beforeUpdateEntityInfo(null, e.getEntityInfo(),false);
             Assert.fail();
         } catch (Exception x) {}
     }
-    
+
 
     @Test
     public void entityIndexUpdateTest_default() throws Exception {
@@ -1341,10 +1341,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         }
         Assert.assertTrue(foundIndex);
     }
-    
+
     @Test
     public void entityIndexUpdateTest_addFieldToCompositeIndex_190() throws Exception {
-        
+
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
         e.setStatus(MetadataStatus.ACTIVE);
@@ -1359,7 +1359,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         List<SortKey> indexFields = new ArrayList<>();
         indexFields.add(new SortKey(new Path("field1"), true));
         indexFields.add(new SortKey(new Path("field2"), true));
-        index.setFields(indexFields);        
+        index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
@@ -1371,10 +1371,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         indexFields.add(new SortKey(new Path("field3"), true));
         index.setFields(indexFields);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
-        
+
         controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
-        DBCollection entityCollection = db.getCollection("testCollectionIndex2");       
+        DBCollection entityCollection = db.getCollection("testCollectionIndex2");
 
         boolean foundIndex = false;
 
