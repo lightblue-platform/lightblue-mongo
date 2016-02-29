@@ -22,6 +22,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.*;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.UpdateOptions;
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.*;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
@@ -44,6 +46,9 @@ import com.redhat.lightblue.extensions.Extension;
 import com.redhat.lightblue.extensions.synch.LockingSupport;
 import com.redhat.lightblue.extensions.valuegenerator.ValueGeneratorSupport;
 
+import org.bson.BsonDocument;
+import org.bson.BsonJavaScript;
+import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -703,16 +708,24 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 LOGGER.info("Executing post-index creation updates...");
                 // if we're not running in the background, we need to execute the items in this block afterwards
                 // caseInsensitive indexes have been updated or created, run the server-side updater on mongo to recalculate all hidden fields
+
                 String js = new String(Files.readAllBytes(Paths.get(ClassLoader.getSystemResource("js/populate-hidden-fields.js").toURI())));
 
-                //  BsonDocument myAddFunction = new BsonDocument("value", new BsonJavaScript("function (x, y){ return x + y; }"));
+                // Use the newer Mongo objects here
+                BsonDocument popHiddenFieldsFunction = new BsonDocument("value", new BsonJavaScript(js));
+                MongoConfiguration config = dbResolver.getConfiguration(ds);
+                MongoDatabase mdb = config.getMongoClient().getDatabase(ds.getDatabaseName());
 
-                entityDB.doEval(js, fieldMap);
-                /*DBObject q;
-                DBObject o;
-                entityCollection.updateMulti(q, o);*/
+                mdb.getCollection("system.js").updateOne(
+                        new Document("_id", "popHiddenFieldsFunction"),
+                        new Document("$set", popHiddenFieldsFunction),
+                        new UpdateOptions().upsert(true));
 
-                // TODO: remove hidden fields on index deletions?
+                mdb.runCommand(new Document("$eval", "db.loadServerScripts()"));
+
+                mdb.runCommand(new Document("$eval", "popHiddenFieldsFunction(" + fieldMap + ")"));
+
+                // TODO: remove hidden fields on index deletions? Worth it?
             }
         } catch (MongoException me) {
             throw Error.get(MongoCrudConstants.ERR_ENTITY_INDEX_NOT_CREATED, me.getMessage());

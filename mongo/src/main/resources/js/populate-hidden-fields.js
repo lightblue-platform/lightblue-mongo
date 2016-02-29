@@ -1,4 +1,4 @@
-(function populateHiddenFields(fieldMap) {
+function populateHiddenFields(fieldMap) {
     
     function populate(fieldMap) {
         var cursor = db.collection.find();
@@ -53,5 +53,4 @@
     }
     
     populate(fieldMap);
-    
-})();
+}
