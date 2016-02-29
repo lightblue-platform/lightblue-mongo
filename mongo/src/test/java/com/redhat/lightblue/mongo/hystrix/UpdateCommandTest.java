@@ -51,7 +51,6 @@ public class UpdateCommandTest extends AbstractMongoTest {
                 WriteConcern.SAFE).execute();
 
         Assert.assertNotNull(result);
-        Assert.assertNull(result.getError());
 
         // verify data change
         DBObject updated = coll.findOne(query);
@@ -80,7 +79,6 @@ public class UpdateCommandTest extends AbstractMongoTest {
                 false).execute();
 
         Assert.assertNotNull(result);
-        Assert.assertNull(result.getError());
 
         // verify data change
         DBObject updated = coll.findOne(query);

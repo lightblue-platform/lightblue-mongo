@@ -18,9 +18,6 @@
  */
 package com.redhat.lightblue.mongo.metadata;
 
-import java.lang.reflect.*;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.ArrayList;
@@ -57,7 +54,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import com.mongodb.DB;
 import org.skyscreamer.jsonassert.JSONAssert;
 
@@ -85,7 +81,7 @@ public class MongoMetadataTest {
         md = new MongoMetadata(db, x, new DefaultTypes(), factory, null);
         BasicDBObject index = new BasicDBObject("name", 1);
         index.put("version.value", 1);
-        db.getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION).ensureIndex(index, "name", true);
+        db.getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION).createIndex(index, "name", true);
     }
 
     @After
@@ -512,12 +508,12 @@ public class MongoMetadataTest {
         e.setStatus(MetadataStatus.ACTIVE);
         e.getFields().put(new SimpleField("field3", IntegerType.TYPE));
         md.createNewSchema(e);
-        
+
         // confirm they're all good so far, expect no exception
         md.validateAllVersions(e.getEntityInfo());
 
         // invalidate the disabled version
-        db.getCollection(metadataCollectionName).update(new BasicDBObject("_id", e.getName() + "|" + disabledVersion), 
+        db.getCollection(metadataCollectionName).update(new BasicDBObject("_id", e.getName() + "|" + disabledVersion),
                 new BasicDBObject("$set", new BasicDBObject("fields.field1.type", "INVALID")));
 
         // shouldn't be valid now
@@ -527,21 +523,21 @@ public class MongoMetadataTest {
         } catch (Exception ex) {
             // expected to be invalid
         }
-        
+
         // fix the broken metadata
-        db.getCollection(metadataCollectionName).update(new BasicDBObject("_id", e.getName() + "|" + disabledVersion), 
+        db.getCollection(metadataCollectionName).update(new BasicDBObject("_id", e.getName() + "|" + disabledVersion),
                 new BasicDBObject("$set", new BasicDBObject("fields.field1.type", "string")));
-        
+
         // disable 1.0.0
         md.setMetadataStatus(e.getName(), disabledVersion, MetadataStatus.DISABLED, "test");
-        
+
         // is still valid
         md.validateAllVersions(e.getEntityInfo());
-        
+
         // break the disabled metadata
-        db.getCollection(metadataCollectionName).update(new BasicDBObject("_id", e.getName() + "|" + disabledVersion), 
+        db.getCollection(metadataCollectionName).update(new BasicDBObject("_id", e.getName() + "|" + disabledVersion),
                 new BasicDBObject("$set", new BasicDBObject("fields.field1.type", "INVALID")));
-        
+
         // it should still be valid
         md.validateAllVersions(e.getEntityInfo());
     }

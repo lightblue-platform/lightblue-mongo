@@ -83,5 +83,5 @@ public class MongoLockingTest extends AbstractMongoCrudTest {
         Thread.sleep(50);
         locking.ping("1","rsc1");
     }
-           
+
 }

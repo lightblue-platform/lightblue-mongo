@@ -41,7 +41,6 @@ public class RemoveCommandTest extends AbstractMongoTest {
         WriteResult result = new RemoveCommand(coll, data, WriteConcern.SAFE).execute();
 
         Assert.assertNotNull(result);
-        Assert.assertNull(result.getError());
 
         DBObject after = coll.findOne(data);
 
@@ -59,7 +58,6 @@ public class RemoveCommandTest extends AbstractMongoTest {
         WriteResult result = new RemoveCommand(coll, data).execute();
 
         Assert.assertNotNull(result);
-        Assert.assertNull(result.getError());
 
         DBObject after = coll.findOne(data);
 

@@ -41,9 +41,6 @@ public class BasicDocDeleterTest extends AbstractMongoCrudTest {
         obj.put("_id", id);
         WriteResult wr = coll.insert(obj);
 
-        // check that insert happened
-        Assert.assertTrue(wr.getError() == null);
-
         try (DBCursor c = coll.find(null)) {
             Assert.assertEquals("count on collection", 1, c.count());
         }
