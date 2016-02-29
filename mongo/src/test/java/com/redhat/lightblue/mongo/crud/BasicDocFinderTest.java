@@ -52,7 +52,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         super.setup();
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
-        // load metadata 
+        // load metadata
         EntityMetadata md = getMd("./testMetadata.json");
         // and add it to metadata resolver (the context)
         ctx.add(md);
@@ -73,8 +73,6 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 dbObject.append(fld, node.get(fld).asText());
             }
             WriteResult wr = coll.insert(dbObject);
-            // check that insert didn't fail
-            Assert.assertTrue(wr.getError() == null);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -218,18 +216,18 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         Assert.assertEquals(id + "7", ctx.getDocuments().get(4).getOutputDocument().get(new Path("_id")).asText());
         Assert.assertEquals(id + "8", ctx.getDocuments().get(5).getOutputDocument().get(new Path("_id")).asText());
         Assert.assertEquals(id + "9", ctx.getDocuments().get(6).getOutputDocument().get(new Path("_id")).asText());
-        
 
-        
+
+
     }
-    
+
     @Test
     public void testNullLimit() throws IOException, ProcessingException {
         String id = "findLimit";
         for(int i = 0; i < 20; i++) {
             insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
         }
-       
+
         try (DBCursor c = coll.find(null)) {
             Assert.assertEquals("count on collection", 20, c.count());
         }
@@ -254,14 +252,14 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         Assert.assertEquals("find count", 20, count);
         Assert.assertEquals(8, ctx.getDocumentsWithoutErrors().size());
     }
-    
+
     @Test
     public void testZeroLimit() throws IOException, ProcessingException {
         String id = "findLimit";
         for(int i = 0; i < 20; i++) {
             insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
         }
-       
+
         try (DBCursor c = coll.find(null)) {
             Assert.assertEquals("count on collection", 20, c.count());
         }
@@ -336,15 +334,15 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         Assert.assertEquals("find count", 20, count);
         Assert.assertEquals(10, ctx.getDocumentsWithoutErrors().size());
     }
-    
-    
+
+
     @Test
     public void testNegativeLimit() throws IOException, ProcessingException {
         String id = "findLimit";
         for(int i = 0; i < 20; i++) {
             insert("{\"_id\":\"%s\",\"objectType\":\"test\"}", id + i);
         }
-       
+
         try (DBCursor c = coll.find(null)) {
             Assert.assertEquals("count on collection", 20, c.count());
         }
@@ -369,7 +367,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         Assert.assertEquals("find count", 20, count);
         Assert.assertEquals(0, ctx.getDocumentsWithoutErrors().size());
     }
-    
+
     @Test
     public void testLimitLesserThanSkip() throws IOException, ProcessingException {
         String id = "findLimit";

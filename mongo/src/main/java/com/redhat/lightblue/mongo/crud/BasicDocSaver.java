@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
-import com.mongodb.MongoException;
+import com.mongodb.DuplicateKeyException;
 import com.mongodb.WriteResult;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
@@ -135,9 +135,6 @@ public class BasicDocSaver implements DocSaver {
 
         LOGGER.debug("Write result {}", result);
         if (result != null) {
-            if (error == null) {
-                error = result.getError();
-            }
             if (error != null) {
                 inputDoc.addError(Error.get(op.toString(), MongoCrudConstants.ERR_SAVE_ERROR, error));
             }
@@ -199,7 +196,7 @@ public class BasicDocSaver implements DocSaver {
                     inputDoc.setCRUDOperationPerformed(CRUDOperation.INSERT);
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_INSERT_DOC, ctx, inputDoc);
                     return r;
-                } catch (MongoException.DuplicateKey dke) {
+                } catch (DuplicateKeyException dke) {
                     LOGGER.error("saveOrInsert failed: {}", dke);
                     inputDoc.addError(Error.get("insert", MongoCrudConstants.ERR_DUPLICATE, dke));
                 }

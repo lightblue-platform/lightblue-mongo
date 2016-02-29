@@ -60,12 +60,12 @@
             <dependency>
                 <groupId>org.mongodb</groupId>
                 <artifactId>mongo-java-driver</artifactId>
-                <version>2.12.3</version>
+                <version>3.2.2</version>
             </dependency>
             <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
-                <version>16.0.1</version>
+                <version>19.0</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
@@ -256,6 +256,11 @@
             <id>release</id>
             <build>
                 <plugins>
+				<plugin>
+					<groupId>org.codehaus.mojo</groupId>
+					<artifactId>versions-maven-plugin</artifactId>
+					<version>2.2</version>
+				</plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-release-plugin</artifactId>

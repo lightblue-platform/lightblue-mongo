@@ -23,21 +23,18 @@ import com.redhat.lightblue.metadata.*;
 import com.redhat.lightblue.mongo.common.MongoDataStore;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.types.DefaultTypes;
-import com.redhat.lightblue.metadata.parser.JSONMetadataParser;
 import com.redhat.lightblue.metadata.types.IntegerType;
 import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.query.UpdateExpression;
-import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.Ignore;
 import org.junit.ClassRule;
 
 import org.bson.BSONObject;
@@ -57,7 +54,7 @@ public class CacheTest {
     public static final MongoServerExternalResource mongo = new MongoServerExternalResource();
 
     private MongoMetadata md;
-    private MetadataCache cache=new MetadataCache();
+    private final MetadataCache cache=new MetadataCache();
     private DB db;
 
     @Before
@@ -74,7 +71,7 @@ public class CacheTest {
         md = new MongoMetadata(db, x, new DefaultTypes(), factory,cache);
         BasicDBObject index = new BasicDBObject("name", 1);
         index.put("version.value", 1);
-        db.getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION).ensureIndex(index, "name", true);
+        db.getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION).createIndex(index, "name", true);
     }
 
     @After
@@ -145,7 +142,7 @@ public class CacheTest {
         // At this point, there should not be a collectionVersion doc
         DBCollection coll=db.getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION);
         Assert.assertNull(coll.findOne(new BasicDBObject("_id","collectionVersion")));
-       
+
         md.createNewMetadata(e);
 
         Assert.assertNotNull(coll.findOne(new BasicDBObject("_id","collectionVersion")));
@@ -178,6 +175,6 @@ public class CacheTest {
         // Lookup will fail,  detect change
         Assert.assertNull(cache.lookup(coll,"testEntity","1.0.0"));
     }
-    
+
 
 }

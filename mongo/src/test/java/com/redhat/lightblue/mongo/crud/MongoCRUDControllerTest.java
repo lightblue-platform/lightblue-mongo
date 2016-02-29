@@ -1388,6 +1388,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         // verify that if an index already exists as unique and NOT sparse lightblue will not recreate it as sparse
 
         // 1. create the index as unique but not sparse
+
         DBCollection entityCollection = db.getCollection("testCollectionIndex2");
 
         DBObject newIndex = new BasicDBObject();
@@ -1426,7 +1427,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         DBObject mongoIndex = entityCollection.getIndexInfo().get(1);
         Assert.assertTrue("Keys on index unexpected", mongoIndex.get("key").toString().contains("field1"));
         Assert.assertEquals("Index is not unique", Boolean.TRUE, mongoIndex.get("unique"));
-        Assert.assertEquals("Index is sparse", Boolean.FALSE, mongoIndex.get("sparse"));
+        Boolean sparse = (Boolean) mongoIndex.get("sparse");
+        sparse = sparse == null ? Boolean.FALSE : sparse;
+        Assert.assertEquals("Index is sparse", Boolean.FALSE, sparse);
     }
 
     @Test

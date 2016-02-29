@@ -59,7 +59,7 @@ public abstract class AbstractMongoCrudTest extends AbstractJsonSchemaTest {
     public static final MongoServerExternalResource mongo = new MongoServerExternalResource();
 
     protected static final String COLL_NAME = "data";
-    private static final String DATABADSE_NAME = "mongo";
+    private static final String DATABASE_NAME = "mongo";
     protected static Factory factory;
     protected DBCollection coll;
     protected static DB db;
@@ -70,7 +70,7 @@ public abstract class AbstractMongoCrudTest extends AbstractJsonSchemaTest {
         factory.addFieldConstraintValidators(new DefaultFieldConstraintValidators());
         factory.addEntityConstraintValidators(new EmptyEntityConstraintValidators());
 
-        db = mongo.getConnection().getDB(DATABADSE_NAME);
+        db = mongo.getConnection().getDB(DATABASE_NAME);
     }
 
     @Before

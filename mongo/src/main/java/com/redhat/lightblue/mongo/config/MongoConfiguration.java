@@ -64,7 +64,7 @@ import java.security.NoSuchAlgorithmException;
  * @author nmalik
  */
 public class MongoConfiguration implements DataSourceConfiguration {
-    
+
     private static final long serialVersionUID = 1L;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoConfiguration.class);
@@ -74,7 +74,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
 
     private Integer connectionsPerHost;
     private String database;
-    private transient List<MongoCredential> credentials;
+    private transient List<MongoCredential> credentials = new ArrayList<>();
     private boolean ssl = Boolean.FALSE;
     private boolean noCertValidation = Boolean.FALSE;
     private Class metadataDataStoreParser = MongoDataStoreParser.class;
@@ -476,7 +476,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
     public void setWriteConcern(WriteConcern writeConcern) {
         this.writeConcern = writeConcern;
     }
-    
+
     public ReadPreference getReadPreference() {
         return readPreference;
     }
