@@ -61,7 +61,7 @@ public class MongoLocking implements Locking {
         this.coll.createIndex(keys,options);
     }
 
-    public void acquire(long l) {
+    public void setDefaultTTL(long l) {
         defaultTTL=l;
     }
 
