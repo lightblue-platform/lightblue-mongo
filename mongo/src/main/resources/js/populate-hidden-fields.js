@@ -1,8 +1,6 @@
-/**
- * 
- */
-{
-    function populateHiddenFields(fieldMap) {
+(function populateHiddenFields(fieldMap) {
+    
+    function populate(fieldMap) {
         var cursor = db.collection.find();
         cursor.forEach(function(doc) {
             // fieldMap is <index, hiddenField>
@@ -24,7 +22,8 @@
     }
 
     function doArrayMap(doc, field, hidden, arrayIndex) {
-        // get the left and right hand side of the array path so we can loop through
+        // get the left and right hand side of the array path so we can loop
+	// through
         // pre is the actual array ref
 	// post is the field in the array obj
         var fieldPre = field.substring(0, arrayIndex - 1);
@@ -37,12 +36,12 @@
         if (doc[fieldPre] === null) {
             return;
         }
-        for (int i = 0; i < doc[fieldPre].length; i++) {
+        for (var i = 0; i < doc[fieldPre].length; i++) {
             // check if there's an array in the index
-            var arrayIndex = fieldPost.lastIndexOf("*");
-            if (arrayIndex > -1) {
+            var index = fieldPost.lastIndexOf("*");
+            if (index > -1) {
         	// if we have another array, descend
-                doArrayMap(doc, fieldPre + i + fieldPost, hiddenPre + i + hiddenPost, arrayIndex)
+                doArrayMap(doc, fieldPre + i + fieldPost, hiddenPre + i + hiddenPost, index);
             } else {
         	// only update if the matching field exists
         	if((doc[fieldPre + i + fieldPost]) !== null) {
@@ -52,4 +51,7 @@
             }
         }
     }
-}
+    
+    populate(fieldMap);
+    
+})();
