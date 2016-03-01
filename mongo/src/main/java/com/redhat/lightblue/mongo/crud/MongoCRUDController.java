@@ -717,9 +717,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             }
         } catch (MongoException me) {
             throw Error.get(MongoCrudConstants.ERR_ENTITY_INDEX_NOT_CREATED, me.getMessage());
-        } catch (Error e) {
-            // rethrow lightblue error
-            throw e;
         } catch (Exception e) {
             throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
@@ -735,6 +732,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         String js = new String(Files.readAllBytes(Paths.get(ClassLoader.getSystemResource("js/populate-hidden-fields.js").toURI())));
 
         // Use the newer Mongo objects here
+
+        // This is going to fail for unit tests because of dbresolver :(
         BsonDocument popHiddenFieldsFunction = new BsonDocument("value", new BsonJavaScript(js));
         MongoConfiguration config = dbResolver.getConfiguration(ds);
         MongoDatabase mdb = config.getMongoClient().getDatabase(ds.getDatabaseName());
