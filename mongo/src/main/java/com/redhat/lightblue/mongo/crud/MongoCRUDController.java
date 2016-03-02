@@ -22,8 +22,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.*;
-import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.UpdateOptions;
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.*;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
@@ -46,9 +44,6 @@ import com.redhat.lightblue.extensions.Extension;
 import com.redhat.lightblue.extensions.synch.LockingSupport;
 import com.redhat.lightblue.extensions.valuegenerator.ValueGeneratorSupport;
 
-import org.bson.BsonDocument;
-import org.bson.BsonJavaScript;
-import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -728,24 +723,16 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     private void populateHiddenFields(EntityInfo ei, Map<String, String> fieldMap) throws IOException, URISyntaxException {
         MongoDataStore ds = (MongoDataStore) ei.getDataStore();
-
+        DB entityDB = dbResolver.get(ds);
+        DBCollection entityCollection = entityDB.getCollection(ds.getCollectionName());
         String js = new String(Files.readAllBytes(Paths.get(ClassLoader.getSystemResource("js/populate-hidden-fields.js").toURI())));
 
-        // Use the newer Mongo objects here
+        DBObject func = new BasicDBObject("value", js);
 
-        // This is going to fail for unit tests because of dbresolver :(
-        BsonDocument popHiddenFieldsFunction = new BsonDocument("value", new BsonJavaScript(js));
-        MongoConfiguration config = dbResolver.getConfiguration(ds);
-        MongoDatabase mdb = config.getMongoClient().getDatabase(ds.getDatabaseName());
+        entityCollection.update(new BasicDBObject("_id", "popHiddenFieldsFunction"), new BasicDBObject("$set", func), true, false);
+        entityDB.command(new BasicDBObject("$eval", "db.loadServerScripts()"));
 
-        mdb.getCollection("system.js").updateOne(
-                new Document("_id", "popHiddenFieldsFunction"),
-                new Document("$set", popHiddenFieldsFunction),
-                new UpdateOptions().upsert(true));
-
-        mdb.runCommand(new Document("$eval", "db.loadServerScripts()"));
-
-        mdb.runCommand(new Document("$eval", "popHiddenFieldsFunction(" + fieldMap + ")"));
+        entityDB.command(new BasicDBObject("$eval", "popHiddenFieldsFunction(" + fieldMap + ")"));
     }
 
     private DBObject findIndexWithSignature(List<DBObject> existingIndexes,Index index) {
