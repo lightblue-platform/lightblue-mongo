@@ -704,7 +704,13 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 // if we're not running in the background, we need to execute the items in this block afterwards
                 // caseInsensitive indexes have been updated or created, run the server-side updater on mongo to recalculate all hidden fields
 
-                populateHiddenFields(ei, fieldMap);
+                Thread pop = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        populateHiddenFields(ei, fieldMap);
+                    }
+                });
+                pop.start();
 
                 // TODO: remove hidden fields on index deletions? Worth it?
             }
@@ -721,12 +727,16 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     /**
      *
+     * Populates all hidden fields from their initial index values in the collection in this context
+     *
+     * This method has the potential to be extremely heavy and nonperformant.  Recommended to run in a background thread.
+     *
      * @param ei
      * @param fieldMap <index, hiddenPath>
      * @throws IOException
      * @throws URISyntaxException
      */
-    protected void populateHiddenFields(EntityInfo ei, Map<String, String> fieldMap) throws IOException, URISyntaxException {
+    protected void populateHiddenFields(EntityInfo ei, Map<String, String> fieldMap) {
         MongoDataStore ds = (MongoDataStore) ei.getDataStore();
         DB entityDB = dbResolver.get(ds);
         DBCollection coll = entityDB.getCollection(ds.getCollectionName());
@@ -745,6 +755,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     }
                 }
             }
+            coll.save(doc, WriteConcern.ACKNOWLEDGED);
         }
         cursor.close();
     }
