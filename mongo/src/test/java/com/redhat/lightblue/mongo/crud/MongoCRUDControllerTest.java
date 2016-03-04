@@ -95,6 +95,16 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void createIndexAfterDataExists_CI() {
+
+    }
+
+    @Test
+    public void modifyIndexAfterDataExists_CI() {
+
+    }
+
+    @Test
     public void modifyExistingIndex_CI() {
         EntityMetadata e = createCIMetadata();
         controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);

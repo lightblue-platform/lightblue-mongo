@@ -50,8 +50,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.*;
 
 public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport {
@@ -721,18 +719,60 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("createUpdateEntityInfoIndexes: end");
     }
 
-    private void populateHiddenFields(EntityInfo ei, Map<String, String> fieldMap) throws IOException, URISyntaxException {
+    /**
+     *
+     * @param ei
+     * @param fieldMap <index, hiddenPath>
+     * @throws IOException
+     * @throws URISyntaxException
+     */
+    protected void populateHiddenFields(EntityInfo ei, Map<String, String> fieldMap) throws IOException, URISyntaxException {
         MongoDataStore ds = (MongoDataStore) ei.getDataStore();
         DB entityDB = dbResolver.get(ds);
-        DBCollection entityCollection = entityDB.getCollection(ds.getCollectionName());
-        String js = new String(Files.readAllBytes(Paths.get(ClassLoader.getSystemResource("js/populate-hidden-fields.js").toURI())));
+        DBCollection coll = entityDB.getCollection(ds.getCollectionName());
 
-        DBObject func = new BasicDBObject("value", js);
+        DBCursor cursor = coll.find();
 
-        entityCollection.update(new BasicDBObject("_id", "popHiddenFieldsFunction"), new BasicDBObject("$set", func), true, false);
-        entityDB.command(new BasicDBObject("$eval", "db.loadServerScripts()"));
+        while (cursor.hasNext()) {
+            DBObject doc = cursor.next();
+            for (String index : fieldMap.keySet()) {
+                int arrIndex = index.lastIndexOf("*");
+                if (arrIndex > -1) {
+                    doArrayMap(doc, index, fieldMap.get(index), arrIndex);
+                } else {
+                    if (doc.containsField(index)) {
+                        doc.put(fieldMap.get(index), doc.get(index).toString().toUpperCase());
+                    }
+                }
+            }
+        }
+        cursor.close();
+    }
 
-        entityDB.command(new BasicDBObject("$eval", "popHiddenFieldsFunction(" + fieldMap + ")"));
+    private void doArrayMap(DBObject doc, String index, String hidden, int arrIndex) {
+        String fieldPre = index.substring(0, arrIndex - 1);
+        String fieldPost = index.substring(arrIndex + 2);
+
+        String hiddenPre = hidden.substring(0, arrIndex - 1);
+        String hiddenPost = hidden.substring(arrIndex + 2);
+
+        if (doc.get(fieldPre) != null) {
+            BasicDBList docArr = (BasicDBList) doc.get(fieldPre);
+            for (int i = 0; i < docArr.size(); i++) {
+                // check if there's an array in the index
+                int indx = fieldPost.lastIndexOf("*");
+                if (indx > -1) {
+                    // if we have another array, descend
+                    doArrayMap(doc, fieldPre + i + fieldPost, hiddenPre + i + hiddenPost, indx);
+                } else {
+                    // only update if the matching field exists
+                    if (doc.containsField(fieldPre + i + fieldPost)) {
+                        // if no more arrays, set the field and continue
+                        doc.put(hiddenPre + i + hiddenPost, doc.get(fieldPre + i + fieldPost).toString().toUpperCase());
+                    }
+                }
+            }
+        }
     }
 
     private DBObject findIndexWithSignature(List<DBObject> existingIndexes,Index index) {
