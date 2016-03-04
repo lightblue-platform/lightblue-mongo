@@ -21,6 +21,7 @@ package com.redhat.lightblue.mongo.crud;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -95,13 +96,24 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
-    public void createIndexAfterDataExists_CI() {
+    public void createIndexAfterDataExists_CI() throws IOException, InterruptedException {
 
-    }
+        EntityMetadata md = createCIMetadata();
 
-    @Test
-    public void modifyIndexAfterDataExists_CI() {
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
+        ctx.add(md);
 
+        // TODO: Need to wrap this correctly with object type or something
+
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
+        ctx.addDocument(doc);
+
+        CRUDInsertionResponse insert = controller.insert(ctx, null);
+
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
+
+        // wait a couple of seconds because the update runs in a background thread
+        Thread.sleep(2000);
     }
 
     @Test
@@ -234,7 +246,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
 
         ObjectField o = new ObjectField("field2");
-        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        o.getFields().put(new SimpleField("x", StringType.TYPE));
 
         SimpleArrayElement saSub = new SimpleArrayElement(StringType.TYPE);
         ArrayField afSub = new ArrayField("subArrayField", saSub);

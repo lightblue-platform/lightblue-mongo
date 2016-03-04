@@ -737,6 +737,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
      * @throws URISyntaxException
      */
     protected void populateHiddenFields(EntityInfo ei, Map<String, String> fieldMap) {
+        LOGGER.debug("Starting population of hidden fields due to new or modified indexes.");
         MongoDataStore ds = (MongoDataStore) ei.getDataStore();
         DB entityDB = dbResolver.get(ds);
         DBCollection coll = entityDB.getCollection(ds.getCollectionName());
@@ -758,6 +759,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             coll.save(doc, WriteConcern.ACKNOWLEDGED);
         }
         cursor.close();
+        LOGGER.debug("Finished population of hidden fields.");
     }
 
     private void doArrayMap(DBObject doc, String index, String hidden, int arrIndex) {
