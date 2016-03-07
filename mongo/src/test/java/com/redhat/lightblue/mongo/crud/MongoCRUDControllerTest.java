@@ -98,7 +98,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     @Test
     public void createIndexAfterDataExists_CI() throws IOException, InterruptedException {
 
-        EntityMetadata md = createCIMetadata();
+        EntityMetadata md = createMetadata();
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(),false);
 
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
         ctx.add(md);
@@ -110,6 +111,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         CRUDInsertionResponse insert = controller.insert(ctx, null);
 
+        md = addCIIndexes(md);
+
         controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
 
         // wait a couple of seconds because the update runs in a background thread
@@ -118,7 +121,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     @Test
     public void modifyExistingIndex_CI() {
-        EntityMetadata e = createCIMetadata();
+        EntityMetadata e = addCIIndexes(createMetadata());
         controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         e.getEntityInfo().getIndexes().getIndexes().clear();
@@ -176,7 +179,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     @Test
     public void createNewIndex_CI() {
-        EntityMetadata e = createCIMetadata();
+        EntityMetadata e = addCIIndexes(createMetadata());
         controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
 
@@ -200,7 +203,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     @Test
     public void dropExistingIndex_CI() {
-        EntityMetadata e = createCIMetadata();
+        EntityMetadata e = addCIIndexes(createMetadata());
         controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         e.getEntityInfo().getIndexes().getIndexes().clear();
@@ -236,10 +239,13 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         assertFalse(indexInfo.toString().contains("field2.@mongoHidden.subArrayField.*"));
     }
 
-    private EntityMetadata createCIMetadata() {
+    private EntityMetadata createMetadata() {
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
         e.setStatus(MetadataStatus.ACTIVE);
+        e.getFields().put(new SimpleField("_id",StringType.TYPE));
+        e.getFields().put(new SimpleField("objectType", StringType.TYPE));
+
         e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex1"));
         e.getFields().put(new SimpleField("field1", StringType.TYPE));
         e.getFields().put(new SimpleField("field3", StringType.TYPE));
@@ -270,6 +276,12 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         e.getFields().put(af);
 
         e.getEntityInfo().setDefaultVersion("1.0.0");
+        e.getEntitySchema().getAccess().getInsert().setRoles("anyone");
+        e.getEntitySchema().getAccess().getFind().setRoles("anyone");
+        return e;
+    }
+
+    private EntityMetadata addCIIndexes(EntityMetadata e) {
         Index index = new Index();
         index.setName("testIndex");
         index.setUnique(true);
@@ -286,7 +298,6 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
-
         return e;
     }
 
