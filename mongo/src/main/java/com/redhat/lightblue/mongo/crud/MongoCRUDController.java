@@ -29,7 +29,6 @@ import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.*;
-import com.redhat.lightblue.metadata.constraints.IdentityConstraint;
 import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.mongo.metadata.MongoMetadataConstants;
 import com.redhat.lightblue.mongo.common.DBResolver;
@@ -319,7 +318,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         }
         
         // if context has execution option for maxQueryTimeMS use that instead of global default
-        if (ctx != null && ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS) != null) {
+        if (ctx != null 
+                && ctx.getExecutionOptions() != null 
+                && ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS) != null) {
             try {
                 output = Long.parseLong(ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS));
 
