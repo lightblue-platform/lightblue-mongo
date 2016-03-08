@@ -308,7 +308,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         return response;
     }
     
-    private long getMaxQueryTimeMS(MongoConfiguration cfg, CRUDOperationContext ctx) {
+    protected long getMaxQueryTimeMS(MongoConfiguration cfg, CRUDOperationContext ctx) {
         // pick the default, even if we don't have a configuration coming in
         long output = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS;
         
