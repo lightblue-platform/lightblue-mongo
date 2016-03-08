@@ -78,9 +78,11 @@ public class MongoConfiguration implements DataSourceConfiguration {
     private boolean ssl = Boolean.FALSE;
     private boolean noCertValidation = Boolean.FALSE;
     private Class metadataDataStoreParser = MongoDataStoreParser.class;
-    private ReadPreference readPreference = null;
-    private WriteConcern writeConcern = WriteConcern.FSYNCED;
+    
+    private ReadPreference readPreference = ReadPreference.primaryPreferred();
+    private WriteConcern writeConcern = WriteConcern.W1;
     private int maxResultSetSize=10000;
+    private long maxTimeMS=75000;
 
     public void addServerAddress(String hostname, int port) throws UnknownHostException {
         this.servers.add(new ServerAddress(hostname, port));
@@ -119,6 +121,14 @@ public class MongoConfiguration implements DataSourceConfiguration {
 
     public void setMaxResultSetSize(int size) {
         maxResultSetSize=size;
+    }
+    
+    public long getMaxTimeMS() {
+        return maxTimeMS;
+    }
+    
+    public void setMaxTimeMS(long maxTimeMS) {
+        this.maxTimeMS = maxTimeMS;
     }
 
     @Override
@@ -465,6 +475,11 @@ public class MongoConfiguration implements DataSourceConfiguration {
                 JsonNode readPreferenceOption = jsonNodeOptions.get("readPreference");
                 if (readPreferenceOption != null)
                     this.readPreference = ReadPreference.valueOf(readPreferenceOption.asText());
+                
+                JsonNode maxTimeMSOption = jsonNodeOptions.get("maxTimeMS");
+                if (readPreferenceOption != null) {
+                    this.maxTimeMS = maxTimeMSOption.asLong();
+                }
             }
         }
     }
