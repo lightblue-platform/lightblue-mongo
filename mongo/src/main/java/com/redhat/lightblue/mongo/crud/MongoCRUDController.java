@@ -539,7 +539,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             idField = new SimpleField(ID_STR, StringType.TYPE);
             schema.getFields().addNew(idField);
         } else {
-            if (!(field instanceof SimpleField)) {
+            if (field instanceof SimpleField) {
+                idField = (SimpleField) field;
+            } else {
                 throw Error.get(MongoMetadataConstants.ERR_INVALID_ID);
             }
         }
