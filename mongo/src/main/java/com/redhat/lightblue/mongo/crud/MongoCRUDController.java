@@ -160,6 +160,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
                 MongoDataStore store = (MongoDataStore) md.getDataStore();
                 DB db = dbResolver.get(store);
+                MongoConfiguration cfg=dbResolver.getConfiguration(store);
                 DBCollection collection = db.getCollection(store.getCollectionName());
 
                 Projection combinedProjection = Projection.add(projection, roleEval.getExcludedFields(FieldAccessRoleEvaluator.Operation.find));
@@ -171,6 +172,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     projector = null;
                 }
                 DocSaver saver = new BasicDocSaver(translator, roleEval);
+                saver.setMaxQueryTimeMS(cfg.getMaxTimeMS());
                 ctx.setProperty(PROP_SAVER, saver);
                 for (int docIndex = 0; docIndex < dbObjects.length; docIndex++) {
                     DBObject dbObject = dbObjects[docIndex];
@@ -344,8 +346,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 LOGGER.debug("Retrieve db collection:" + coll);
                 DocFinder finder = new BasicDocFinder(translator);
                 MongoConfiguration cfg=dbResolver.getConfiguration( (MongoDataStore)md.getDataStore());
-                if(cfg!=null)
+                if(cfg!=null) {
                     finder.setMaxResultSetSize(cfg.getMaxResultSetSize());
+                    finder.setMaxQueryTimeMS(cfg.getMaxTimeMS());
+                }
                 ctx.setProperty(PROP_FINDER, finder);
                 response.setSize(finder.find(ctx, coll, mongoQuery, mongoProjection, mongoSort, from, to));
                 // Project results

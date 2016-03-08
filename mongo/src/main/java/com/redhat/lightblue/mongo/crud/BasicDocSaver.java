@@ -52,6 +52,8 @@ public class BasicDocSaver implements DocSaver {
 
     private final FieldAccessRoleEvaluator roleEval;
     private final Translator translator;
+    
+    private long maxQueryTimeMS;
 
     /**
      * Creates a doc saver with the given translator and role evaluator
@@ -60,6 +62,11 @@ public class BasicDocSaver implements DocSaver {
             FieldAccessRoleEvaluator roleEval) {
         this.translator = translator;
         this.roleEval = roleEval;
+    }
+
+    @Override
+    public void setMaxQueryTimeMS(long maxQueryTimeMS) {
+        this.maxQueryTimeMS = maxQueryTimeMS;
     }
 
     @Override
@@ -83,7 +90,7 @@ public class BasicDocSaver implements DocSaver {
             if(!isNull(identityFieldValues)) {
                 DBObject lookupq=getLookupQ(identityFields,identityFieldValues);
                 LOGGER.debug("Lookup query: {}",lookupq);
-                oldDBObject=new FindOneCommand(collection,lookupq).executeAndUnwrap();
+                oldDBObject=new FindOneCommand(collection,lookupq,null,maxQueryTimeMS).executeAndUnwrap();
                 LOGGER.debug("Retrieved:{}",oldDBObject);
                 if(oldDBObject!=null)
                     id=oldDBObject.get(MongoCRUDController.ID_STR);
@@ -101,7 +108,7 @@ public class BasicDocSaver implements DocSaver {
             LOGGER.debug("Updating doc {}" + id);
             BasicDBObject q = new BasicDBObject(MongoCRUDController.ID_STR, Translator.createIdFrom(id));
             if(oldDBObject==null) {
-                oldDBObject = new FindOneCommand(collection, q).executeAndUnwrap();
+                oldDBObject = new FindOneCommand(collection, q,null,maxQueryTimeMS).executeAndUnwrap();
             }
             if (oldDBObject != null) {
                 if (md.getAccess().getUpdate().hasAccess(ctx.getCallerRoles())) {

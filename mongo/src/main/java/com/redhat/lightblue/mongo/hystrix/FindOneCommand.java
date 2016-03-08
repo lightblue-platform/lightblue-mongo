@@ -21,6 +21,8 @@ package com.redhat.lightblue.mongo.hystrix;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.BasicDBObject;
+import com.mongodb.DBCursor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Hystrix command for executing findOne on a MongoDB collection.
@@ -30,33 +32,43 @@ import com.mongodb.BasicDBObject;
 public class FindOneCommand extends AbstractMongoCommand<DBObject> {
     private final DBObject query;
     private final DBObject projection;
+    private long maxQueryTimeMS;
 
     /**
      *
      * @param clientKey used to set thread pool key
      * @param query
+     * @deprecated Use other constructor
      */
+    @Deprecated
     public FindOneCommand(DBCollection collection, DBObject query) {
-        this(collection,query,null);
+        this(collection,query,null,-1);
     }
 
     /**
-     *
-     * @param clientKey used to set thread pool key
-     * @param query
+     * 
+     * @param collection the collection
+     * @param query the query
+     * @param projection the projection (optional, null means no projection)
+     * @param maxQueryTimeMS the max time query should run on database in milliseconds, <=0 means no limit
      */
-    public FindOneCommand(DBCollection collection, DBObject query,DBObject projection) {
+    public FindOneCommand(DBCollection collection, DBObject query, DBObject projection, long maxQueryTimeMS) {
         super(FindOneCommand.class.getSimpleName(), collection);
         this.query = query;
         this.projection = projection;
+        this.maxQueryTimeMS = maxQueryTimeMS;
     }
+
 
     @Override
     protected DBObject runMongoCommand() {
         DBObject q=query==null?new BasicDBObject():query;
-        if(projection==null)
-            return getDBCollection().findOne(q);
-        else
-            return getDBCollection().findOne(q,projection);
+        DBCursor cursor;
+        if(projection == null) {
+            cursor = getDBCollection().find(q);
+        } else {
+            cursor = getDBCollection().find(q, projection);
+        }
+        return cursor.limit(1).maxTime(maxQueryTimeMS, TimeUnit.MILLISECONDS).one();
     }
 }
