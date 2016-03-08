@@ -64,10 +64,12 @@ import java.security.NoSuchAlgorithmException;
  * @author nmalik
  */
 public class MongoConfiguration implements DataSourceConfiguration {
-    public static ReadPreference DEFAULT_READ_PREFERENCE = ReadPreference.primaryPreferred();
-    public static WriteConcern DEFAULT_WRITE_CONCERN = WriteConcern.W1;
-    public static int DEFAULT_MAX_RESULT_SET_SIZE = 10000;
-    public static long DEFAULT_MAX_QUERY_TIME_MS = 75000;
+    public static final ReadPreference DEFAULT_READ_PREFERENCE = ReadPreference.primaryPreferred();
+    public static final WriteConcern DEFAULT_WRITE_CONCERN = WriteConcern.W1;
+    public static final int DEFAULT_MAX_RESULT_SET_SIZE = 10000;
+    public static final long DEFAULT_MAX_QUERY_TIME_MS = 75000;
+    
+    public static final String PROPERTY_NAME_MAX_QUERY_TIME_MS = "maxQueryTimeMS";
 
     private static final long serialVersionUID = 1L;
 
@@ -480,7 +482,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
                 if (readPreferenceOption != null)
                     this.readPreference = ReadPreference.valueOf(readPreferenceOption.asText());
                 
-                JsonNode maxQueryTimeMSOption = jsonNodeOptions.get("maxQueryTimeMS");
+                JsonNode maxQueryTimeMSOption = jsonNodeOptions.get(PROPERTY_NAME_MAX_QUERY_TIME_MS);
                 if (maxQueryTimeMSOption != null) {
                     this.maxQueryTimeMS = maxQueryTimeMSOption.asLong();
                 }

@@ -172,9 +172,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     projector = null;
                 }
                 DocSaver saver = new BasicDocSaver(translator, roleEval);
-                if (cfg != null) {
-                    saver.setMaxQueryTimeMS(cfg.getMaxQueryTimeMS());
-                }
+                saver.setMaxQueryTimeMS(getMaxQueryTimeMS(cfg, ctx));
                 ctx.setProperty(PROP_SAVER, saver);
                 for (int docIndex = 0; docIndex < dbObjects.length; docIndex++) {
                     DBObject dbObject = dbObjects[docIndex];
@@ -310,6 +308,29 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("delete end: deleted: {}}", response.getNumDeleted());
         return response;
     }
+    
+    private long getMaxQueryTimeMS(MongoConfiguration cfg, CRUDOperationContext ctx) {
+        // pick the default, even if we don't have a configuration coming in
+        long output = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS;
+        
+        // if we have a config, get that value
+        if (cfg != null) {
+            output = cfg.getMaxQueryTimeMS();
+        }
+        
+        // if context has execution option for maxQueryTimeMS use that instead of global default
+        if (ctx != null && ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS) != null) {
+            try {
+                output = Long.parseLong(ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS));
+
+            } catch (NumberFormatException nfe) {
+                // oh well, do nothing.  couldn't parse
+                LOGGER.debug("Unable to parse execution option: maxQueryTimeMS=" + ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS));
+            }
+        }
+        
+        return output;
+    }
 
     /**
      * Search implementation for mongo
@@ -348,10 +369,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 LOGGER.debug("Retrieve db collection:" + coll);
                 DocFinder finder = new BasicDocFinder(translator);
                 MongoConfiguration cfg=dbResolver.getConfiguration( (MongoDataStore)md.getDataStore());
-                if(cfg!=null) {
+                if(cfg!=null)
                     finder.setMaxResultSetSize(cfg.getMaxResultSetSize());
-                    finder.setMaxQueryTimeMS(cfg.getMaxQueryTimeMS());
-                }
+                finder.setMaxQueryTimeMS(getMaxQueryTimeMS(cfg, ctx));
                 ctx.setProperty(PROP_FINDER, finder);
                 response.setSize(finder.find(ctx, coll, mongoQuery, mongoProjection, mongoSort, from, to));
                 // Project results
@@ -518,9 +538,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             idField = new SimpleField(ID_STR, StringType.TYPE);
             schema.getFields().addNew(idField);
         } else {
-            if (field instanceof SimpleField) {
-                idField = (SimpleField) field;
-            } else {
+            if (!(field instanceof SimpleField)) {
                 throw Error.get(MongoMetadataConstants.ERR_INVALID_ID);
             }
         }
