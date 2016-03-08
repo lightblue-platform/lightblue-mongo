@@ -172,6 +172,4 @@ public class CacheTest {
         // Lookup will fail,  detect change
         Assert.assertNull(cache.lookup(coll,"testEntity","1.0.0"));
     }
-
-
 }
