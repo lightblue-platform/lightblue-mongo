@@ -72,7 +72,6 @@ public class BasicDocSaver implements DocSaver {
                         DocCtx inputDoc) {
 
         WriteResult result = null;
-        String error = null;
 
         DBObject oldDBObject=null;
 
@@ -134,11 +133,6 @@ public class BasicDocSaver implements DocSaver {
         }
 
         LOGGER.debug("Write result {}", result);
-        if (result != null) {
-            if (error != null) {
-                inputDoc.addError(Error.get(op.toString(), MongoCrudConstants.ERR_SAVE_ERROR, error));
-            }
-        }
     }
 
     private DBObject getLookupQ(Field[] fields,Object[] values) {
