@@ -14,16 +14,15 @@ import java.io.InputStream;
 public class MongoConfigurationParseTest {
 
     @Test
-    public void testReadPreference() throws IOException {
-
+    public void readPreference() throws IOException {
         try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("parse-test-datasources.json")) {
             JsonNode node = JsonUtils.json(is);
 
             MongoConfiguration metadataConfig = new MongoConfiguration();
-            metadataConfig.initializeFromJson(node.get("metadata"));
+            metadataConfig.initializeFromJson(node.get("metadata_readPreference"));
 
             MongoConfiguration dataConfig = new MongoConfiguration();
-            dataConfig.initializeFromJson(node.get("mongodata"));
+            dataConfig.initializeFromJson(node.get("mongodata_readPreference"));
 
             assertEquals(ReadPreference.nearest(), metadataConfig.getMongoClientOptions().getReadPreference());
             assertEquals(ReadPreference.secondary(), dataConfig.getMongoClientOptions().getReadPreference());
@@ -31,4 +30,15 @@ public class MongoConfigurationParseTest {
         }
     }
 
+    @Test
+    public void maxQueryTimeMS() throws IOException {
+        try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("parse-test-datasources.json")) {
+            JsonNode node = JsonUtils.json(is);
+
+            MongoConfiguration dataConfig = new MongoConfiguration();
+            dataConfig.initializeFromJson(node.get("mongodata_maxQueryTimeMS"));
+
+            assertEquals(98765, dataConfig.getMaxQueryTimeMS());
+        }
+    }
 }

@@ -69,6 +69,9 @@ public class FindOneCommand extends AbstractMongoCommand<DBObject> {
         } else {
             cursor = getDBCollection().find(q, projection);
         }
-        return cursor.limit(1).maxTime(maxQueryTimeMS, TimeUnit.MILLISECONDS).one();
+        if (maxQueryTimeMS > 0) {
+            cursor.maxTime(maxQueryTimeMS, TimeUnit.MILLISECONDS);
+        }
+        return cursor.one();
     }
 }

@@ -172,7 +172,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     projector = null;
                 }
                 DocSaver saver = new BasicDocSaver(translator, roleEval);
-                saver.setMaxQueryTimeMS(cfg.getMaxTimeMS());
+                if (cfg != null) {
+                    saver.setMaxQueryTimeMS(cfg.getMaxQueryTimeMS());
+                }
                 ctx.setProperty(PROP_SAVER, saver);
                 for (int docIndex = 0; docIndex < dbObjects.length; docIndex++) {
                     DBObject dbObject = dbObjects[docIndex];
@@ -348,7 +350,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 MongoConfiguration cfg=dbResolver.getConfiguration( (MongoDataStore)md.getDataStore());
                 if(cfg!=null) {
                     finder.setMaxResultSetSize(cfg.getMaxResultSetSize());
-                    finder.setMaxQueryTimeMS(cfg.getMaxTimeMS());
+                    finder.setMaxQueryTimeMS(cfg.getMaxQueryTimeMS());
                 }
                 ctx.setProperty(PROP_FINDER, finder);
                 response.setSize(finder.find(ctx, coll, mongoQuery, mongoProjection, mongoSort, from, to));

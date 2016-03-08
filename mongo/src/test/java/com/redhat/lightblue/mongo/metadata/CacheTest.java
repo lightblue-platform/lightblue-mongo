@@ -42,9 +42,6 @@ import org.bson.BSONObject;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DB;
-import com.redhat.lightblue.mongo.metadata.MetadataCache;
-import com.redhat.lightblue.mongo.metadata.MongoDataStoreParser;
-import com.redhat.lightblue.mongo.metadata.MongoMetadata;
 
 import com.redhat.lightblue.mongo.test.MongoServerExternalResource;
 

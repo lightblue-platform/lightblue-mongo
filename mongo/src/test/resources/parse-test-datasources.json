@@ -1,5 +1,5 @@
 {
-    "metadata": {
+    "metadata_readPreference": {
         "documentation": [
             "MongoDB makes a distinction between servers (a list) and ",
             "server (a single address), even if servers contains a",
@@ -29,7 +29,7 @@
             "readPreference": "nearest"
         }
     },
-    "mongodata": {
+    "mongodata_readPreference": {
         "type": "com.redhat.lightblue.mongo.config.MongoConfiguration",
         "metadataDataStoreParser": "com.redhat.lightblue.mongo.metadata.MongoDataStoreParser",
         "ssl": true,
@@ -46,6 +46,25 @@
         },
         "driverOptions": {
             "readPreference": "secondary"
+        }
+    },
+    "mongodata_maxQueryTimeMS": {
+        "type": "com.redhat.lightblue.mongo.config.MongoConfiguration",
+        "metadataDataStoreParser": "com.redhat.lightblue.mongo.metadata.MongoDataStoreParser",
+        "ssl": true,
+        "database": "data",
+        "credentials": {
+            "mechanism": "MONGODB_CR_MECHANISM",
+            "userName": "lightblue",
+            "password": "password",
+            "source": "admin"
+        },
+        "server": {
+            "host": "lightbluemongo4.dev.int.phx1.redhat.com",
+            "port": "27017"
+        },
+        "driverOptions": {
+            "maxQueryTimeMS": 98765
         }
     }
 }

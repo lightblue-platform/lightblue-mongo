@@ -64,6 +64,10 @@ import java.security.NoSuchAlgorithmException;
  * @author nmalik
  */
 public class MongoConfiguration implements DataSourceConfiguration {
+    public static ReadPreference DEFAULT_READ_PREFERENCE = ReadPreference.primaryPreferred();
+    public static WriteConcern DEFAULT_WRITE_CONCERN = WriteConcern.W1;
+    public static int DEFAULT_MAX_RESULT_SET_SIZE = 10000;
+    public static long DEFAULT_MAX_QUERY_TIME_MS = 75000;
 
     private static final long serialVersionUID = 1L;
 
@@ -79,10 +83,10 @@ public class MongoConfiguration implements DataSourceConfiguration {
     private boolean noCertValidation = Boolean.FALSE;
     private Class metadataDataStoreParser = MongoDataStoreParser.class;
     
-    private ReadPreference readPreference = ReadPreference.primaryPreferred();
-    private WriteConcern writeConcern = WriteConcern.W1;
-    private int maxResultSetSize=10000;
-    private long maxTimeMS=75000;
+    private ReadPreference readPreference = DEFAULT_READ_PREFERENCE;
+    private WriteConcern writeConcern = DEFAULT_WRITE_CONCERN;
+    private int maxResultSetSize = DEFAULT_MAX_RESULT_SET_SIZE;
+    private long maxQueryTimeMS = DEFAULT_MAX_QUERY_TIME_MS;
 
     public void addServerAddress(String hostname, int port) throws UnknownHostException {
         this.servers.add(new ServerAddress(hostname, port));
@@ -123,12 +127,12 @@ public class MongoConfiguration implements DataSourceConfiguration {
         maxResultSetSize=size;
     }
     
-    public long getMaxTimeMS() {
-        return maxTimeMS;
+    public long getMaxQueryTimeMS() {
+        return maxQueryTimeMS;
     }
     
-    public void setMaxTimeMS(long maxTimeMS) {
-        this.maxTimeMS = maxTimeMS;
+    public void setMaxQueryTimeMS(long maxQueryTimeMS) {
+        this.maxQueryTimeMS = maxQueryTimeMS;
     }
 
     @Override
@@ -476,9 +480,9 @@ public class MongoConfiguration implements DataSourceConfiguration {
                 if (readPreferenceOption != null)
                     this.readPreference = ReadPreference.valueOf(readPreferenceOption.asText());
                 
-                JsonNode maxTimeMSOption = jsonNodeOptions.get("maxTimeMS");
-                if (readPreferenceOption != null) {
-                    this.maxTimeMS = maxTimeMSOption.asLong();
+                JsonNode maxQueryTimeMSOption = jsonNodeOptions.get("maxQueryTimeMS");
+                if (maxQueryTimeMSOption != null) {
+                    this.maxQueryTimeMS = maxQueryTimeMSOption.asLong();
                 }
             }
         }

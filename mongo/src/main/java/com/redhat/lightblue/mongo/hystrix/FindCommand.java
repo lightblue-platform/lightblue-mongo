@@ -22,7 +22,6 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.BasicDBObject;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Hystrix command for executing findOne on a MongoDB collection.
@@ -47,7 +46,6 @@ public class FindCommand extends AbstractMongoCommand<DBCursor> {
     @Override
     protected DBCursor runMongoCommand() {
         DBObject q=query==null?new BasicDBObject():query;
-        
-        return getDBCollection().find(q, projection).maxTime(invocationStartTime, TimeUnit.MINUTES);
+        return getDBCollection().find(q, projection);
     }
 }
