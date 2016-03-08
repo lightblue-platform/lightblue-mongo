@@ -35,6 +35,7 @@ import com.redhat.lightblue.mongo.hystrix.FindCommand;
 
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Error;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Basic doc search operation
@@ -45,14 +46,22 @@ public class BasicDocFinder implements DocFinder {
     private static final Logger RESULTSET_LOGGER = LoggerFactory.getLogger("com.redhat.lightblue.crud.mongo.slowresults");
 
     private final Translator translator;
-    private int maxResultSetSize=0;
+    
+    private int maxResultSetSize = 0;
+    private long maxQueryTimeMS = 0;
 
     public BasicDocFinder(Translator translator) {
         this.translator = translator;
     }
 
+    @Override
     public void setMaxResultSetSize(int size) {
         maxResultSetSize=size;
+    }
+    
+    @Override
+    public void setMaxQueryTimeMS(long maxQueryTimeMS) {
+        this.maxQueryTimeMS = maxQueryTimeMS;
     }
 
     @Override
@@ -67,6 +76,11 @@ public class BasicDocFinder implements DocFinder {
 
         long executionTime=System.currentTimeMillis();
         DBCursor cursor = new FindCommand(coll, mongoQuery, mongoProjection).executeAndUnwrap();
+        
+        if (maxQueryTimeMS > 0) {
+            cursor.maxTime(maxQueryTimeMS, TimeUnit.MILLISECONDS);
+        }
+        
         executionTime=System.currentTimeMillis()-executionTime;
         
         LOGGER.debug("Query evaluated");

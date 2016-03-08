@@ -26,6 +26,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -40,10 +41,12 @@ import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
+import com.redhat.lightblue.ExecutionOptions;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDFindResponse;
 import com.redhat.lightblue.crud.CRUDInsertionResponse;
 import com.redhat.lightblue.crud.CRUDOperation;
+import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDSaveResponse;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.DocCtx;
@@ -1920,4 +1923,59 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertNull(ctx.getDocuments().get(0).get(new Path("field7.0.elemf1")));
     }
 
+    @Test
+    public void getMaxQueryTimeMS_noConfig_noOptions() throws Exception {
+        long expected = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS;
+
+        long maxQueryTimeMS = controller.getMaxQueryTimeMS(null, null);
+
+        Assert.assertEquals(expected, maxQueryTimeMS);
+    }
+
+    @Test
+    public void getMaxQueryTimeMS_Config_noOptions() throws Exception {
+        long expected = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS * 2;
+
+        MongoConfiguration config = new MongoConfiguration();
+        config.setMaxQueryTimeMS(expected);
+        long maxQueryTimeMS = controller.getMaxQueryTimeMS(config, null);
+
+        Assert.assertEquals(expected, maxQueryTimeMS);
+    }
+
+    @Test
+    public void getMaxQueryTimeMS_Config_Options() throws Exception {
+        long expected = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS * 2;
+
+        MongoConfiguration config = new MongoConfiguration();
+        config.setMaxQueryTimeMS(expected * 3);
+        ExecutionOptions options = new ExecutionOptions();
+        options.getOptions().put(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS, String.valueOf(expected));
+        CRUDOperationContext context = new CRUDOperationContext(CRUDOperation.SAVE, COLL_NAME, factory, null, options) {
+            @Override
+            public EntityMetadata getEntityMetadata(String entityName) {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+            }
+        };
+        long maxQueryTimeMS = controller.getMaxQueryTimeMS(config, context);
+
+        Assert.assertEquals(expected, maxQueryTimeMS);
+    }
+
+    @Test
+    public void getMaxQueryTimeMS_noConfig_Options() throws Exception {
+        long expected = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS * 2;
+
+        ExecutionOptions options = new ExecutionOptions();
+        options.getOptions().put(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS, String.valueOf(expected));
+        CRUDOperationContext context = new CRUDOperationContext(CRUDOperation.SAVE, COLL_NAME, factory, null, options) {
+            @Override
+            public EntityMetadata getEntityMetadata(String entityName) {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+            }
+        };
+        long maxQueryTimeMS = controller.getMaxQueryTimeMS(null, context);
+
+        Assert.assertEquals(expected, maxQueryTimeMS);
+    }
 }

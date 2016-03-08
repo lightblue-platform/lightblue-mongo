@@ -18,39 +18,82 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.mongodb.*;
-import com.redhat.lightblue.config.ControllerConfiguration;
-import com.redhat.lightblue.crud.*;
-import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
-import com.redhat.lightblue.eval.Projector;
-import com.redhat.lightblue.eval.Updater;
-import com.redhat.lightblue.interceptor.InterceptPoint;
-import com.redhat.lightblue.metadata.*;
-import com.redhat.lightblue.metadata.types.StringType;
-import com.redhat.lightblue.mongo.metadata.MongoMetadataConstants;
-import com.redhat.lightblue.mongo.common.DBResolver;
-import com.redhat.lightblue.mongo.common.MongoDataStore;
-import com.redhat.lightblue.mongo.config.MongoConfiguration;
-import com.redhat.lightblue.query.*;
-import com.redhat.lightblue.util.Error;
-import com.redhat.lightblue.util.JsonDoc;
-import com.redhat.lightblue.util.MutablePath;
-import com.redhat.lightblue.util.Path;
-import com.redhat.lightblue.extensions.ExtensionSupport;
-import com.redhat.lightblue.extensions.Extension;
-import com.redhat.lightblue.extensions.synch.LockingSupport;
-import com.redhat.lightblue.extensions.valuegenerator.ValueGeneratorSupport;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.util.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.mongodb.BasicDBList;
+import com.mongodb.BasicDBObject;
+import com.mongodb.DB;
+import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
+import com.mongodb.DBObject;
+import com.mongodb.DuplicateKeyException;
+import com.mongodb.MongoException;
+import com.mongodb.MongoExecutionTimeoutException;
+import com.mongodb.MongoSocketException;
+import com.mongodb.MongoTimeoutException;
+import com.mongodb.WriteConcern;
+import com.redhat.lightblue.config.ControllerConfiguration;
+import com.redhat.lightblue.crud.CRUDController;
+import com.redhat.lightblue.crud.CRUDDeleteResponse;
+import com.redhat.lightblue.crud.CRUDFindResponse;
+import com.redhat.lightblue.crud.CRUDInsertionResponse;
+import com.redhat.lightblue.crud.CRUDOperation;
+import com.redhat.lightblue.crud.CRUDOperationContext;
+import com.redhat.lightblue.crud.CRUDSaveResponse;
+import com.redhat.lightblue.crud.CRUDUpdateResponse;
+import com.redhat.lightblue.crud.ConstraintValidator;
+import com.redhat.lightblue.crud.CrudConstants;
+import com.redhat.lightblue.crud.DocCtx;
+import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
+import com.redhat.lightblue.eval.Projector;
+import com.redhat.lightblue.eval.Updater;
+import com.redhat.lightblue.extensions.Extension;
+import com.redhat.lightblue.extensions.ExtensionSupport;
+import com.redhat.lightblue.extensions.synch.LockingSupport;
+import com.redhat.lightblue.extensions.valuegenerator.ValueGeneratorSupport;
+import com.redhat.lightblue.interceptor.InterceptPoint;
+import com.redhat.lightblue.metadata.EntityInfo;
+import com.redhat.lightblue.metadata.EntityMetadata;
+import com.redhat.lightblue.metadata.EntitySchema;
+import com.redhat.lightblue.metadata.Field;
+import com.redhat.lightblue.metadata.FieldCursor;
+import com.redhat.lightblue.metadata.FieldTreeNode;
+import com.redhat.lightblue.metadata.Index;
+import com.redhat.lightblue.metadata.IndexSortKey;
+import com.redhat.lightblue.metadata.Indexes;
+import com.redhat.lightblue.metadata.Metadata;
+import com.redhat.lightblue.metadata.MetadataConstants;
+import com.redhat.lightblue.metadata.MetadataListener;
+import com.redhat.lightblue.metadata.SimpleField;
+import com.redhat.lightblue.metadata.types.StringType;
+import com.redhat.lightblue.mongo.common.DBResolver;
+import com.redhat.lightblue.mongo.common.MongoDataStore;
+import com.redhat.lightblue.mongo.config.MongoConfiguration;
+import com.redhat.lightblue.mongo.metadata.MongoMetadataConstants;
+import com.redhat.lightblue.query.FieldProjection;
+import com.redhat.lightblue.query.Projection;
+import com.redhat.lightblue.query.ProjectionList;
+import com.redhat.lightblue.query.QueryExpression;
+import com.redhat.lightblue.query.Sort;
+import com.redhat.lightblue.query.SortKey;
+import com.redhat.lightblue.query.UpdateExpression;
+import com.redhat.lightblue.util.Error;
+import com.redhat.lightblue.util.JsonDoc;
+import com.redhat.lightblue.util.MutablePath;
+import com.redhat.lightblue.util.Path;
 
 public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport {
 
@@ -162,6 +205,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
                 MongoDataStore store = (MongoDataStore) md.getDataStore();
                 DB db = dbResolver.get(store);
+                MongoConfiguration cfg=dbResolver.getConfiguration(store);
                 DBCollection collection = db.getCollection(store.getCollectionName());
 
                 Projection combinedProjection = Projection.add(projection, roleEval.getExcludedFields(FieldAccessRoleEvaluator.Operation.find));
@@ -173,6 +217,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     projector = null;
                 }
                 DocSaver saver = new BasicDocSaver(translator, roleEval);
+                saver.setMaxQueryTimeMS(getMaxQueryTimeMS(cfg, ctx));
                 ctx.setProperty(PROP_SAVER, saver);
                 for (int docIndex = 0; docIndex < dbObjects.length; docIndex++) {
                     DBObject dbObject = dbObjects[docIndex];
@@ -309,6 +354,31 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         return response;
     }
 
+    protected long getMaxQueryTimeMS(MongoConfiguration cfg, CRUDOperationContext ctx) {
+        // pick the default, even if we don't have a configuration coming in
+        long output = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS;
+
+        // if we have a config, get that value
+        if (cfg != null) {
+            output = cfg.getMaxQueryTimeMS();
+        }
+
+        // if context has execution option for maxQueryTimeMS use that instead of global default
+        if (ctx != null
+                && ctx.getExecutionOptions() != null
+                && ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS) != null) {
+            try {
+                output = Long.parseLong(ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS));
+
+            } catch (NumberFormatException nfe) {
+                // oh well, do nothing.  couldn't parse
+                LOGGER.debug("Unable to parse execution option: maxQueryTimeMS=" + ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS));
+            }
+        }
+
+        return output;
+    }
+
     /**
      * Search implementation for mongo
      */
@@ -348,6 +418,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 MongoConfiguration cfg=dbResolver.getConfiguration( (MongoDataStore)md.getDataStore());
                 if(cfg!=null)
                     finder.setMaxResultSetSize(cfg.getMaxResultSetSize());
+                finder.setMaxQueryTimeMS(getMaxQueryTimeMS(cfg, ctx));
                 ctx.setProperty(PROP_FINDER, finder);
                 response.setSize(finder.find(ctx, coll, mongoQuery, mongoProjection, mongoSort, from, to));
                 // Project results
