@@ -98,6 +98,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
       });
     }
 
+    @SuppressWarnings("unused")
     @Test
     public void createIndexAfterDataExists_CI() throws IOException, InterruptedException {
 
@@ -106,8 +107,6 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
         ctx.add(md);
-
-        // TODO: Need to wrap this correctly with object type or something
 
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
         ctx.addDocument(doc);
@@ -120,6 +119,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         // wait a couple of seconds because the update runs in a background thread
         Thread.sleep(2000);
+        DBCursor cursor = db.getCollection("testCollectionIndex1").find();
+        cursor.forEach(obj -> {
+            assertTrue(obj.containsField("@mongoHidden.field3"));
+            assertTrue(obj.containsField("arrayObj.*.@mongoHidden.x"));
+            assertTrue(obj.containsField("arrayObj.*.@mongoHidden.arraySubObj.*"));
+            assertTrue(obj.containsField("@mongoHidden.arrayField.*"));
+            assertTrue(obj.containsField("field2.@mongoHidden.x"));
+            assertTrue(obj.containsField("field2.@mongoHidden.subArrayField.*"));
+        });
     }
 
     @Test

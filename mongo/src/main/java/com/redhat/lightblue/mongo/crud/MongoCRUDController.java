@@ -21,16 +21,21 @@ package com.redhat.lightblue.mongo.crud;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.bson.BSONObject;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.BasicDBList;
@@ -45,6 +50,7 @@ import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
 import com.mongodb.WriteConcern;
+import com.mongodb.util.JSON;
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.CRUDController;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
@@ -94,6 +100,8 @@ import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.MutablePath;
 import com.redhat.lightblue.util.Path;
+
+import joptsimple.internal.Strings;
 
 public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport {
 
@@ -778,7 +786,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 Thread pop = new Thread(new Runnable() {
                     @Override
                     public void run() {
-                        populateHiddenFields(ei, fieldMap);
+                        try {
+                            populateHiddenFields(ei, fieldMap);
+                        } catch (JsonProcessingException e) {
+                            throw new RuntimeException(e);
+                        }
                     }
                 });
                 pop.start();
@@ -804,21 +816,20 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
      *
      * @param ei
      * @param fieldMap <index, hiddenPath>
+     * @throws JsonProcessingException
      * @throws IOException
      * @throws URISyntaxException
      */
-    protected void populateHiddenFields(EntityInfo ei, Map<String, String> fieldMap) {
-        LOGGER.debug("Starting population of hidden fields due to new or modified indexes.");
+    protected void populateHiddenFields(EntityInfo ei, Map<String, String> fieldMap) throws JsonProcessingException {        LOGGER.debug("Starting population of hidden fields due to new or modified indexes.");
         MongoDataStore ds = (MongoDataStore) ei.getDataStore();
         DB entityDB = dbResolver.get(ds);
         DBCollection coll = entityDB.getCollection(ds.getCollectionName());
-
         DBCursor cursor = coll.find();
 
         while (cursor.hasNext()) {
             DBObject doc = cursor.next();
             for (String index : fieldMap.keySet()) {
-                int arrIndex = index.lastIndexOf("*");
+                int arrIndex = index.indexOf("*");
                 if (arrIndex > -1) {
                     doArrayMap(doc, index, fieldMap.get(index), arrIndex);
                 } else {
@@ -833,29 +844,43 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("Finished population of hidden fields.");
     }
 
-    private void doArrayMap(DBObject doc, String index, String hidden, int arrIndex) {
-        String fieldPre = index.substring(0, arrIndex - 1);
-        String fieldPost = index.substring(arrIndex + 2);
+    private void doArrayMap(DBObject doc, String index, String hidden, int arrIndex) throws JsonProcessingException {
 
-        String hiddenPre = hidden.substring(0, arrIndex - 1);
-        String hiddenPost = hidden.substring(arrIndex + 2);
+        String[] indexSplit = index.split("\\*");
+        String fieldPre = indexSplit[0];
+        fieldPre = fieldPre.substring(0, fieldPre.length()-1);
+        String fieldPost = Strings.join(Arrays.copyOfRange(indexSplit, 1, indexSplit.length), "*");
+        fieldPost += indexSplit.length > 1 ? "*" : "";
 
-        if (doc.get(fieldPre) != null) {
-            BasicDBList docArr = (BasicDBList) doc.get(fieldPre);
+        String[] hiddenSplit = hidden.split("\\*");
+        String hiddenPre = hiddenSplit[0];
+        hiddenPre = hiddenPre.substring(0, hiddenPre.length()-1);
+        String hiddenPost = Strings.join(Arrays.copyOfRange(hiddenSplit, 1, hiddenSplit.length), "*");
+        hiddenPost += hiddenSplit.length > 1 ? "*" : "";
+
+        // TODO: we can't get anything with an array index, we have to manually iterate, which sucks
+        // We could preemptively check if there is a post path with an array, and if there is that means we use a different recursion path that iterates solely over the DBList rather than the DBObject
+
+        BasicDBList docArr = (BasicDBList) doc.get(fieldPre);
+        if (docArr != null) {
+            ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
             for (int i = 0; i < docArr.size(); i++) {
                 // check if there's an array in the index
-                int indx = fieldPost.lastIndexOf("*");
+                int indx = fieldPost.indexOf("*");
+
+                String fullIdxPath = fieldPre + "." + i + fieldPost;
+                String fullHiddenPath = hiddenPre + "." + i + hiddenPost;
+
                 if (indx > -1) {
                     // if we have another array, descend
-                    doArrayMap(doc, fieldPre + i + fieldPost, hiddenPre + i + hiddenPost, indx);
+                    doArrayMap(doc, fullIdxPath, fullHiddenPath, indx);
                 } else {
-                    // only update if the matching field exists
-                    if (doc.containsField(fieldPre + i + fieldPost)) {
-                        // if no more arrays, set the field and continue
-                        doc.put(hiddenPre + i + hiddenPost, doc.get(fieldPre + i + fieldPost).toString().toUpperCase());
-                    }
+                    // if no more arrays, set the field and continue
+                    JsonDoc.modify(arrNode, new Path(fullHiddenPath), JsonNodeFactory.instance.textNode(docArr.get(i).toString().toUpperCase()), true);
                 }
             }
+            String jsonString = new ObjectMapper().writeValueAsString(arrNode);
+            doc.putAll((BSONObject) JSON.parse(jsonString));
         }
     }
 
