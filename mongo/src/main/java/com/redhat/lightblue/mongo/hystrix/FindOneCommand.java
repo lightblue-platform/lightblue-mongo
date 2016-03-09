@@ -63,15 +63,23 @@ public class FindOneCommand extends AbstractMongoCommand<DBObject> {
     @Override
     protected DBObject runMongoCommand() {
         DBObject q=query==null?new BasicDBObject():query;
-        DBCursor cursor;
-        if(projection == null) {
-            cursor = getDBCollection().find(q);
-        } else {
-            cursor = getDBCollection().find(q, projection);
+        DBObject output;
+        DBCursor cursor = null;
+        try {
+            if(projection == null) {
+                cursor = getDBCollection().find(q);
+            } else {
+                cursor = getDBCollection().find(q, projection);
+            }
+            if (maxQueryTimeMS > 0) {
+                cursor.maxTime(maxQueryTimeMS, TimeUnit.MILLISECONDS);
+            }
+            output = cursor.one();
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
         }
-        if (maxQueryTimeMS > 0) {
-            cursor.maxTime(maxQueryTimeMS, TimeUnit.MILLISECONDS);
-        }
-        return cursor.one();
+        return output;
     }
 }
