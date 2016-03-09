@@ -31,7 +31,6 @@ import org.junit.Test;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
 import com.mongodb.ServerAddress;
-import com.mongodb.WriteConcern;
 
 public class MongoConfigurationTest {
 
