@@ -204,6 +204,7 @@ public class MongoMetadata extends AbstractMetadata {
             throw new IllegalArgumentException(LITERAL_ENTITY_NAME);
         }
         Error.push("getEntityVersions(" + entityName + ")");
+        DBCursor cursor = null;
         try {
             // Get the default version
             BasicDBObject query = new BasicDBObject(LITERAL_ID, entityName + BSONParser.DELIMITER_ID);
@@ -216,7 +217,7 @@ public class MongoMetadata extends AbstractMetadata {
             DBObject project = new BasicDBObject(LITERAL_VERSION, 1).
                     append(LITERAL_STATUS, 1).
                     append(LITERAL_ID, 0);
-            DBCursor cursor = new FindCommand(collection, query, project).executeAndUnwrap();
+            cursor = new FindCommand(collection, query, project).executeAndUnwrap();
             int n = cursor.count();
             VersionInfo[] ret = new VersionInfo[n];
             int i = 0;
@@ -240,6 +241,9 @@ public class MongoMetadata extends AbstractMetadata {
         } catch (Exception e) {
             throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
             Error.pop();
         }
     }
@@ -379,8 +383,9 @@ public class MongoMetadata extends AbstractMetadata {
     protected void validateAllVersions(EntityInfo ei) {
         LOGGER.debug("Validating all versions of {}", ei.getName());
         String version = null;
+        DBCursor cursor = null;
         try {
-            DBCursor cursor = new FindCommand(collection,
+            cursor = new FindCommand(collection,
                     new BasicDBObject(LITERAL_NAME, ei.getName()).
                             append(LITERAL_VERSION, new BasicDBObject("$exists", 1)).
                             append(LITERAL_STATUS_VALUE, new BasicDBObject("$ne", MetadataParser.toString(MetadataStatus.DISABLED))),
@@ -396,6 +401,10 @@ public class MongoMetadata extends AbstractMetadata {
         } catch (Exception e) {
             String msg = ei.getName() + ":" + version + e.toString();
             throw analyzeException(e, MongoMetadataConstants.ERR_UPDATE_INVALIDATES_METADATA, msg);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
         }
     }
 
