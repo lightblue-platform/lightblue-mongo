@@ -89,7 +89,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 3, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
 
         long count = finder.find(
                 // CRUDOperationContext
@@ -122,7 +122,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 3, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
 
         DBObject mongoQuery = new BasicDBObject();
         mongoQuery.put("_id", id + "1");
@@ -158,7 +158,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 3, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
 
         long count = finder.find(
                 // CRUDOperationContext
@@ -190,7 +190,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 20, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
 
         long count = finder.find(
                 // CRUDOperationContext
@@ -232,7 +232,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 20, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
 
         long count = finder.find(
                 // CRUDOperationContext
@@ -264,7 +264,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 20, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
 
         long count = finder.find(
                 // CRUDOperationContext
@@ -296,7 +296,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 20, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
         finder.setMaxResultSetSize(10);
 
         try {
@@ -347,7 +347,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 20, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
 
         long count = finder.find(
                 // CRUDOperationContext
@@ -379,7 +379,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 20, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
 
         long count = finder.find(
                 // CRUDOperationContext
@@ -411,7 +411,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 3, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
 
         DBObject sort = new BasicDBObject();
         sort.put("_id", -1);
@@ -451,7 +451,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 3, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
 
         DBObject sort = new BasicDBObject();
         sort.put("_id", -1);
@@ -490,7 +490,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 3, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
 
         long count = finder.find(
                 // CRUDOperationContext
@@ -526,7 +526,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 3, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
 
         DBObject sort = new BasicDBObject();
         sort.put("_id", -1);
@@ -566,7 +566,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
             Assert.assertEquals("count on collection", 4, c.count());
         }
 
-        BasicDocFinder finder = new BasicDocFinder(translator);
+        BasicDocFinder finder = new BasicDocFinder(translator,null);
 
         DBObject sort = new BasicDBObject();
         sort.put("_id", 1);

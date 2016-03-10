@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.ReadPreference;
 import com.mongodb.DBCursor;
 
 import com.redhat.lightblue.interceptor.InterceptPoint;
@@ -46,12 +47,13 @@ public class BasicDocFinder implements DocFinder {
     private static final Logger RESULTSET_LOGGER = LoggerFactory.getLogger("com.redhat.lightblue.crud.mongo.slowresults");
 
     private final Translator translator;
-    
+    private ReadPreference readPreference;
     private int maxResultSetSize = 0;
     private long maxQueryTimeMS = 0;
 
-    public BasicDocFinder(Translator translator) {
+    public BasicDocFinder(Translator translator,ReadPreference readPreference) {
         this.translator = translator;
+        this.readPreference=readPreference;
     }
 
     @Override
@@ -79,6 +81,8 @@ public class BasicDocFinder implements DocFinder {
         
         try {
             cursor = new FindCommand(coll, mongoQuery, mongoProjection).executeAndUnwrap();
+            if(readPreference!=null)
+                cursor.setReadPreference(readPreference);
         
             if (maxQueryTimeMS > 0) {
                 cursor.maxTime(maxQueryTimeMS, TimeUnit.MILLISECONDS);
