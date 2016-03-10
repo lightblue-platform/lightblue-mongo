@@ -83,7 +83,7 @@ public class MongoMetadata extends AbstractMetadata {
         if (entityName == null || entityName.length() == 0) {
             throw new IllegalArgumentException(LITERAL_ENTITY_NAME);
         }
-        
+
         Error.push("getEntityMetadata(" + entityName + ":" + version + ")");
         try {
             EntityMetadata md;
@@ -92,7 +92,7 @@ public class MongoMetadata extends AbstractMetadata {
                 if(md!=null)
                     return md;
             }
-            
+
             EntityInfo info = getEntityInfo(entityName);
             if (version == null || version.length() == 0) {
                 if (info.getDefaultVersion() == null || info.getDefaultVersion().length() == 0) {
@@ -204,6 +204,7 @@ public class MongoMetadata extends AbstractMetadata {
             throw new IllegalArgumentException(LITERAL_ENTITY_NAME);
         }
         Error.push("getEntityVersions(" + entityName + ")");
+        DBCursor cursor = null;
         try {
             // Get the default version
             BasicDBObject query = new BasicDBObject(LITERAL_ID, entityName + BSONParser.DELIMITER_ID);
@@ -216,7 +217,7 @@ public class MongoMetadata extends AbstractMetadata {
             DBObject project = new BasicDBObject(LITERAL_VERSION, 1).
                     append(LITERAL_STATUS, 1).
                     append(LITERAL_ID, 0);
-            DBCursor cursor = new FindCommand(collection, query, project).executeAndUnwrap();
+            cursor = new FindCommand(collection, query, project).executeAndUnwrap();
             int n = cursor.count();
             VersionInfo[] ret = new VersionInfo[n];
             int i = 0;
@@ -240,6 +241,9 @@ public class MongoMetadata extends AbstractMetadata {
         } catch (Exception e) {
             throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
             Error.pop();
         }
     }
@@ -283,30 +287,20 @@ public class MongoMetadata extends AbstractMetadata {
                 try {
                     WriteResult result = new InsertCommand(collection, infoObj).executeAndUnwrap();
                     LOGGER.debug("Inserted entityInfo");
-                    String error = result.getError();
-                    if (error != null) {
-                        LOGGER.error("createNewMetadata: error in createInfo: {}" + error);
-                        throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, error);
-                    }
-                } catch (MongoException.DuplicateKey dke) {
+
+                } catch (DuplicateKeyException dke) {
                     LOGGER.error("createNewMetadata: duplicateKey {}", dke);
                     throw Error.get(MongoMetadataConstants.ERR_DUPLICATE_METADATA, ver.getValue());
                 }
                 try {
                     WriteResult result = new InsertCommand(collection, schemaObj).executeAndUnwrap();
-                    String error = result.getError();
-                    if (error != null) {
-                        LOGGER.error("createNewMetadata: error in createSchema: {}" + error);
-                        new RemoveCommand(collection, new BasicDBObject(LITERAL_ID, infoObj.get(LITERAL_ID))).executeAndUnwrap();
-                        throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, error);
-                    }
 
                     if (listener != null) {
                         listener.afterUpdateEntityInfo(this, md.getEntityInfo(), true);
                         listener.afterCreateNewSchema(this, md);
                     }
 
-                } catch (MongoException.DuplicateKey dke) {
+                } catch (DuplicateKeyException dke) {
                     LOGGER.error("createNewMetadata: duplicateKey {}", dke);
                     new RemoveCommand(collection, new BasicDBObject(LITERAL_ID, infoObj.get(LITERAL_ID))).executeAndUnwrap();
                     throw Error.get(MongoMetadataConstants.ERR_DUPLICATE_METADATA, ver.getValue());
@@ -389,8 +383,9 @@ public class MongoMetadata extends AbstractMetadata {
     protected void validateAllVersions(EntityInfo ei) {
         LOGGER.debug("Validating all versions of {}", ei.getName());
         String version = null;
+        DBCursor cursor = null;
         try {
-            DBCursor cursor = new FindCommand(collection,
+            cursor = new FindCommand(collection,
                     new BasicDBObject(LITERAL_NAME, ei.getName()).
                             append(LITERAL_VERSION, new BasicDBObject("$exists", 1)).
                             append(LITERAL_STATUS_VALUE, new BasicDBObject("$ne", MetadataParser.toString(MetadataStatus.DISABLED))),
@@ -406,13 +401,17 @@ public class MongoMetadata extends AbstractMetadata {
         } catch (Exception e) {
             String msg = ei.getName() + ":" + version + e.toString();
             throw analyzeException(e, MongoMetadataConstants.ERR_UPDATE_INVALIDATES_METADATA, msg);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
         }
     }
 
     private static boolean isSnapshot(String s) {
         return s.indexOf("SNAPSHOT")!=-1;
     }
-    
+
     /**
      * Creates a new schema (versioned data) for an existing metadata.
      *
@@ -446,23 +445,19 @@ public class MongoMetadata extends AbstractMetadata {
             WriteResult result;
             try {
                 result = new InsertCommand(collection, schemaObj).executeAndUnwrap();
-            } catch (MongoException.DuplicateKey dke) {
+            } catch (DuplicateKeyException dke) {
                 if(isSnapshot(md.getEntitySchema().getVersion().getValue())) {
                     LOGGER.debug("Rewriting {}",md.getEntitySchema().getVersion().getValue());
                     result = new SaveCommand(collection,schemaObj).executeAndUnwrap();
                 } else
                     throw dke;
             }
-            String error = result.getError();
-            if (error != null) {
-                throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, error);
-            }
             if (listener != null) {
                 listener.afterCreateNewSchema(this, md);
             }
             if(cache!=null)
                 cache.updateCollectionVersion(collection);
-        } catch (MongoException.DuplicateKey dke) {
+        } catch (DuplicateKeyException dke) {
             throw Error.get(MongoMetadataConstants.ERR_DUPLICATE_METADATA, ver.getValue());
         } catch (Error e) {
             // rethrow lightblue error
@@ -530,10 +525,6 @@ public class MongoMetadata extends AbstractMetadata {
 
             query = new BasicDBObject(LITERAL_ID, md.get(LITERAL_ID));
             WriteResult result = new UpdateCommand(collection, query, (DBObject) mdParser.convert(schema), false, false).executeAndUnwrap();
-            String error = result.getError();
-            if (error != null) {
-                throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, error);
-            }
             if(cache!=null)
                 cache.updateCollectionVersion(collection);
         } catch (Error e) {
@@ -569,10 +560,6 @@ public class MongoMetadata extends AbstractMetadata {
         try {
             WriteResult r = new RemoveCommand(collection, query).executeAndUnwrap();
             LOGGER.debug("Removal result:{}", r);
-            String error = r.getError();
-            if (error != null) {
-                throw Error.get(MongoMetadataConstants.ERR_DB_ERROR, error);
-            }
             if(cache!=null)
                 cache.updateCollectionVersion(collection);
         } catch (Exception e) {
@@ -698,8 +685,8 @@ public class MongoMetadata extends AbstractMetadata {
 
     private Error analyzeException(Exception e, final String otherwise, final String msg) {
         LOGGER.error(e.getMessage(), e);
-        if (e instanceof CommandFailureException) {
-            CommandFailureException ce = (CommandFailureException) e;
+        if (e instanceof MongoCommandException) {
+            MongoCommandException ce = (MongoCommandException) e;
             // give a better Error.code in case auth failed which is represented in MongoDB by code == 18
             if (ce.getCode() == 18) {
                 return Error.get(MetadataConstants.ERR_AUTH_FAILED, e.getMessage());

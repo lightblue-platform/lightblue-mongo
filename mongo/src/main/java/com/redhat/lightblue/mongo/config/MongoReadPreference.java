@@ -31,6 +31,8 @@ import com.mongodb.ReadPreference;
 import com.mongodb.DBObject;
 import com.mongodb.BasicDBObject;
 import com.mongodb.TaggableReadPreference;
+import com.mongodb.TagSet;
+import com.mongodb.Tag;
 
 import com.redhat.lightblue.util.JsonUtils;
 
@@ -66,58 +68,11 @@ public class MongoReadPreference {
     public static final String READ_PREFERENCE_SECONDARY="secondary";
     public static final String READ_PREFERENCE_SECONDARY_PREFERRED="secondaryPreferred";
 
-    private static final class Tags {
-        private final DBObject first;
-        private final DBObject[] remaining;
-
-        public Tags(DBObject x) {
-            first=x;
-            remaining=null;
-        }
-        
-        public Tags(List<DBObject> list) {
-            first=list.get(0);
-            if(list.size()==1) {
-                remaining=null;
-            } else {
-                remaining=list.subList(1,list.size()).toArray(new DBObject[list.size()-1]);;
-            }
-        }
-
-        public TaggableReadPreference nearest() {
-            if(remaining==null)
-                return ReadPreference.nearest(first);
-            else
-                return ReadPreference.nearest(first,remaining);
-        }
-
-        public TaggableReadPreference primaryPreferred() {
-            if(remaining==null)
-                return ReadPreference.primaryPreferred(first);
-            else
-                return ReadPreference.primaryPreferred(first,remaining);
-        }
-
-        public TaggableReadPreference secondaryPreferred() {
-            if(remaining==null)
-                return ReadPreference.secondaryPreferred(first);
-            else
-                return ReadPreference.secondaryPreferred(first,remaining);
-        }
-
-        public TaggableReadPreference secondary() {
-            if(remaining==null)
-                return ReadPreference.secondary(first);
-            else
-                return ReadPreference.secondary(first,remaining);
-        }
-    }
-
     public static ReadPreference parse(String value) {
         value=value.trim();
         int paren=value.indexOf('(');
         String pref;
-        Tags tags;
+        List<TagSet> tags;
         if(paren!=-1) {
             pref=value.substring(0,paren).trim();
             String argsStr=value.substring(paren+1).trim();
@@ -133,63 +88,65 @@ public class MongoReadPreference {
             if(tags==null)
                 return ReadPreference.nearest();
             else
-                return tags.nearest();
+                return ReadPreference.nearest(tags);
         case READ_PREFERENCE_PRIMARY:
             return ReadPreference.primary();
         case READ_PREFERENCE_PRIMARY_PREFERRED:
             if(tags==null)
                 return ReadPreference.primaryPreferred();
             else
-                return tags.primaryPreferred();
+                return ReadPreference.primaryPreferred(tags);
         case READ_PREFERENCE_SECONDARY:
             if(tags==null)
                 return ReadPreference.secondary();
             else
-                return tags.secondary();
+                return ReadPreference.secondary(tags);
         case READ_PREFERENCE_SECONDARY_PREFERRED:
             if(tags==null)
                 return ReadPreference.secondaryPreferred();
             else
-                return tags.secondaryPreferred();
+                return ReadPreference.secondaryPreferred(tags);
         default:
             throw new InvalidReadPreference(value);
         }
     }
 
     
-    private static Tags parseArgs(String args) {
+    private static List<TagSet> parseArgs(String args) {
         args=args.trim();
         if(args.length()==0) {
             return null;
         } else {
             try {
                 return parseArgs(JsonUtils.json(args));
+            } catch(InvalidReadPreferenceArgs x) {
+                throw x;                    
             } catch(Exception e) {
                 throw new InvalidReadPreferenceArgs(args);
             }
         }
     }
 
-    private static Tags parseArgs(JsonNode args) {
+    private static List<TagSet> parseArgs(JsonNode args) {
+        List<TagSet> list=new ArrayList<>();
         if(args instanceof ObjectNode) {
-            return new Tags(parseArg((ObjectNode)args));
+            list.add(parseArg((ObjectNode)args));
         } else if(args instanceof ArrayNode) {
             ArrayNode array=(ArrayNode)args;
-            List<DBObject> list=new ArrayList<>(array.size());
             for(Iterator<JsonNode> itr=array.elements();itr.hasNext();) {
                 list.add(parseArg( (ObjectNode)itr.next() ));
             }
-            return new Tags(list);
         } else
             throw new InvalidReadPreferenceArgs(args.toString());
+        return list;
     }
     
-    private static DBObject parseArg(ObjectNode arg) {
-        BasicDBObject ret=new BasicDBObject();
+    private static TagSet parseArg(ObjectNode arg) {
+        List<Tag> tags=new ArrayList<>();
         for(Iterator<Map.Entry<String,JsonNode>> itr=arg.fields();itr.hasNext();) {
             Map.Entry<String,JsonNode> entry=itr.next();
-            ret.append(entry.getKey(),entry.getValue().asText());
+            tags.add(new Tag(entry.getKey(),entry.getValue().asText()));
         }
-        return ret;
+        return new TagSet(tags);
     }
 }

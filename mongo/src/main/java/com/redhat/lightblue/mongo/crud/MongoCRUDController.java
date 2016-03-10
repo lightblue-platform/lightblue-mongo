@@ -29,7 +29,6 @@ import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.*;
-import com.redhat.lightblue.metadata.constraints.IdentityConstraint;
 import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.mongo.metadata.MongoMetadataConstants;
 import com.redhat.lightblue.mongo.common.DBResolver;
@@ -160,6 +159,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
                 MongoDataStore store = (MongoDataStore) md.getDataStore();
                 DB db = dbResolver.get(store);
+                MongoConfiguration cfg=dbResolver.getConfiguration(store);
                 DBCollection collection = db.getCollection(store.getCollectionName());
 
                 Projection combinedProjection = Projection.add(projection, roleEval.getExcludedFields(FieldAccessRoleEvaluator.Operation.find));
@@ -171,6 +171,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     projector = null;
                 }
                 DocSaver saver = new BasicDocSaver(translator, roleEval);
+                saver.setMaxQueryTimeMS(getMaxQueryTimeMS(cfg, ctx));
                 ctx.setProperty(PROP_SAVER, saver);
                 for (int docIndex = 0; docIndex < dbObjects.length; docIndex++) {
                     DBObject dbObject = dbObjects[docIndex];
@@ -306,6 +307,31 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("delete end: deleted: {}}", response.getNumDeleted());
         return response;
     }
+    
+    protected long getMaxQueryTimeMS(MongoConfiguration cfg, CRUDOperationContext ctx) {
+        // pick the default, even if we don't have a configuration coming in
+        long output = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS;
+        
+        // if we have a config, get that value
+        if (cfg != null) {
+            output = cfg.getMaxQueryTimeMS();
+        }
+        
+        // if context has execution option for maxQueryTimeMS use that instead of global default
+        if (ctx != null 
+                && ctx.getExecutionOptions() != null 
+                && ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS) != null) {
+            try {
+                output = Long.parseLong(ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS));
+
+            } catch (NumberFormatException nfe) {
+                // oh well, do nothing.  couldn't parse
+                LOGGER.debug("Unable to parse execution option: maxQueryTimeMS=" + ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS));
+            }
+        }
+        
+        return output;
+    }
 
     /**
      * Search implementation for mongo
@@ -347,6 +373,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 MongoConfiguration cfg=dbResolver.getConfiguration( (MongoDataStore)md.getDataStore());
                 if(cfg!=null)
                     finder.setMaxResultSetSize(cfg.getMaxResultSetSize());
+                finder.setMaxQueryTimeMS(getMaxQueryTimeMS(cfg, ctx));
                 ctx.setProperty(PROP_FINDER, finder);
                 response.setSize(finder.find(ctx, coll, mongoQuery, mongoProjection, mongoSort, from, to));
                 // Project results

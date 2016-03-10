@@ -58,7 +58,7 @@ public final class BsonMerge extends DocComparator<Object,Object,DBObject,List> 
         }
     }
 
-    public static class BsonIdentityExtractor implements IdentityExtractor<Object> {
+    public  class BsonIdentityExtractor implements IdentityExtractor<Object> {
         private final Path[] fields;
 
         public BsonIdentityExtractor(ArrayIdentityFields fields) {

@@ -31,7 +31,6 @@ import org.junit.Test;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
 import com.mongodb.ServerAddress;
-import com.mongodb.WriteConcern;
 
 public class MongoConfigurationTest {
 
@@ -80,7 +79,9 @@ public class MongoConfigurationTest {
 
     @Test
     public void testGetMongoClientOptions() {
-        MongoClientOptions.Builder builder = MongoClientOptions.builder().writeConcern(WriteConcern.FSYNCED);
+        MongoClientOptions.Builder builder = MongoClientOptions.builder()
+                .writeConcern(MongoConfiguration.DEFAULT_WRITE_CONCERN)
+                .readPreference(MongoConfiguration.DEFAULT_READ_PREFERENCE);
         builder.connectionsPerHost(10);
 
         Assert.assertEquals(builder.build(), config.getMongoClientOptions());
@@ -89,7 +90,9 @@ public class MongoConfigurationTest {
     @Test
     public void testGetMongoClientOptionsConnectionsPerHostNull() {
         config.setConnectionsPerHost(null);
-        MongoClientOptions.Builder builder = MongoClientOptions.builder().writeConcern(WriteConcern.FSYNCED);
+        MongoClientOptions.Builder builder = MongoClientOptions.builder()
+                .writeConcern(MongoConfiguration.DEFAULT_WRITE_CONCERN)
+                .readPreference(MongoConfiguration.DEFAULT_READ_PREFERENCE);
 
         Assert.assertEquals(builder.build(), config.getMongoClientOptions());
     }

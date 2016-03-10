@@ -36,6 +36,7 @@ import com.redhat.lightblue.mongo.hystrix.FindCommand;
 
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Error;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Basic doc search operation
@@ -46,16 +47,23 @@ public class BasicDocFinder implements DocFinder {
     private static final Logger RESULTSET_LOGGER = LoggerFactory.getLogger("com.redhat.lightblue.crud.mongo.slowresults");
 
     private final Translator translator;
-    private int maxResultSetSize=0;
     private ReadPreference readPreference;
+    private int maxResultSetSize = 0;
+    private long maxQueryTimeMS = 0;
 
     public BasicDocFinder(Translator translator,ReadPreference readPreference) {
         this.translator = translator;
         this.readPreference=readPreference;
     }
 
+    @Override
     public void setMaxResultSetSize(int size) {
         maxResultSetSize=size;
+    }
+    
+    @Override
+    public void setMaxQueryTimeMS(long maxQueryTimeMS) {
+        this.maxQueryTimeMS = maxQueryTimeMS;
     }
 
     @Override
@@ -69,63 +77,76 @@ public class BasicDocFinder implements DocFinder {
         LOGGER.debug("Submitting query {}",mongoQuery);
 
         long executionTime=System.currentTimeMillis();
-        DBCursor cursor = new FindCommand(coll, mongoQuery, mongoProjection).executeAndUnwrap();
-        if(readPreference!=null)
-            cursor.setReadPreference(readPreference);
-        executionTime=System.currentTimeMillis()-executionTime;
+        DBCursor cursor = null;
         
-        LOGGER.debug("Query evaluated");
-        if (mongoSort != null) {
-            cursor = cursor.sort(mongoSort);
-            LOGGER.debug("Result set sorted");
-        }
-        int size = cursor.count();
-        long ret = size;
-        LOGGER.debug("Applying limits: {} - {}", from, to);
+        try {
+            cursor = new FindCommand(coll, mongoQuery, mongoProjection).executeAndUnwrap();
+            if(readPreference!=null)
+                cursor.setReadPreference(readPreference);
+        
+            if (maxQueryTimeMS > 0) {
+                cursor.maxTime(maxQueryTimeMS, TimeUnit.MILLISECONDS);
+            }
 
-        if (from != null) {
-            cursor.skip(from.intValue());
-            if(to!=null && from>to) 
-            	//if 'to' is not null but lesser than 'from', skip the entire list to return nothing 
-            	cursor.skip(size);	        
-        } 
-        if (to != null) {
-        	//if 'to' is not null, check if greater than or equal to 0 and set limit 
-        	if(to >= 0)
-                    cursor.limit(to.intValue() - (from == null ? 0 : from.intValue()) + 1);
-        	// if to is less than 0, skip the entire list to return nothing
-        	else if(to < 0) {
-        		cursor.skip(size);
-                }
-        } 
-        if(maxResultSetSize>0&&cursor.size()>maxResultSetSize) {
-            LOGGER.warn("Too many results:{}",size);
-            RESULTSET_LOGGER.debug("resultset_size={}, query={}",size,mongoQuery);
-            throw Error.get(MongoCrudConstants.ERR_TOO_MANY_RESULTS,Integer.toString(size));
-        }
-        
-        
-        LOGGER.debug("Retrieving results");
-        long retrievalTime=System.currentTimeMillis();
-        List<DBObject> mongoResults = cursor.toArray();
-        retrievalTime=System.currentTimeMillis()-retrievalTime;
-        
-        LOGGER.debug("Retrieved {} results", mongoResults.size());
-        List<JsonDoc> jsonDocs = translator.toJson(mongoResults);
+            executionTime=System.currentTimeMillis()-executionTime;
 
-        if(RESULTSET_LOGGER.isDebugEnabled()&&(executionTime>100 || retrievalTime>100)) {
-            RESULTSET_LOGGER.debug("execution_time={}, retrieval_time={}, resultset_size={}, data_size={}, query={}, from={}, to={}",
-                                   executionTime,retrievalTime,mongoResults.size(),Translator.size(jsonDocs),mongoQuery,
-                                   from,to);
+            LOGGER.debug("Query evaluated");
+            if (mongoSort != null) {
+                cursor = cursor.sort(mongoSort);
+                LOGGER.debug("Result set sorted");
+            }
+            int size = cursor.count();
+            long ret = size;
+            LOGGER.debug("Applying limits: {} - {}", from, to);
+
+            if (from != null) {
+                cursor.skip(from.intValue());
+                if(to!=null && from>to) 
+                    //if 'to' is not null but lesser than 'from', skip the entire list to return nothing 
+                    cursor.skip(size);	        
+            } 
+            if (to != null) {
+                    //if 'to' is not null, check if greater than or equal to 0 and set limit 
+                    if(to >= 0)
+                        cursor.limit(to.intValue() - (from == null ? 0 : from.intValue()) + 1);
+                    // if to is less than 0, skip the entire list to return nothing
+                    else if(to < 0) {
+                            cursor.skip(size);
+                    }
+            } 
+            if(maxResultSetSize>0&&cursor.size()>maxResultSetSize) {
+                LOGGER.warn("Too many results:{}",size);
+                RESULTSET_LOGGER.debug("resultset_size={}, query={}",size,mongoQuery);
+                throw Error.get(MongoCrudConstants.ERR_TOO_MANY_RESULTS,Integer.toString(size));
+            }
+
+
+            LOGGER.debug("Retrieving results");
+            long retrievalTime=System.currentTimeMillis();
+            List<DBObject> mongoResults = cursor.toArray();
+            retrievalTime=System.currentTimeMillis()-retrievalTime;
+
+            LOGGER.debug("Retrieved {} results", mongoResults.size());
+            List<JsonDoc> jsonDocs = translator.toJson(mongoResults);
+
+            if(RESULTSET_LOGGER.isDebugEnabled()&&(executionTime>100 || retrievalTime>100)) {
+                RESULTSET_LOGGER.debug("execution_time={}, retrieval_time={}, resultset_size={}, data_size={}, query={}, from={}, to={}",
+                                       executionTime,retrievalTime,mongoResults.size(),Translator.size(jsonDocs),mongoQuery,
+                                       from,to);
+            }
+
+            ctx.addDocuments(jsonDocs);
+            for (DocCtx doc : ctx.getDocuments()) {
+                doc.setCRUDOperationPerformed(CRUDOperation.FIND);
+                ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_FIND_DOC, ctx, doc);
+            }
+            LOGGER.debug("Translated DBObjects to json");
+            return ret;
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
         }
-        
-        ctx.addDocuments(jsonDocs);
-        for (DocCtx doc : ctx.getDocuments()) {
-            doc.setCRUDOperationPerformed(CRUDOperation.FIND);
-            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_FIND_DOC, ctx, doc);
-        }
-        LOGGER.debug("Translated DBObjects to json");
-        return ret;
     }
 
 }

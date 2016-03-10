@@ -58,6 +58,13 @@ public interface DocFinder {
 
     /**
      * Sets the maximum allowed result set size. Any value <=0 means there is no limit
+     * @param size the max result set size, or lte 0 for no limit
      */
     void setMaxResultSetSize(int size);
+    
+    /**
+     * Sets the maximum time a query can execute on the server.  Any value less <= 0 means there is no limit.
+     * @param milliseconds the time limit in milliseconds, or lte 0 for no limit
+     */
+    void setMaxQueryTimeMS(long milliseconds);
 }

@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
-import com.mongodb.MongoException;
+import com.mongodb.DuplicateKeyException;
 import com.mongodb.WriteResult;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
@@ -52,6 +52,8 @@ public class BasicDocSaver implements DocSaver {
 
     private final FieldAccessRoleEvaluator roleEval;
     private final Translator translator;
+    
+    private long maxQueryTimeMS;
 
     /**
      * Creates a doc saver with the given translator and role evaluator
@@ -60,6 +62,11 @@ public class BasicDocSaver implements DocSaver {
             FieldAccessRoleEvaluator roleEval) {
         this.translator = translator;
         this.roleEval = roleEval;
+    }
+
+    @Override
+    public void setMaxQueryTimeMS(long maxQueryTimeMS) {
+        this.maxQueryTimeMS = maxQueryTimeMS;
     }
 
     @Override
@@ -72,26 +79,25 @@ public class BasicDocSaver implements DocSaver {
                         DocCtx inputDoc) {
 
         WriteResult result = null;
-        String error = null;
 
         DBObject oldDBObject=null;
-        
+
         Object id=dbObject.get(MongoCRUDController.ID_STR);
         if(id==null) {
             LOGGER.debug("Null _id, looking up the doc using identity fields");
             Field[] identityFields=md.getEntitySchema().getIdentityFields();
             Object[] identityFieldValues=fill(dbObject,identityFields);
-            if(!isNull(identityFieldValues)) {                            
+            if(!isNull(identityFieldValues)) {
                 DBObject lookupq=getLookupQ(identityFields,identityFieldValues);
-                LOGGER.debug("Lookup query: {}",lookupq);                            
-                oldDBObject=new FindOneCommand(collection,lookupq).executeAndUnwrap();
+                LOGGER.debug("Lookup query: {}",lookupq);
+                oldDBObject=new FindOneCommand(collection,lookupq,null,maxQueryTimeMS).executeAndUnwrap();
                 LOGGER.debug("Retrieved:{}",oldDBObject);
                 if(oldDBObject!=null)
                     id=oldDBObject.get(MongoCRUDController.ID_STR);
                 LOGGER.debug("Retrieved id:{}",id);
             }
         }
-        
+
         if (op == DocSaver.Op.insert
             || (id==null && upsert)) {
             // Inserting
@@ -102,7 +108,7 @@ public class BasicDocSaver implements DocSaver {
             LOGGER.debug("Updating doc {}" + id);
             BasicDBObject q = new BasicDBObject(MongoCRUDController.ID_STR, Translator.createIdFrom(id));
             if(oldDBObject==null) {
-                oldDBObject = new FindOneCommand(collection, q).executeAndUnwrap();
+                oldDBObject = new FindOneCommand(collection, q,null,maxQueryTimeMS).executeAndUnwrap();
             }
             if (oldDBObject != null) {
                 if (md.getAccess().getUpdate().hasAccess(ctx.getCallerRoles())) {
@@ -134,21 +140,13 @@ public class BasicDocSaver implements DocSaver {
         }
 
         LOGGER.debug("Write result {}", result);
-        if (result != null) {
-            if (error == null) {
-                error = result.getError();
-            }
-            if (error != null) {
-                inputDoc.addError(Error.get(op.toString(), MongoCrudConstants.ERR_SAVE_ERROR, error));
-            }
-        }
     }
 
     private DBObject getLookupQ(Field[] fields,Object[] values) {
         BasicDBObject dbObject=new BasicDBObject();
         for(int i=0;i<fields.length;i++) {
             String path=Translator.translatePath(fields[i].getFullPath());
-            if(!path.equals(MongoCRUDController.ID_STR)) 
+            if(!path.equals(MongoCRUDController.ID_STR))
                 dbObject.append(path,values[i]);
         }
         return dbObject;
@@ -177,7 +175,7 @@ public class BasicDocSaver implements DocSaver {
         }
         return true;
     }
-                     
+
 
     private WriteResult insertDoc(CRUDOperationContext ctx,
             DBCollection collection,
@@ -199,7 +197,7 @@ public class BasicDocSaver implements DocSaver {
                     inputDoc.setCRUDOperationPerformed(CRUDOperation.INSERT);
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_INSERT_DOC, ctx, inputDoc);
                     return r;
-                } catch (MongoException.DuplicateKey dke) {
+                } catch (DuplicateKeyException dke) {
                     LOGGER.error("saveOrInsert failed: {}", dke);
                     inputDoc.addError(Error.get("insert", MongoCrudConstants.ERR_DUPLICATE, dke));
                 }

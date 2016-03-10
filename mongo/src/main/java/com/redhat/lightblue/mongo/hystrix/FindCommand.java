@@ -43,6 +43,11 @@ public class FindCommand extends AbstractMongoCommand<DBCursor> {
         this.projection = projection;
     }
 
+    /**
+     * Caller must handle closing the cursor.
+     * 
+     * @return 
+     */
     @Override
     protected DBCursor runMongoCommand() {
         DBObject q=query==null?new BasicDBObject():query;

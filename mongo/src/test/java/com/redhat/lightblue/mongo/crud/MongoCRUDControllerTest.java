@@ -36,10 +36,12 @@ import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
+import com.redhat.lightblue.ExecutionOptions;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDInsertionResponse;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDFindResponse;
+import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDSaveResponse;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.DocCtx;
@@ -436,7 +438,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(2,readDoc.get(new Path("field3")).asInt());
     }
 
- 
+
     @Test
     public void updateTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
@@ -1150,7 +1152,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         }
         Assert.assertTrue(foundIndex);
     }
-    
+
    @Test
     public void entityIndexRemovalTest() throws Exception {
         EntityMetadata e = new EntityMetadata("testEntity");
@@ -1208,6 +1210,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         // verify that if an index already exists as unique and NOT sparse lightblue will not recreate it as sparse
 
         // 1. create the index as unique but not sparse
+
         DBCollection entityCollection = db.getCollection("testCollectionIndex2");
 
         DBObject newIndex = new BasicDBObject();
@@ -1246,7 +1249,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         DBObject mongoIndex = entityCollection.getIndexInfo().get(1);
         Assert.assertTrue("Keys on index unexpected", mongoIndex.get("key").toString().contains("field1"));
         Assert.assertEquals("Index is not unique", Boolean.TRUE, mongoIndex.get("unique"));
-        Assert.assertEquals("Index is sparse", Boolean.FALSE, mongoIndex.get("sparse"));
+        Boolean sparse = (Boolean) mongoIndex.get("sparse");
+        sparse = sparse == null ? Boolean.FALSE : sparse;
+        Assert.assertEquals("Index is sparse", Boolean.FALSE, sparse);
     }
 
     @Test
@@ -1275,14 +1280,14 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         indexFields = new ArrayList<>();
         indexFields.add(new SortKey(new Path("field1"), true));
         index.setFields(indexFields);
-        indexes.add(index);        
+        indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
         try {
             controller.beforeUpdateEntityInfo(null, e.getEntityInfo(),false);
             Assert.fail();
         } catch (Exception x) {}
     }
-    
+
 
     @Test
     public void entityIndexUpdateTest_default() throws Exception {
@@ -1341,10 +1346,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         }
         Assert.assertTrue(foundIndex);
     }
-    
+
     @Test
     public void entityIndexUpdateTest_addFieldToCompositeIndex_190() throws Exception {
-        
+
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
         e.setStatus(MetadataStatus.ACTIVE);
@@ -1359,7 +1364,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         List<SortKey> indexFields = new ArrayList<>();
         indexFields.add(new SortKey(new Path("field1"), true));
         indexFields.add(new SortKey(new Path("field2"), true));
-        index.setFields(indexFields);        
+        index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
@@ -1371,10 +1376,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         indexFields.add(new SortKey(new Path("field3"), true));
         index.setFields(indexFields);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
-        
+
         controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
-        DBCollection entityCollection = db.getCollection("testCollectionIndex2");       
+        DBCollection entityCollection = db.getCollection("testCollectionIndex2");
 
         boolean foundIndex = false;
 
@@ -1704,4 +1709,59 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertNull(ctx.getDocuments().get(0).get(new Path("field7.0.elemf1")));
     }
 
+    @Test
+    public void getMaxQueryTimeMS_noConfig_noOptions() throws Exception {
+        long expected = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS;
+        
+        long maxQueryTimeMS = controller.getMaxQueryTimeMS(null, null);
+        
+        Assert.assertEquals(expected, maxQueryTimeMS);
+    }
+
+    @Test
+    public void getMaxQueryTimeMS_Config_noOptions() throws Exception {
+        long expected = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS * 2;
+        
+        MongoConfiguration config = new MongoConfiguration();
+        config.setMaxQueryTimeMS(expected);
+        long maxQueryTimeMS = controller.getMaxQueryTimeMS(config, null);
+        
+        Assert.assertEquals(expected, maxQueryTimeMS);
+    }
+    
+    @Test
+    public void getMaxQueryTimeMS_Config_Options() throws Exception {
+        long expected = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS * 2;
+        
+        MongoConfiguration config = new MongoConfiguration();
+        config.setMaxQueryTimeMS(expected * 3);
+        ExecutionOptions options = new ExecutionOptions();
+        options.getOptions().put(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS, String.valueOf(expected));
+        CRUDOperationContext context = new CRUDOperationContext(CRUDOperation.SAVE, COLL_NAME, factory, null, options) {
+            @Override
+            public EntityMetadata getEntityMetadata(String entityName) {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+            }
+        };
+        long maxQueryTimeMS = controller.getMaxQueryTimeMS(config, context);
+        
+        Assert.assertEquals(expected, maxQueryTimeMS);
+    }
+    
+    @Test
+    public void getMaxQueryTimeMS_noConfig_Options() throws Exception {
+        long expected = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS * 2;
+        
+        ExecutionOptions options = new ExecutionOptions();
+        options.getOptions().put(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS, String.valueOf(expected));
+        CRUDOperationContext context = new CRUDOperationContext(CRUDOperation.SAVE, COLL_NAME, factory, null, options) {
+            @Override
+            public EntityMetadata getEntityMetadata(String entityName) {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+            }
+        };
+        long maxQueryTimeMS = controller.getMaxQueryTimeMS(null, context);
+        
+        Assert.assertEquals(expected, maxQueryTimeMS);
+    }
 }

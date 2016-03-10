@@ -18,12 +18,16 @@
  */
 package com.redhat.lightblue.mongo.config;
 
+import java.util.Arrays;
+
 import org.junit.Assert;
 import org.junit.Test;
 
 import com.mongodb.ReadPreference;
 import com.mongodb.TaggableReadPreference;
 import com.mongodb.BasicDBObject;
+import com.mongodb.TagSet;
+import com.mongodb.Tag;
 
 public class MongoReadPreferenceTest {
 
@@ -36,19 +40,21 @@ public class MongoReadPreferenceTest {
     @Test
     public void testNearestArgs() {
         TaggableReadPreference pref=(TaggableReadPreference)MongoReadPreference.parse("nearest ( {\"x\":1} )");
-        Assert.assertTrue(pref.equals(ReadPreference.nearest(new BasicDBObject("x","1"))));
+        Assert.assertTrue(pref.equals(ReadPreference.nearest(new TagSet(Arrays.asList(new Tag("x","1"))))));
     }
 
     @Test
     public void testNearestArgs2() {
         TaggableReadPreference pref=(TaggableReadPreference)MongoReadPreference.parse("nearest ( [ {\"x\":1}, {\"y\":\"a\"}] )");
-        Assert.assertTrue(pref.equals(ReadPreference.nearest(new BasicDBObject("x","1"),new BasicDBObject("y","a"))));
+        Assert.assertTrue(pref.equals(ReadPreference.nearest(Arrays.asList(new TagSet(Arrays.asList(new Tag("x","1"))),
+                                                                           new TagSet(Arrays.asList(new Tag("y","a")))))));
     }
 
     @Test
     public void testNearestArgs3() {
         TaggableReadPreference pref=(TaggableReadPreference)MongoReadPreference.parse("nearest([ {\"x\":1}, {\"y\":\"a\"}])");
-        Assert.assertTrue(pref.equals(ReadPreference.nearest(new BasicDBObject("x","1"),new BasicDBObject("y","a"))));
+        Assert.assertTrue(pref.equals(ReadPreference.nearest(Arrays.asList(new TagSet(Arrays.asList(new Tag("x","1"))),
+                                                                           new TagSet(Arrays.asList(new Tag("y","a")))))));
     }
 
     @Test
