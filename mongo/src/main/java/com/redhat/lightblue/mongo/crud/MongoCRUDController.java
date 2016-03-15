@@ -49,6 +49,7 @@ import com.mongodb.MongoException;
 import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
+import com.mongodb.WriteConcern;
 import com.mongodb.util.JSON;
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.CRUDController;
@@ -853,43 +854,22 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     }
 
     private void doMultiArrayMap(DBObject doc, String index, String hidden, int arrIndex) throws IOException {
-        String[] indexSplit = index.split("\\*");
+        String[] indexSplit = splitArrayPath(index);
         String fieldPre = indexSplit[0];
-        fieldPre = fieldPre.substring(0, fieldPre.length() - 1);
-        String fieldPost = StringUtils.join(Arrays.copyOfRange(indexSplit, 1, indexSplit.length), "*");
-        if (!fieldPost.isEmpty()) {
-            if (index.lastIndexOf("*") == index.length() - 1) {
-                // re-append the * from the split
-                fieldPost += "*";
-            } else if (index.lastIndexOf(".") == index.length() - 1) {
-                fieldPost = fieldPost.substring(0, fieldPost.length() - 1);
-            }
-        }
+        String fieldPost = indexSplit[1];
 
-        String[] hiddenSplit = hidden.split("\\*");
+        String[] hiddenSplit = splitArrayPath(hidden);
         String hiddenPre = hiddenSplit[0];
-        hiddenPre = hiddenPre.substring(0, hiddenPre.length() - 1);
-        String hiddenPost = StringUtils.join(Arrays.copyOfRange(hiddenSplit, 1, hiddenSplit.length), "*");
-        if (!hiddenPost.isEmpty()) {
-            if (hidden.lastIndexOf("*") == hidden.length() - 1) {
-                // re-append the * from the split
-                hiddenPost += "*";
-            } else if (hidden.lastIndexOf("*") == hidden.length() - 1) {
-                hiddenPost = hiddenPost.substring(0, hiddenPost.length() - 1);
-            }
-        }
+        String hiddenPost = hiddenSplit[1];
 
-        Object dbObject = Translator.getDBObject(doc, new Path(fieldPre));
-        BasicDBList docArr = (BasicDBList) dbObject;
+        BasicDBList docArr = (BasicDBList) Translator.getDBObject(doc, new Path(fieldPre));
         if (docArr != null) {
             ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
             for (int i = 0; i < docArr.size(); i++) {
                 // check if there's an array in the index
                 int indx = fieldPost.indexOf("*");
-
                 String fullIdxPath = fieldPre + "." + i + fieldPost;
                 String fullHiddenPath = hiddenPre + "." + i + hiddenPost;
-
                 if (indx > -1) {
                     // if we have another array, descend
                     doMultiArrayMap(doc, fullIdxPath, fullHiddenPath, indx);
@@ -903,55 +883,61 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                         node = object.toString().toUpperCase();
                     }
                     JsonDoc.modify(arrNode, new Path(fullHiddenPath), JsonNodeFactory.instance.textNode(node), true);
-
                 }
-                String updateJsonString = new ObjectMapper().writeValueAsString(arrNode);
-                String docJsonString = new ObjectMapper().writeValueAsString(doc);
-
                 ObjectMapper mapper = new ObjectMapper();
-
-                JsonNode merged = merge(mapper.readTree(docJsonString), mapper.readTree(updateJsonString));
-
+                JsonNode merged = merge(mapper.readTree(mapper.writeValueAsString(doc)), mapper.readTree(mapper.writeValueAsString(arrNode)));
                 DBObject obj = (DBObject) JSON.parse(merged.toString());
-
                 ((BasicDBObject) doc).clear();
                 ((BasicDBObject) doc).putAll(obj);;
             }
         }
     }
 
-    public static JsonNode merge(JsonNode mainNode, JsonNode updateNode) {
+    /**
+     * Splits a path with a * based on its first occurence
+     *
+     * @param index
+     * @return
+     */
+    private String[] splitArrayPath(String index) {
+        String[] indexSplit = index.split("\\*");
+        String fieldPre = indexSplit[0];
+        fieldPre = fieldPre.substring(0, fieldPre.length() - 1);
+        String fieldPost = StringUtils.join(Arrays.copyOfRange(indexSplit, 1, indexSplit.length), "*");
+        if (!fieldPost.isEmpty()) {
+            if (index.lastIndexOf("*") == index.length() - 1) {
+                // re-append the * from the split
+                fieldPost += "*";
+            } else if (index.lastIndexOf(".") == index.length() - 1) {
+                fieldPost = fieldPost.substring(0, fieldPost.length() - 1);
+            }
+        }
+        return new String[]{fieldPre, fieldPost};
+    }
 
-        Iterator<String> fieldNames = updateNode.fieldNames();
-
-        while (fieldNames.hasNext()) {
-            String updatedFieldName = fieldNames.next();
-            JsonNode valueToBeUpdated = mainNode.get(updatedFieldName);
-            JsonNode updatedValue = updateNode.get(updatedFieldName);
-
-            // If the node is an @ArrayNode
+    private static JsonNode merge(JsonNode mainNode, JsonNode updateNode) {
+        updateNode.fieldNames().forEachRemaining(f -> {
+            JsonNode valueToBeUpdated = mainNode.get(f);
+            JsonNode updatedValue = updateNode.get(f);
+            // if node is an array
             if (valueToBeUpdated != null && updatedValue.isArray()) {
-                // running a loop for all elements of the updated ArrayNode
                 for (int i = 0; i < updatedValue.size(); i++) {
                     JsonNode updatedChildNode = updatedValue.get(i);
-                    // Create a new Node in the node that should be updated, if there was no corresponding node in it
-                    // Use-case - where the updateNode will have a new element in its Array
                     if (valueToBeUpdated.size() <= i) {
                         ((ArrayNode) valueToBeUpdated).add(updatedChildNode);
                     }
-                    // getting reference for the node to be updated
                     JsonNode childNodeToBeUpdated = valueToBeUpdated.get(i);
                     merge(childNodeToBeUpdated, updatedChildNode);
                 }
-            // if the Node is an @ObjectNode
+            // if node is an object
             } else if (valueToBeUpdated != null && valueToBeUpdated.isObject()) {
                 merge(valueToBeUpdated, updatedValue);
             } else {
                 if (mainNode instanceof ObjectNode) {
-                    ((ObjectNode) mainNode).replace(updatedFieldName, updatedValue);
+                    ((ObjectNode) mainNode).replace(f, updatedValue);
                 }
             }
-        }
+        });
         return mainNode;
     }
 
