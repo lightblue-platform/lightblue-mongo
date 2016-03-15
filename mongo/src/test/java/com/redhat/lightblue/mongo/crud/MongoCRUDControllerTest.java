@@ -104,21 +104,16 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         EntityMetadata md = createMetadata();
         controller.afterUpdateEntityInfo(null, md.getEntityInfo(),false);
-
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
         ctx.add(md);
-
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
         ctx.addDocument(doc);
-
         CRUDInsertionResponse insert = controller.insert(ctx, null);
-
         md = addCIIndexes(md);
-
         controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
 
         // wait a couple of seconds because the update runs in a background thread
-        Thread.sleep(2000);
+        Thread.sleep(10000);
         DBCursor cursor = db.getCollection("testCollectionIndex1").find();
         cursor.forEach(obj -> {
             assertTrue(obj.containsField("@mongoHidden.field3"));
@@ -293,21 +288,43 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     private EntityMetadata addCIIndexes(EntityMetadata e) {
-        Index index = new Index();
-        index.setName("testIndex");
-        index.setUnique(true);
-        List<IndexSortKey> indexFields = new ArrayList<>();
-        indexFields.add(new IndexSortKey(new Path("field1"), true));
-        indexFields.add(new IndexSortKey(new Path("field3"), true, true));
-        indexFields.add(new IndexSortKey(new Path("arrayField.*"), true, true));
-        indexFields.add(new IndexSortKey(new Path("arrayObj.*.x"), true, true));
-        indexFields.add(new IndexSortKey(new Path("arrayObj.*.arraySubObj.*"), true, true));
-        indexFields.add(new IndexSortKey(new Path("field2.x"), true, true));
-        indexFields.add(new IndexSortKey(new Path("field2.subArrayField.*"), true, true));
+        Index index1 = new Index();
+        index1.setName("testIndex1");
+        index1.setUnique(true);
+        List<IndexSortKey> indexFields1 = new ArrayList<>();
+        indexFields1.add(new IndexSortKey(new Path("field1"), true));
+        indexFields1.add(new IndexSortKey(new Path("field3"), true, true));
+        indexFields1.add(new IndexSortKey(new Path("arrayField.*"), true, true));
+        indexFields1.add(new IndexSortKey(new Path("field2.x"), true, true));
+        index1.setFields(indexFields1);
 
-        index.setFields(indexFields);
+        Index index2 = new Index();
+        index2.setName("testIndex2");
+        index2.setUnique(true);
+        List<IndexSortKey> indexFields2 = new ArrayList<>();
+        indexFields2.add(new IndexSortKey(new Path("arrayObj.*.x"), true, true));
+        index2.setFields(indexFields2);
+
+        Index index3 = new Index();
+        index3.setName("testIndex3");
+        index3.setUnique(true);
+        List<IndexSortKey> indexFields3 = new ArrayList<>();
+        indexFields3.add(new IndexSortKey(new Path("arrayObj.*.arraySubObj.*"), true, true));
+        index3.setFields(indexFields3);
+
+        Index index4 = new Index();
+        index4.setName("testIndex4");
+        index4.setUnique(true);
+        List<IndexSortKey> indexFields4 = new ArrayList<>();
+        indexFields4.add(new IndexSortKey(new Path("field2.subArrayField.*"), true, true));
+        index4.setFields(indexFields4);
+
+
         List<Index> indexes = new ArrayList<>();
-        indexes.add(index);
+        indexes.add(index1);
+        indexes.add(index2);
+        indexes.add(index3);
+        indexes.add(index4);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
         return e;
     }

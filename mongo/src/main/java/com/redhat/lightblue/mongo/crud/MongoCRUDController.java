@@ -49,7 +49,6 @@ import com.mongodb.MongoException;
 import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
-import com.mongodb.WriteConcern;
 import com.mongodb.util.JSON;
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.CRUDController;
@@ -780,7 +779,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 LOGGER.info("Executing post-index creation updates...");
                 // if we're not running in the background, we need to execute the items in this block afterwards
                 // caseInsensitive indexes have been updated or created, run the server-side updater on mongo to recalculate all hidden fields
-
                 Thread pop = new Thread(new Runnable() {
                     @Override
                     public void run() {
@@ -802,7 +800,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         } finally {
             Error.pop();
         }
-
         LOGGER.debug("createUpdateEntityInfoIndexes: end");
     }
 
@@ -829,11 +826,23 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             for (String index : fieldMap.keySet()) {
                 int arrIndex = index.indexOf("*");
                 if (arrIndex > -1) {
-                    // only recurse if we have to go more than one array deep
+                    // recurse if we have any arrays
                     doMultiArrayMap(doc, index, fieldMap.get(index), arrIndex);
                 } else {
                     if (doc.containsField(index)) {
-                        doc.put(fieldMap.get(index), doc.get(index).toString().toUpperCase());
+                        ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
+                        JsonDoc.modify(arrNode, new Path(fieldMap.get(index)), JsonNodeFactory.instance.textNode(doc.get(index).toString().toUpperCase()), true);
+                        String updateJsonString = new ObjectMapper().writeValueAsString(arrNode);
+                        String docJsonString = new ObjectMapper().writeValueAsString(doc);
+
+                        ObjectMapper mapper = new ObjectMapper();
+
+                        JsonNode merged = merge(mapper.readTree(docJsonString), mapper.readTree(updateJsonString));
+
+                        DBObject obj = (DBObject) JSON.parse(merged.toString());
+
+                        ((BasicDBObject) doc).clear();
+                        ((BasicDBObject) doc).putAll(obj);;
                     }
                 }
             }
@@ -907,10 +916,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
                 ((BasicDBObject) doc).clear();
                 ((BasicDBObject) doc).putAll(obj);;
-
-
-                /*DBObject obj = (DBObject) JSON.parse(jsonString);
-                doc.putAll(obj);*/
             }
         }
     }
