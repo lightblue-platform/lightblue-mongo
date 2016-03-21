@@ -296,6 +296,8 @@ public class MongoConfiguration implements DataSourceConfiguration {
             append("database:").append(database).append('\n').
             append("ssl:").append(ssl).append('\n').
             append("writeConcern:").append(writeConcern).append('\n').
+            append("maxQueryTimeMS:").append(maxQueryTimeMS).append('\n').
+            append("readPreference:").append(readPreference).append('\n').
             append("noCertValidation:").append(noCertValidation).append('\n').
             append("maxResultSetSize:").append(maxResultSetSize);
         bld.append("credentials:");
@@ -421,10 +423,14 @@ public class MongoConfiguration implements DataSourceConfiguration {
             if (x != null) {
                 database = x.asText();
             }
+            
+            // DEPRECATED see driverOptions
             x = node.get("writeConcern");
             if(x != null){
                 writeConcern = WriteConcern.valueOf(x.asText());
             }
+            
+            // DEPRECATED see driverOptions
             x = node.get("maxResultSetSize");
             if(x!=null) {
                 maxResultSetSize=x.asInt();
@@ -486,6 +492,14 @@ public class MongoConfiguration implements DataSourceConfiguration {
                 if (maxQueryTimeMSOption != null) {
                     this.maxQueryTimeMS = maxQueryTimeMSOption.asLong();
                 }
+
+                JsonNode writeConcernOption = jsonNodeOptions.get("writeConcern");
+                if (writeConcernOption != null)
+                    this.writeConcern = WriteConcern.valueOf(writeConcernOption.asText());
+
+                JsonNode maxResultSetSizeOption = jsonNodeOptions.get("maxResultSetSize");
+                if (maxResultSetSizeOption != null)
+                    this.maxResultSetSize = maxResultSetSizeOption.asInt();
             }
         }
     }

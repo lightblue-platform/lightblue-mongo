@@ -66,5 +66,117 @@
         "driverOptions": {
             "maxQueryTimeMS": 98765
         }
+    },
+    "mongodata_writeConcern_deprecated": {
+        "type": "com.redhat.lightblue.mongo.config.MongoConfiguration",
+        "metadataDataStoreParser": "com.redhat.lightblue.mongo.metadata.MongoDataStoreParser",
+        "ssl": true,
+        "database": "data",
+        "writeConcern": "SAFE",
+        "credentials": {
+            "mechanism": "MONGODB_CR_MECHANISM",
+            "userName": "lightblue",
+            "password": "password",
+            "source": "admin"
+        },
+        "server": {
+            "host": "lightbluemongo4.dev.int.phx1.redhat.com",
+            "port": "27017"
+        }
+    },
+    "mongodata_maxResultSetSize_deprecated": {
+        "type": "com.redhat.lightblue.mongo.config.MongoConfiguration",
+        "metadataDataStoreParser": "com.redhat.lightblue.mongo.metadata.MongoDataStoreParser",
+        "ssl": true,
+        "database": "data",
+        "maxResultSetSize": 12345,
+        "credentials": {
+            "mechanism": "MONGODB_CR_MECHANISM",
+            "userName": "lightblue",
+            "password": "password",
+            "source": "admin"
+        },
+        "server": {
+            "host": "lightbluemongo4.dev.int.phx1.redhat.com",
+            "port": "27017"
+        }
+    },
+    "mongodata_writeConcern_deprecated_override": {
+        "type": "com.redhat.lightblue.mongo.config.MongoConfiguration",
+        "metadataDataStoreParser": "com.redhat.lightblue.mongo.metadata.MongoDataStoreParser",
+        "ssl": true,
+        "database": "data",
+        "writeConcern": "SAFE",
+        "credentials": {
+            "mechanism": "MONGODB_CR_MECHANISM",
+            "userName": "lightblue",
+            "password": "password",
+            "source": "admin"
+        },
+        "server": {
+            "host": "lightbluemongo4.dev.int.phx1.redhat.com",
+            "port": "27017"
+        },
+        "driverOptions": {
+            "writeConcern": "W1"
+        }
+    },
+    "mongodata_maxResultSetSize_deprecated_override": {
+        "type": "com.redhat.lightblue.mongo.config.MongoConfiguration",
+        "metadataDataStoreParser": "com.redhat.lightblue.mongo.metadata.MongoDataStoreParser",
+        "ssl": true,
+        "database": "data",
+        "maxResultSetSize": 12345,
+        "credentials": {
+            "mechanism": "MONGODB_CR_MECHANISM",
+            "userName": "lightblue",
+            "password": "password",
+            "source": "admin"
+        },
+        "server": {
+            "host": "lightbluemongo4.dev.int.phx1.redhat.com",
+            "port": "27017"
+        },
+        "driverOptions": {
+            "maxResultSetSize": 54321
+        }
+    },
+    "mongodata_writeConcern": {
+        "type": "com.redhat.lightblue.mongo.config.MongoConfiguration",
+        "metadataDataStoreParser": "com.redhat.lightblue.mongo.metadata.MongoDataStoreParser",
+        "ssl": true,
+        "database": "data",
+        "credentials": {
+            "mechanism": "MONGODB_CR_MECHANISM",
+            "userName": "lightblue",
+            "password": "password",
+            "source": "admin"
+        },
+        "server": {
+            "host": "lightbluemongo4.dev.int.phx1.redhat.com",
+            "port": "27017"
+        },
+        "driverOptions": {
+            "writeConcern": "SAFE"
+        }
+    },
+    "mongodata_maxResultSetSize": {
+        "type": "com.redhat.lightblue.mongo.config.MongoConfiguration",
+        "metadataDataStoreParser": "com.redhat.lightblue.mongo.metadata.MongoDataStoreParser",
+        "ssl": true,
+        "database": "data",
+        "credentials": {
+            "mechanism": "MONGODB_CR_MECHANISM",
+            "userName": "lightblue",
+            "password": "password",
+            "source": "admin"
+        },
+        "server": {
+            "host": "lightbluemongo4.dev.int.phx1.redhat.com",
+            "port": "27017"
+        },
+        "driverOptions": {
+            "maxResultSetSize": 12345
+        }
     }
 }
