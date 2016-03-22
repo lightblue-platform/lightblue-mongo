@@ -18,6 +18,7 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -116,25 +117,28 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
 
         // wait a couple of seconds because the update runs in a background thread
-        Thread.sleep(10000);
+        Thread.sleep(2000);
         DBCursor cursor = db.getCollection("testCollectionIndex1").find();
         cursor.count();
         List<DBObject> collect = StreamSupport.stream(cursor.spliterator(), false).collect(Collectors.toList());
         cursor.forEach(obj -> {
             DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
-            assertTrue(hidden.containsField("field3"));
-            assertTrue(hidden.containsField("arrayField"));
-
             DBObject arrayObj0Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
             DBObject arrayObj1Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(1)).get(Translator.HIDDEN_SUB_PATH.toString());
-            assertTrue(arrayObj0Hidden.containsField("x"));
-            assertTrue(arrayObj0Hidden.containsField("arraySubObj"));
-            assertTrue(arrayObj1Hidden.containsField("x"));
-            assertTrue(arrayObj1Hidden.containsField("arraySubObj"));
-
             DBObject field2Hidden = (DBObject) ((DBObject) obj.get("field2")).get(Translator.HIDDEN_SUB_PATH.toString());
-            assertTrue(field2Hidden.containsField("x"));
-            assertTrue(field2Hidden.containsField("subArrayField"));
+
+            assertEquals("FIELDTHREE", hidden.get("field3"));
+            assertEquals("ARRAYFIELDONE", ((BasicDBList) hidden.get("arrayField")).get(0));
+            assertEquals("ARRAYFIELDTWO", ((BasicDBList) hidden.get("arrayField")).get(1));
+            assertEquals("ARRAYOBJXONE", arrayObj0Hidden.get("x"));
+            assertEquals("ARRAYOBJONESUBOBJONE", ((BasicDBList) arrayObj0Hidden.get("arraySubObj")).get(0));
+            assertEquals("ARRAYOBJONESUBOBJTWO", ((BasicDBList) arrayObj0Hidden.get("arraySubObj")).get(1));
+            assertEquals("ARRAYOBJXTWO", arrayObj1Hidden.get("x"));
+            assertEquals("ARRAYOBJTWOSUBOBJONE", ((BasicDBList) arrayObj1Hidden.get("arraySubObj")).get(0));
+            assertEquals("ARRAYOBJTWOSUBOBJTWO", ((BasicDBList) arrayObj1Hidden.get("arraySubObj")).get(1));
+            assertEquals("FIELDTWOX", field2Hidden.get("x"));
+            assertEquals("FIELDTWOSUBARRONE", ((BasicDBList) field2Hidden.get("subArrayField")).get(0));
+            assertEquals("FIELDTWOSUBARRTWO", ((BasicDBList) field2Hidden.get("subArrayField")).get(1));
         });
     }
 
