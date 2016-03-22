@@ -49,7 +49,6 @@ import com.mongodb.MongoException;
 import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
-import com.mongodb.WriteConcern;
 import com.mongodb.util.JSON;
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.CRUDController;
@@ -816,6 +815,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
      * @throws IOException
      * @throws URISyntaxException
      */
+    @SuppressWarnings("unused")
     protected void populateHiddenFields(EntityInfo ei, Map<String, String> fieldMap) throws IOException {
         LOGGER.debug("Starting population of hidden fields due to new or modified indexes.");
         MongoDataStore ds = (MongoDataStore) ei.getDataStore();
@@ -831,24 +831,17 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     // recurse if we have any arrays
                     doMultiArrayMap(doc, index, fieldMap.get(index), arrIndex);
                 } else {
-                    if (doc.containsField(index)) {
-                        ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
-                        JsonDoc.modify(arrNode, new Path(fieldMap.get(index)), JsonNodeFactory.instance.textNode(doc.get(index).toString().toUpperCase()), true);
-                        String updateJsonString = new ObjectMapper().writeValueAsString(arrNode);
-                        String docJsonString = new ObjectMapper().writeValueAsString(doc);
-
-                        ObjectMapper mapper = new ObjectMapper();
-
-                        JsonNode merged = merge(mapper.readTree(docJsonString), mapper.readTree(updateJsonString));
-
-                        DBObject obj = (DBObject) JSON.parse(merged.toString());
-
-                        ((BasicDBObject) doc).clear();
-                        ((BasicDBObject) doc).putAll(obj);;
-                    }
+                    Object dbObject = Translator.getDBObject(doc, new Path(index));
+                    ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
+                    JsonDoc.modify(arrNode, new Path(fieldMap.get(index)), JsonNodeFactory.instance.textNode(dbObject.toString().toUpperCase()), true);
+                    ObjectMapper mapper = new ObjectMapper();
+                    JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
+                    DBObject obj = (DBObject) JSON.parse(merged.toString());
+                    ((BasicDBObject) doc).clear();
+                    ((BasicDBObject) doc).putAll(obj);
                 }
             }
-            coll.save(doc, WriteConcern.ACKNOWLEDGED);
+            coll.save(doc);
         }
         cursor.close();
         LOGGER.debug("Finished population of hidden fields.");
@@ -886,7 +879,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     JsonDoc.modify(arrNode, new Path(fullHiddenPath), JsonNodeFactory.instance.textNode(node), true);
                 }
                 ObjectMapper mapper = new ObjectMapper();
-                JsonNode merged = merge(mapper.readTree(mapper.writeValueAsString(doc)), mapper.readTree(mapper.writeValueAsString(arrNode)));
+                JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
                 DBObject obj = (DBObject) JSON.parse(merged.toString());
                 ((BasicDBObject) doc).clear();
                 ((BasicDBObject) doc).putAll(obj);;
