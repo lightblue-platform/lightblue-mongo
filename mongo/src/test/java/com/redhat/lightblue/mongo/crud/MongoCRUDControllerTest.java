@@ -38,6 +38,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
@@ -120,13 +121,20 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         cursor.count();
         List<DBObject> collect = StreamSupport.stream(cursor.spliterator(), false).collect(Collectors.toList());
         cursor.forEach(obj -> {
-            // TODO: These assertions don't actually work, need to get each level
-            assertTrue(obj.toString().contains("@mongoHidden.field3"));
-            assertTrue(obj.toString().contains("arrayObj.*.@mongoHidden.x"));
-            assertTrue(obj.toString().contains("arrayObj.*.@mongoHidden.arraySubObj.*"));
-            assertTrue(obj.toString().contains("@mongoHidden.arrayField.*"));
-            assertTrue(obj.toString().contains("field2.@mongoHidden.x"));
-            assertTrue(obj.toString().contains("field2.@mongoHidden.subArrayField.*"));
+            DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
+            assertTrue(hidden.containsField("field3"));
+            assertTrue(hidden.containsField("arrayField"));
+
+            DBObject arrayObj0Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
+            DBObject arrayObj1Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(1)).get(Translator.HIDDEN_SUB_PATH.toString());
+            assertTrue(arrayObj0Hidden.containsField("x"));
+            assertTrue(arrayObj0Hidden.containsField("arraySubObj"));
+            assertTrue(arrayObj1Hidden.containsField("x"));
+            assertTrue(arrayObj1Hidden.containsField("arraySubObj"));
+
+            DBObject field2Hidden = (DBObject) ((DBObject) obj.get("field2")).get(Translator.HIDDEN_SUB_PATH.toString());
+            assertTrue(field2Hidden.containsField("x"));
+            assertTrue(field2Hidden.containsField("subArrayField"));
         });
     }
 
