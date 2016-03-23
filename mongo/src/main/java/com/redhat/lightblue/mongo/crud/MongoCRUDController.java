@@ -814,21 +814,22 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
      * @throws IOException
      */
     public void reindex(EntityMetadata md) throws IOException {
-        Map<String, String> fieldMap = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes())
-                .collect(Collectors.toMap(
-                        i -> i.getField().toString(),
-                        i -> Translator.getHiddenForField(i.getField()).toString()));
-        populateHiddenFields(md.getEntityInfo(), fieldMap);
+        Map<String, String> fieldMap = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes()).collect(Collectors.toMap(i -> i.getField().toString(),
+                i -> Translator.getHiddenForField(i.getField()).toString()));
+        if (!fieldMap.keySet().isEmpty()) {
+            populateHiddenFields(md.getEntityInfo(), fieldMap);
+        }
     }
 
     /**
      *
      * Populates all hidden fields from their initial index values in the collection in this context
      *
-     * This method has the potential to be extremely heavy and nonperformant.  Recommended to run in a background thread.
+     * This method has the potential to be extremely heavy and nonperformant. Recommended to run in a background thread.
      *
      * @param ei
-     * @param fieldMap <index, hiddenPath>
+     * @param fieldMap
+     *            <index, hiddenPath>
      * @throws IOException
      * @throws URISyntaxException
      */
@@ -845,8 +846,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             for (String index : fieldMap.keySet()) {
                 int arrIndex = index.indexOf("*");
                 if (arrIndex > -1) {
-                    // recurse if we have any arrays
-                    doMultiArrayMap(doc, index, fieldMap.get(index), arrIndex);
+                    // recurse if we have more arrays in the path
+                    populateHiddenArrayField(doc, index, fieldMap.get(index));
                 } else {
                     Object dbObject = Translator.getDBObject(doc, new Path(index));
                     ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
@@ -866,7 +867,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("Finished population of hidden fields.");
     }
 
-    private void doMultiArrayMap(DBObject doc, String index, String hidden, int arrIndex) throws IOException {
+    /**
+     * Given an index and it's hidden counterpart, populate the document with the correct value for the hidden field
+     *
+     * @param doc
+     * @param index
+     * @param hidden
+     * @throws IOException
+     */
+    private void populateHiddenArrayField(DBObject doc, String index, String hidden) throws IOException {
         String[] indexSplit = splitArrayPath(index);
         String fieldPre = indexSplit[0];
         String fieldPost = indexSplit[1];
@@ -885,12 +894,12 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 String fullHiddenPath = hiddenPre + "." + i + hiddenPost;
                 if (indx > -1) {
                     // if we have another array, descend
-                    doMultiArrayMap(doc, fullIdxPath, fullHiddenPath, indx);
+                    populateHiddenArrayField(doc, fullIdxPath, fullHiddenPath);
                 } else {
                     // if no more arrays, set the field and continue
                     String node = null;
                     Object object = docArr.get(i);
-                    if(object instanceof BasicDBObject) {
+                    if (object instanceof BasicDBObject) {
                         node = ((BasicDBObject) object).get(fieldPost.substring(1)).toString().toUpperCase();
                     } else {
                         node = object.toString().toUpperCase();
@@ -901,16 +910,17 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
                 DBObject obj = (DBObject) JSON.parse(merged.toString());
                 ((BasicDBObject) doc).clear();
-                ((BasicDBObject) doc).putAll(obj);;
+                ((BasicDBObject) doc).putAll(obj);
+                ;
             }
         }
     }
 
     /**
-     * Splits a path with a * based on its first occurence
+     * Splits a path with a * based on its first occurrence
      *
      * @param index
-     * @return
+     * @return A tuple where the first index is the path before the array and the second index is the path after the array
      */
     private String[] splitArrayPath(String index) {
         String[] indexSplit = index.split("\\*");
