@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.StringUtils;
 import org.bson.types.ObjectId;
@@ -805,6 +806,22 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     }
 
     /**
+     * Reindexes all lightblue managed, hidden, indexes.
+     *
+     * This operation is blocking and is therefore suggested to be ran in a separate thread
+     *
+     * @param md
+     * @throws IOException
+     */
+    public void reindex(EntityMetadata md) throws IOException {
+        Map<String, String> fieldMap = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes())
+                .collect(Collectors.toMap(
+                        i -> i.getField().toString(),
+                        i -> Translator.getHiddenForField(i.getField()).toString()));
+        populateHiddenFields(md.getEntityInfo(), fieldMap);
+    }
+
+    /**
      *
      * Populates all hidden fields from their initial index values in the collection in this context
      *
@@ -815,7 +832,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
      * @throws IOException
      * @throws URISyntaxException
      */
-    @SuppressWarnings("unused")
     protected void populateHiddenFields(EntityInfo ei, Map<String, String> fieldMap) throws IOException {
         LOGGER.debug("Starting population of hidden fields due to new or modified indexes.");
         MongoDataStore ds = (MongoDataStore) ei.getDataStore();
@@ -825,6 +841,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
         while (cursor.hasNext()) {
             DBObject doc = cursor.next();
+            DBObject original = (DBObject) ((BasicDBObject) doc).copy();
             for (String index : fieldMap.keySet()) {
                 int arrIndex = index.indexOf("*");
                 if (arrIndex > -1) {
@@ -841,7 +858,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     ((BasicDBObject) doc).putAll(obj);
                 }
             }
-            coll.save(doc);
+            if (!doc.equals(original)) {
+                coll.save(doc);
+            }
         }
         cursor.close();
         LOGGER.debug("Finished population of hidden fields.");
