@@ -127,6 +127,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             DBObject arrayObj1Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(1)).get(Translator.HIDDEN_SUB_PATH.toString());
             DBObject field2Hidden = (DBObject) ((DBObject) obj.get("field2")).get(Translator.HIDDEN_SUB_PATH.toString());
 
+
             assertEquals("FIELDTHREE", hidden.get("field3"));
             assertEquals("ARRAYFIELDONE", ((BasicDBList) hidden.get("arrayField")).get(0));
             assertEquals("ARRAYFIELDTWO", ((BasicDBList) hidden.get("arrayField")).get(1));
@@ -209,7 +210,6 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         DBCollection entityCollection = db.getCollection("testCollectionIndex1");
 
         List<String> indexInfo = entityCollection.getIndexInfo().stream()
-                .filter(i -> "testIndex".equals(i.get("name")))
                 .map(j -> j.get("key"))
                 .map(i -> i.toString())
                 .collect(Collectors.toList());
