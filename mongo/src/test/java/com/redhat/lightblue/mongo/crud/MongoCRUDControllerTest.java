@@ -50,6 +50,7 @@ import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.FieldConstraint;
 import com.redhat.lightblue.metadata.FieldCursor;
 import com.redhat.lightblue.metadata.Index;
+import com.redhat.lightblue.metadata.IndexSortKey;
 import com.redhat.lightblue.metadata.MetadataStatus;
 import com.redhat.lightblue.metadata.ObjectField;
 import com.redhat.lightblue.metadata.SimpleField;
@@ -1130,9 +1131,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index();
         index.setName("testIndex");
         index.setUnique(true);
-        List<SortKey> indexFields = new ArrayList<>();
+        List<IndexSortKey> indexFields = new ArrayList<>();
         //TODO actually parse $asc/$desc here
-        indexFields.add(new SortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
@@ -1167,9 +1168,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index();
         index.setName("testIndex");
         index.setUnique(true);
-        List<SortKey> indexFields = new ArrayList<>();
+        List<IndexSortKey> indexFields = new ArrayList<>();
         //TODO actually parse $asc/$desc here
-        indexFields.add(new SortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
@@ -1233,8 +1234,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index();
         index.setName("testIndex");
         index.setUnique(true);
-        List<SortKey> indexFields = new ArrayList<>();
-        indexFields.add(new SortKey(new Path("field1"), true));
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
@@ -1269,8 +1270,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index();
         index.setName("testIndex1");
         index.setUnique(true);
-        List<SortKey> indexFields = new ArrayList<>();
-        indexFields.add(new SortKey(new Path("field1"), true));
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
@@ -1278,7 +1279,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         index.setName("testIndex2");
         index.setUnique(false);
         indexFields = new ArrayList<>();
-        indexFields.add(new SortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
@@ -1304,8 +1305,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index();
         index.setName("testIndex");
         index.setUnique(true);
-        List<SortKey> indexFields = new ArrayList<>();
-        indexFields.add(new SortKey(new Path("field1"), true));
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
@@ -1319,7 +1320,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         index.setUnique(false);
         indexFields = new ArrayList<>();
         indexFields.clear();
-        indexFields.add(new SortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         indexes = new ArrayList<>();
         indexes.add(index);
@@ -1361,9 +1362,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index();
         index.setName("modifiedIndex");
         index.setUnique(true);
-        List<SortKey> indexFields = new ArrayList<>();
-        indexFields.add(new SortKey(new Path("field1"), true));
-        indexFields.add(new SortKey(new Path("field2"), true));
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("field2"), true));
         index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
@@ -1371,9 +1372,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         indexFields = new ArrayList<>();
-        indexFields.add(new SortKey(new Path("field1"), true));
-        indexFields.add(new SortKey(new Path("field2"), true));
-        indexFields.add(new SortKey(new Path("field3"), true));
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("field2"), true));
+        indexFields.add(new IndexSortKey(new Path("field3"), true));
         index.setFields(indexFields);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
 
@@ -1457,8 +1458,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         List<Index> indexes=new ArrayList<>();
         Index ix=new Index();
-        List<SortKey> fields=new ArrayList<>();
-        fields.add(new SortKey(new Path("x.*.y"),false));
+        List<IndexSortKey> fields=new ArrayList<>();
+        fields.add(new IndexSortKey(new Path("x.*.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
@@ -1469,7 +1470,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         indexes=new ArrayList<>();
         ix=new Index();
         fields=new ArrayList<>();
-        fields.add(new SortKey(new Path("x.1.y"),false));
+        fields.add(new IndexSortKey(new Path("x.1.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
@@ -1484,7 +1485,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         indexes=new ArrayList<>();
         ix=new Index();
         fields=new ArrayList<>();
-        fields.add(new SortKey(new Path("x.y"),false));
+        fields.add(new IndexSortKey(new Path("x.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
@@ -1506,9 +1507,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         {
             Index ix = new Index();
-            List<SortKey> fields = new ArrayList<>();
-            fields.add(new SortKey(new Path("x"), false));
-            fields.add(new SortKey(new Path("y"), false));
+            List<IndexSortKey> fields = new ArrayList<>();
+            fields.add(new IndexSortKey(new Path("x"), false));
+            fields.add(new IndexSortKey(new Path("y"), false));
             ix.setFields(fields);
 
             boolean verified = false;
@@ -1525,9 +1526,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         {
             Index ix = new Index();
-            List<SortKey> fields = new ArrayList<>();
-            fields.add(new SortKey(new Path("y"), false));
-            fields.add(new SortKey(new Path("x"), false));
+            List<IndexSortKey> fields = new ArrayList<>();
+            fields.add(new IndexSortKey(new Path("y"), false));
+            fields.add(new IndexSortKey(new Path("x"), false));
             ix.setFields(fields);
 
             boolean verified = false;
@@ -1603,7 +1604,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
        Assert.assertEquals(1,collection.find().count());
 
-       Index ix2=new Index(new SortKey(new Path("field1"),false));
+       Index ix2=new Index(new IndexSortKey(new Path("field1"),false));
        e.getEntityInfo().getIndexes().add(ix2);
        // At this point, there must be an _id index in the collection
        Assert.assertEquals(1,collection.getIndexInfo().size());
@@ -1635,15 +1636,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         e.getEntitySchema().getAccess().getInsert().setRoles("anyone");
         e.getEntitySchema().getAccess().getFind().setRoles("anyone");
 
-        Index ix1=new Index(new SortKey(new Path("field1"),false),new SortKey(new Path("field2"),false));
+        Index ix1=new Index(new IndexSortKey(new Path("field1"),false),new IndexSortKey(new Path("field2"),false));
         ix1.setUnique(true);
         ix1.setName("main");
 
 
-        Index ix2=new Index(new SortKey(new Path("_id"),false));
+        Index ix2=new Index(new IndexSortKey(new Path("_id"),false));
         ix2.setUnique(true);
         e.getEntityInfo().getIndexes().add(ix2);
-        Index ix3=new Index(new SortKey(new Path("_id"),false));
+        Index ix3=new Index(new IndexSortKey(new Path("_id"),false));
         ix3.setUnique(false);
         ix3.setName("nonunique");
         e.getEntityInfo().getIndexes().add(ix3);
