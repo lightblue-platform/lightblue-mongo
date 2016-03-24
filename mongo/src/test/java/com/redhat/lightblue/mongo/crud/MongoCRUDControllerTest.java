@@ -114,7 +114,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         md = addCIIndexes(md);
         controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
 
-        Thread.sleep(2000);
+        Thread.sleep(5000);
         DBCollection coll = db.getCollection("testCollectionIndex1");
         DBCursor find = coll.find();
         DBObject obj = find.next();
@@ -147,10 +147,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
 
         // wait a couple of seconds because the update runs in a ind thread
-        Thread.sleep(2000);
+        Thread.sleep(5000);
         DBCursor cursor = db.getCollection("testCollectionIndex1").find();
         cursor.count();
-        List<DBObject> collect = StreamSupport.stream(cursor.spliterator(), false).collect(Collectors.toList());
+        StreamSupport.stream(cursor.spliterator(), false).collect(Collectors.toList());
         cursor.forEach(obj -> {
             DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
             DBObject arrayObj0Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
