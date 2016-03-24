@@ -1,0 +1,32 @@
+{
+  "objectType": "testEntity",
+  "field1": "fieldOne",
+  "field3": "fieldThree",
+  "arrayField": [
+    "arrayFieldOne",
+    "arrayFieldTwo"
+  ],
+  "arrayObj": [
+    {
+      "x": "arrayObjXOne",
+      "arraySubObj": [
+        "arrayObjOneSubObjOne",
+        "arrayObjOneSubObjTwo"
+      ]
+    },
+    {
+      "x": "arrayObjXTwo",
+      "arraySubObj": [
+        "arrayObjTwoSubObjOne",
+        "arrayObjTwoSubObjTwo"
+      ]
+    }
+  ],
+  "field2": {
+    "x": "fieldTwoX",
+    "subArrayField": [
+      "fieldTwoSubArrOne",
+      "fieldTwoSubArrTwo"
+    ]
+  }
+}

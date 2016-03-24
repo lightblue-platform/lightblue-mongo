@@ -18,12 +18,20 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import org.junit.Assert;
-import org.junit.Before;
+import
+org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -31,6 +39,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
@@ -38,20 +47,24 @@ import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.redhat.lightblue.ExecutionOptions;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
+import com.redhat.lightblue.crud.CRUDFindResponse;
 import com.redhat.lightblue.crud.CRUDInsertionResponse;
 import com.redhat.lightblue.crud.CRUDOperation;
-import com.redhat.lightblue.crud.CRUDFindResponse;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDSaveResponse;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.DocCtx;
+import com.redhat.lightblue.metadata.ArrayField;
 import com.redhat.lightblue.metadata.CompositeMetadata;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.FieldConstraint;
 import com.redhat.lightblue.metadata.FieldCursor;
 import com.redhat.lightblue.metadata.Index;
+import com.redhat.lightblue.metadata.IndexSortKey;
 import com.redhat.lightblue.metadata.MetadataStatus;
+import com.redhat.lightblue.metadata.ObjectArrayElement;
 import com.redhat.lightblue.metadata.ObjectField;
+import com.redhat.lightblue.metadata.SimpleArrayElement;
 import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.Version;
 import com.redhat.lightblue.metadata.constraints.IdentityConstraint;
@@ -61,7 +74,6 @@ import com.redhat.lightblue.mongo.common.DBResolver;
 import com.redhat.lightblue.mongo.common.MongoDataStore;
 import com.redhat.lightblue.mongo.config.MongoConfiguration;
 import com.redhat.lightblue.query.Projection;
-import com.redhat.lightblue.query.SortKey;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
@@ -88,6 +100,281 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 @Override
                 public MongoConfiguration getConfiguration(MongoDataStore store) {return null;}
       });
+    }
+
+    @Test
+    public void ensureIndexNotRecreated() throws IOException, InterruptedException {
+        db.getCollection("testCollectionIndex1").drop();
+        EntityMetadata md = createMetadata();
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
+        ctx.addDocument(doc);
+        controller.insert(ctx, null);
+        md = addCIIndexes(md);
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
+
+        Thread.sleep(5000);
+        DBCollection coll = db.getCollection("testCollectionIndex1");
+        DBCursor find = coll.find();
+        DBObject obj = find.next();
+        assertTrue(((DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString())).containsField("field3"));
+
+        DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
+        hidden.removeField("field3");
+        obj.put(Translator.HIDDEN_SUB_PATH.toString(), hidden);
+        coll.save(obj);
+        find.close();
+
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
+        coll = db.getCollection("testCollectionIndex1");
+        find = coll.find();
+        obj = find.next();
+        assertFalse(((DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString())).containsField("field3"));
+    }
+
+    @Test
+    public void createIndexAfterDataExists_CI() throws IOException, InterruptedException {
+        db.getCollection("testCollectionIndex1").drop();
+        EntityMetadata md = createMetadata();
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(),false);
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
+        ctx.addDocument(doc);
+        CRUDInsertionResponse insert = controller.insert(ctx, null);
+        md = addCIIndexes(md);
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
+
+        // wait a couple of seconds because the update runs in a ind thread
+        Thread.sleep(5000);
+        DBCursor cursor = db.getCollection("testCollectionIndex1").find();
+        cursor.count();
+        StreamSupport.stream(cursor.spliterator(), false).collect(Collectors.toList());
+        cursor.forEach(obj -> {
+            DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
+            DBObject arrayObj0Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
+            DBObject arrayObj1Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(1)).get(Translator.HIDDEN_SUB_PATH.toString());
+            DBObject field2Hidden = (DBObject) ((DBObject) obj.get("field2")).get(Translator.HIDDEN_SUB_PATH.toString());
+
+            assertEquals("FIELDTHREE", hidden.get("field3"));
+            assertEquals("ARRAYFIELDONE", ((BasicDBList) hidden.get("arrayField")).get(0));
+            assertEquals("ARRAYFIELDTWO", ((BasicDBList) hidden.get("arrayField")).get(1));
+            assertEquals("ARRAYOBJXONE", arrayObj0Hidden.get("x"));
+            assertEquals("ARRAYOBJONESUBOBJONE", ((BasicDBList) arrayObj0Hidden.get("arraySubObj")).get(0));
+            assertEquals("ARRAYOBJONESUBOBJTWO", ((BasicDBList) arrayObj0Hidden.get("arraySubObj")).get(1));
+            assertEquals("ARRAYOBJXTWO", arrayObj1Hidden.get("x"));
+            assertEquals("ARRAYOBJTWOSUBOBJONE", ((BasicDBList) arrayObj1Hidden.get("arraySubObj")).get(0));
+            assertEquals("ARRAYOBJTWOSUBOBJTWO", ((BasicDBList) arrayObj1Hidden.get("arraySubObj")).get(1));
+            assertEquals("FIELDTWOX", field2Hidden.get("x"));
+            assertEquals("FIELDTWOSUBARRONE", ((BasicDBList) field2Hidden.get("subArrayField")).get(0));
+            assertEquals("FIELDTWOSUBARRTWO", ((BasicDBList) field2Hidden.get("subArrayField")).get(1));
+        });
+    }
+
+    @Test
+    public void modifyExistingIndex_CI() {
+        EntityMetadata e = addCIIndexes(createMetadata());
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+        e.getEntityInfo().getIndexes().getIndexes().clear();
+
+        Index index = new Index();
+        index.setName("testIndex");
+        index.setUnique(true);
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true, true));
+        indexFields.add(new IndexSortKey(new Path("field3"), true));
+        indexFields.add(new IndexSortKey(new Path("arrayField.*"), true));
+        indexFields.add(new IndexSortKey(new Path("arrayObj.*.x"), true));
+        indexFields.add(new IndexSortKey(new Path("arrayObj.*.arraySubObj.*"), true));
+        indexFields.add(new IndexSortKey(new Path("field2.x"), true));
+        indexFields.add(new IndexSortKey(new Path("field2.subArrayField.*"), true));
+
+        index.setFields(indexFields);
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+        DBCollection entityCollection = db.getCollection("testCollectionIndex1");
+
+        List<String> indexInfo = entityCollection.getIndexInfo().stream()
+                .filter(i -> "testIndex".equals(i.get("name")))
+                .map(j -> j.get("key"))
+                .map(i -> i.toString())
+                .collect(Collectors.toList());
+
+        // make sure the indexes are there correctly
+        assertFalse(indexInfo.toString().contains("\"field1\""));
+        assertTrue(indexInfo.toString().contains("@mongoHidden.field1"));
+
+        assertFalse(indexInfo.toString().contains("@mongoHidden.field3"));
+        assertTrue(indexInfo.toString().contains("field3"));
+
+        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.x"));
+        assertTrue(indexInfo.toString().contains("arrayObj.x"));
+
+        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.arraySubObj.*"));
+        assertTrue(indexInfo.toString().contains("arrayObj.arraySubObj"));
+
+        assertFalse(indexInfo.toString().contains("@mongoHidden.arrayField.*"));
+        assertTrue(indexInfo.toString().contains("arrayField"));
+
+        assertFalse(indexInfo.toString().contains("field2.@mongoHidden.x"));
+        assertTrue(indexInfo.toString().contains("field2.x"));
+
+        assertFalse(indexInfo.toString().contains("field2.@mongoHidden.subArrayField.*"));
+        assertTrue(indexInfo.toString().contains("field2.subArrayField"));
+
+    }
+
+    @Test
+    public void createNewIndex_CI() {
+        EntityMetadata e = addCIIndexes(createMetadata());
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+
+        DBCollection entityCollection = db.getCollection("testCollectionIndex1");
+
+        List<String> indexInfo = entityCollection.getIndexInfo().stream()
+                .map(j -> j.get("key"))
+                .map(i -> i.toString())
+                .collect(Collectors.toList());
+
+        assertTrue(indexInfo.toString().contains("field1"));
+        assertTrue(indexInfo.toString().contains("@mongoHidden.field3"));
+        assertTrue(indexInfo.toString().contains("arrayObj.*.@mongoHidden.x"));
+        assertTrue(indexInfo.toString().contains("arrayObj.*.@mongoHidden.arraySubObj.*"));
+        assertTrue(indexInfo.toString().contains("@mongoHidden.arrayField.*"));
+        assertTrue(indexInfo.toString().contains("field2.@mongoHidden.x"));
+        assertTrue(indexInfo.toString().contains("field2.@mongoHidden.subArrayField.*"));
+    }
+
+
+    @Test
+    public void dropExistingIndex_CI() {
+        EntityMetadata e = addCIIndexes(createMetadata());
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+        e.getEntityInfo().getIndexes().getIndexes().clear();
+
+        Index index = new Index();
+        index.setName("testIndex");
+        index.setUnique(true);
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
+
+        index.setFields(indexFields);
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
+
+        DBCollection entityCollection = db.getCollection("testCollectionIndex1");
+
+        List<String> indexInfo = entityCollection.getIndexInfo().stream()
+                .filter(i -> "testIndex".equals(i.get("name")))
+                .map(j -> j.get("key"))
+                .map(i -> i.toString())
+                .collect(Collectors.toList());
+
+        assertTrue(indexInfo.toString().contains("field1"));
+
+        assertFalse(indexInfo.toString().contains("@mongoHidden.field3"));
+        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.x"));
+        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.arraySubObj.*"));
+        assertFalse(indexInfo.toString().contains("@mongoHidden.arrayField.*"));
+        assertFalse(indexInfo.toString().contains("field2.@mongoHidden.x"));
+        assertFalse(indexInfo.toString().contains("field2.@mongoHidden.subArrayField.*"));
+    }
+
+    private EntityMetadata createMetadata() {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.getFields().put(new SimpleField("_id",StringType.TYPE));
+        e.getFields().put(new SimpleField("objectType", StringType.TYPE));
+
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex1"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        e.getFields().put(new SimpleField("field3", StringType.TYPE));
+
+
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", StringType.TYPE));
+
+        SimpleArrayElement saSub = new SimpleArrayElement(StringType.TYPE);
+        ArrayField afSub = new ArrayField("subArrayField", saSub);
+        o.getFields().put(afSub);
+
+        ObjectArrayElement oaObject = new ObjectArrayElement();
+        oaObject.getFields().put(new SimpleField("x", StringType.TYPE));
+
+        SimpleArrayElement saSubSub = new SimpleArrayElement(StringType.TYPE);
+        ArrayField afSubSub = new ArrayField("arraySubObj", saSubSub);
+        oaObject.getFields().put(afSubSub);
+
+        ArrayField afObject = new ArrayField("arrayObj", oaObject);
+        e.getFields().put(afObject);
+
+        e.getFields().put(o);
+
+
+        SimpleArrayElement sa = new SimpleArrayElement(StringType.TYPE);
+        ArrayField af = new ArrayField("arrayField", sa);
+        e.getFields().put(af);
+
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+        e.getEntitySchema().getAccess().getInsert().setRoles("anyone");
+        e.getEntitySchema().getAccess().getFind().setRoles("anyone");
+        return e;
+    }
+
+    private EntityMetadata addCIIndexes(EntityMetadata e) {
+        Index index1 = new Index();
+        index1.setName("testIndex1");
+        index1.setUnique(true);
+        List<IndexSortKey> indexFields1 = new ArrayList<>();
+        indexFields1.add(new IndexSortKey(new Path("field1"), true));
+        indexFields1.add(new IndexSortKey(new Path("field3"), true, true));
+        indexFields1.add(new IndexSortKey(new Path("arrayField.*"), true, true));
+        indexFields1.add(new IndexSortKey(new Path("field2.x"), true, true));
+        index1.setFields(indexFields1);
+
+        Index index2 = new Index();
+        index2.setName("testIndex2");
+        index2.setUnique(true);
+        List<IndexSortKey> indexFields2 = new ArrayList<>();
+        indexFields2.add(new IndexSortKey(new Path("arrayObj.*.x"), true, true));
+        index2.setFields(indexFields2);
+
+        Index index3 = new Index();
+
+        index3.setName("testIndex3");
+        index3.setUnique(true);
+        List<IndexSortKey> indexFields3 = new ArrayList<>();
+        indexFields3.add(new IndexSortKey(new Path("arrayObj.*.arraySubObj.*"), true, true));
+        index3.setFields(indexFields3);
+
+        Index index4 = new Index();
+        index4.setName("testIndex4");
+        index4.setUnique(true);
+        List<IndexSortKey> indexFields4 = new ArrayList<>();
+        indexFields4.add(new IndexSortKey(new Path("field2.subArrayField.*"), true, true));
+        index4.setFields(indexFields4);
+
+
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index1);
+        indexes.add(index2);
+        indexes.add(index3);
+        indexes.add(index4);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        return e;
     }
 
     @Test
@@ -1130,9 +1417,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index();
         index.setName("testIndex");
         index.setUnique(true);
-        List<SortKey> indexFields = new ArrayList<>();
+        List<IndexSortKey> indexFields = new ArrayList<>();
         //TODO actually parse $asc/$desc here
-        indexFields.add(new SortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
@@ -1167,9 +1454,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index();
         index.setName("testIndex");
         index.setUnique(true);
-        List<SortKey> indexFields = new ArrayList<>();
+        List<IndexSortKey> indexFields = new ArrayList<>();
         //TODO actually parse $asc/$desc here
-        indexFields.add(new SortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
@@ -1233,8 +1520,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index();
         index.setName("testIndex");
         index.setUnique(true);
-        List<SortKey> indexFields = new ArrayList<>();
-        indexFields.add(new SortKey(new Path("field1"), true));
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
@@ -1269,8 +1556,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index();
         index.setName("testIndex1");
         index.setUnique(true);
-        List<SortKey> indexFields = new ArrayList<>();
-        indexFields.add(new SortKey(new Path("field1"), true));
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
@@ -1278,7 +1565,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         index.setName("testIndex2");
         index.setUnique(false);
         indexFields = new ArrayList<>();
-        indexFields.add(new SortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         indexes.add(index);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
@@ -1304,8 +1591,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index();
         index.setName("testIndex");
         index.setUnique(true);
-        List<SortKey> indexFields = new ArrayList<>();
-        indexFields.add(new SortKey(new Path("field1"), true));
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
@@ -1319,7 +1606,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         index.setUnique(false);
         indexFields = new ArrayList<>();
         indexFields.clear();
-        indexFields.add(new SortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
         index.setFields(indexFields);
         indexes = new ArrayList<>();
         indexes.add(index);
@@ -1361,9 +1648,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index();
         index.setName("modifiedIndex");
         index.setUnique(true);
-        List<SortKey> indexFields = new ArrayList<>();
-        indexFields.add(new SortKey(new Path("field1"), true));
-        indexFields.add(new SortKey(new Path("field2"), true));
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("field2"), true));
         index.setFields(indexFields);
         List<Index> indexes = new ArrayList<>();
         indexes.add(index);
@@ -1371,9 +1658,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         indexFields = new ArrayList<>();
-        indexFields.add(new SortKey(new Path("field1"), true));
-        indexFields.add(new SortKey(new Path("field2"), true));
-        indexFields.add(new SortKey(new Path("field3"), true));
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
+        indexFields.add(new IndexSortKey(new Path("field2"), true));
+        indexFields.add(new IndexSortKey(new Path("field3"), true));
         index.setFields(indexFields);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
 
@@ -1457,8 +1744,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         List<Index> indexes=new ArrayList<>();
         Index ix=new Index();
-        List<SortKey> fields=new ArrayList<>();
-        fields.add(new SortKey(new Path("x.*.y"),false));
+        List<IndexSortKey> fields=new ArrayList<>();
+        fields.add(new IndexSortKey(new Path("x.*.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
@@ -1469,7 +1756,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         indexes=new ArrayList<>();
         ix=new Index();
         fields=new ArrayList<>();
-        fields.add(new SortKey(new Path("x.1.y"),false));
+        fields.add(new IndexSortKey(new Path("x.1.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
@@ -1484,7 +1771,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         indexes=new ArrayList<>();
         ix=new Index();
         fields=new ArrayList<>();
-        fields.add(new SortKey(new Path("x.y"),false));
+        fields.add(new IndexSortKey(new Path("x.y"),false));
         ix.setFields(fields);
         indexes.add(ix);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
@@ -1506,9 +1793,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         {
             Index ix = new Index();
-            List<SortKey> fields = new ArrayList<>();
-            fields.add(new SortKey(new Path("x"), false));
-            fields.add(new SortKey(new Path("y"), false));
+            List<IndexSortKey> fields = new ArrayList<>();
+            fields.add(new IndexSortKey(new Path("x"), false));
+            fields.add(new IndexSortKey(new Path("y"), false));
             ix.setFields(fields);
 
             boolean verified = false;
@@ -1525,9 +1812,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         {
             Index ix = new Index();
-            List<SortKey> fields = new ArrayList<>();
-            fields.add(new SortKey(new Path("y"), false));
-            fields.add(new SortKey(new Path("x"), false));
+            List<IndexSortKey> fields = new ArrayList<>();
+            fields.add(new IndexSortKey(new Path("y"), false));
+            fields.add(new IndexSortKey(new Path("x"), false));
             ix.setFields(fields);
 
             boolean verified = false;
@@ -1603,7 +1890,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
        Assert.assertEquals(1,collection.find().count());
 
-       Index ix2=new Index(new SortKey(new Path("field1"),false));
+       Index ix2=new Index(new IndexSortKey(new Path("field1"),false));
        e.getEntityInfo().getIndexes().add(ix2);
        // At this point, there must be an _id index in the collection
        Assert.assertEquals(1,collection.getIndexInfo().size());
@@ -1635,15 +1922,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         e.getEntitySchema().getAccess().getInsert().setRoles("anyone");
         e.getEntitySchema().getAccess().getFind().setRoles("anyone");
 
-        Index ix1=new Index(new SortKey(new Path("field1"),false),new SortKey(new Path("field2"),false));
+        Index ix1=new Index(new IndexSortKey(new Path("field1"),false),new IndexSortKey(new Path("field2"),false));
         ix1.setUnique(true);
         ix1.setName("main");
 
 
-        Index ix2=new Index(new SortKey(new Path("_id"),false));
+        Index ix2=new Index(new IndexSortKey(new Path("_id"),false));
         ix2.setUnique(true);
         e.getEntityInfo().getIndexes().add(ix2);
-        Index ix3=new Index(new SortKey(new Path("_id"),false));
+        Index ix3=new Index(new IndexSortKey(new Path("_id"),false));
         ix3.setUnique(false);
         ix3.setName("nonunique");
         e.getEntityInfo().getIndexes().add(ix3);
@@ -1712,27 +1999,27 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     @Test
     public void getMaxQueryTimeMS_noConfig_noOptions() throws Exception {
         long expected = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS;
-        
+
         long maxQueryTimeMS = controller.getMaxQueryTimeMS(null, null);
-        
+
         Assert.assertEquals(expected, maxQueryTimeMS);
     }
 
     @Test
     public void getMaxQueryTimeMS_Config_noOptions() throws Exception {
         long expected = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS * 2;
-        
+
         MongoConfiguration config = new MongoConfiguration();
         config.setMaxQueryTimeMS(expected);
         long maxQueryTimeMS = controller.getMaxQueryTimeMS(config, null);
-        
+
         Assert.assertEquals(expected, maxQueryTimeMS);
     }
-    
+
     @Test
     public void getMaxQueryTimeMS_Config_Options() throws Exception {
         long expected = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS * 2;
-        
+
         MongoConfiguration config = new MongoConfiguration();
         config.setMaxQueryTimeMS(expected * 3);
         ExecutionOptions options = new ExecutionOptions();
@@ -1744,14 +2031,14 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             }
         };
         long maxQueryTimeMS = controller.getMaxQueryTimeMS(config, context);
-        
+
         Assert.assertEquals(expected, maxQueryTimeMS);
     }
-    
+
     @Test
     public void getMaxQueryTimeMS_noConfig_Options() throws Exception {
         long expected = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS * 2;
-        
+
         ExecutionOptions options = new ExecutionOptions();
         options.getOptions().put(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS, String.valueOf(expected));
         CRUDOperationContext context = new CRUDOperationContext(CRUDOperation.SAVE, COLL_NAME, factory, null, options) {
@@ -1761,7 +2048,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             }
         };
         long maxQueryTimeMS = controller.getMaxQueryTimeMS(null, context);
-        
+
         Assert.assertEquals(expected, maxQueryTimeMS);
     }
 }

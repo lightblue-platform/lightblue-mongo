@@ -21,12 +21,14 @@ package com.redhat.lightblue.mongo.crud;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.HashSet;
-import java.util.Iterator;
+import java.util.stream.Stream;
 
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
@@ -36,8 +38,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.NumericNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import com.redhat.lightblue.crud.MetadataResolver;
@@ -46,13 +48,16 @@ import com.redhat.lightblue.metadata.ArrayField;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.FieldCursor;
 import com.redhat.lightblue.metadata.FieldTreeNode;
+import com.redhat.lightblue.metadata.Index;
+import com.redhat.lightblue.metadata.IndexSortKey;
 import com.redhat.lightblue.metadata.ObjectArrayElement;
 import com.redhat.lightblue.metadata.ObjectField;
 import com.redhat.lightblue.metadata.ReferenceField;
-import com.redhat.lightblue.metadata.SimpleArrayElement;
 import com.redhat.lightblue.metadata.ResolvedReferenceField;
+import com.redhat.lightblue.metadata.SimpleArrayElement;
 import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.Type;
+import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.query.ArrayContainsExpression;
 import com.redhat.lightblue.query.ArrayMatchExpression;
 import com.redhat.lightblue.query.ArrayUpdateExpression;
@@ -60,18 +65,18 @@ import com.redhat.lightblue.query.BinaryComparisonOperator;
 import com.redhat.lightblue.query.CompositeSortKey;
 import com.redhat.lightblue.query.FieldAndRValue;
 import com.redhat.lightblue.query.FieldComparisonExpression;
+import com.redhat.lightblue.query.NaryFieldRelationalExpression;
 import com.redhat.lightblue.query.NaryLogicalExpression;
 import com.redhat.lightblue.query.NaryLogicalOperator;
-import com.redhat.lightblue.query.NaryValueRelationalExpression;
-import com.redhat.lightblue.query.NaryFieldRelationalExpression;
 import com.redhat.lightblue.query.NaryRelationalOperator;
+import com.redhat.lightblue.query.NaryValueRelationalExpression;
 import com.redhat.lightblue.query.PartialUpdateExpression;
 import com.redhat.lightblue.query.PrimitiveUpdateExpression;
+import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.RValueExpression;
 import com.redhat.lightblue.query.RegexMatchExpression;
 import com.redhat.lightblue.query.SetExpression;
-import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.query.SortKey;
 import com.redhat.lightblue.query.UnaryLogicalExpression;
@@ -97,6 +102,7 @@ public class Translator {
     public static final Path OBJECT_TYPE = new Path(OBJECT_TYPE_STR);
 
     public static final Path ID_PATH = new Path("_id");
+    public static final Path HIDDEN_SUB_PATH = new Path("@mongoHidden");
 
     public static final String ERR_NO_OBJECT_TYPE = "mongo-translation:no-object-type";
     public static final String ERR_INVALID_OBJECTTYPE = "mongo-translation:invalid-object-type";
@@ -314,7 +320,7 @@ public class Translator {
         Error.push("translateQuery");
         FieldTreeNode mdRoot = md.getFieldTreeRoot();
         try {
-            return translate(mdRoot, query);
+            return translate(mdRoot, query, md);
         } catch (Error e) {
             // rethrow lightblue error
             throw e;
@@ -428,6 +434,13 @@ public class Translator {
         }
         LOGGER.debug("Resulting projection:{}",ret);
         return ret;
+    }
+
+    public static Stream<IndexSortKey> getCaseInsensitiveIndexes(List<Index> indexes) {
+        return indexes.stream()
+                .map(Index::getFields)
+                .flatMap(Collection::stream)
+                .filter(IndexSortKey::isCaseInsensitive);
     }
 
     /**
@@ -564,24 +577,24 @@ public class Translator {
         return ret;
     }
 
-    private DBObject translate(FieldTreeNode context, QueryExpression query) {
+    private DBObject translate(FieldTreeNode context, QueryExpression query, EntityMetadata emd) {
         DBObject ret;
         if (query instanceof ArrayContainsExpression) {
             ret = translateArrayContains(context, (ArrayContainsExpression) query);
         } else if (query instanceof ArrayMatchExpression) {
-            ret = translateArrayElemMatch(context, (ArrayMatchExpression) query);
+            ret = translateArrayElemMatch(context, (ArrayMatchExpression) query, emd);
         } else if (query instanceof FieldComparisonExpression) {
             ret = translateFieldComparison(context, (FieldComparisonExpression) query);
         } else if (query instanceof NaryLogicalExpression) {
-            ret = translateNaryLogicalExpression(context, (NaryLogicalExpression) query);
+            ret = translateNaryLogicalExpression(context, (NaryLogicalExpression) query, emd);
         } else if (query instanceof NaryValueRelationalExpression) {
             ret = translateNaryValueRelationalExpression(context, (NaryValueRelationalExpression) query);
         } else if (query instanceof NaryFieldRelationalExpression) {
             ret = translateNaryFieldRelationalExpression(context, (NaryFieldRelationalExpression) query);
         } else if (query instanceof RegexMatchExpression) {
-            ret = translateRegexMatchExpression((RegexMatchExpression) query);
+            ret = translateRegexMatchExpression((RegexMatchExpression) query, emd);
         } else if (query instanceof UnaryLogicalExpression) {
-            ret = translateUnaryLogicalExpression(context, (UnaryLogicalExpression) query);
+            ret = translateUnaryLogicalExpression(context, (UnaryLogicalExpression) query, emd);
         } else {
             ret = translateValueComparisonExpression(context, (ValueComparisonExpression) query);
         }
@@ -640,11 +653,22 @@ public class Translator {
         }
     }
 
-    private DBObject translateRegexMatchExpression(RegexMatchExpression expr) {
+    private DBObject translateRegexMatchExpression(RegexMatchExpression expr, EntityMetadata emd) {
         StringBuilder options = new StringBuilder();
         BasicDBObject regex = new BasicDBObject("$regex", expr.getRegex());
+        Path field = expr.getField();
+
         if (expr.isCaseInsensitive()) {
             options.append('i');
+            for(Index index : emd.getEntityInfo().getIndexes().getIndexes()){
+                if(index.isCaseInsensitiveKey(field)){
+                    field = getHiddenForField(expr.getField());
+                    regex.replace("$regex", expr.getRegex().toUpperCase());
+                    options.deleteCharAt(options.length() - 1);
+                    break;
+                }
+            }
+
         }
         if (expr.isMultiline()) {
             options.append('m');
@@ -659,7 +683,34 @@ public class Translator {
         if (opStr.length() > 0) {
             regex.append("$options", opStr);
         }
-        return new BasicDBObject(translatePath(expr.getField()), regex);
+        return new BasicDBObject(translatePath(field), regex);
+    }
+
+    /**
+     * Get a reference to the path's hidden sub-field.
+     *
+     * This does not guarantee the sub-path exists.
+     *
+     * @param path
+     * @return
+     */
+    public static Path getHiddenForField(Path path) {
+        if(path.getLast().equals(Path.ANY)){
+            return path.prefix(-2).mutableCopy().push(HIDDEN_SUB_PATH).push(path.suffix(2));
+        }
+        return path.prefix(-1).mutableCopy().push(HIDDEN_SUB_PATH).push(path.getLast());
+    }
+
+    /**
+     * Get a reference to the hidden path's actual field.
+     *
+     * This does not guarantee the sub-path exists.
+     *
+     * @param path
+     * @return
+     */
+    public static Path getFieldForHidden(Path hiddenPath) {
+        return hiddenPath.prefix(-2).mutableCopy().push(hiddenPath.getLast());
     }
 
     private DBObject translateNaryValueRelationalExpression(FieldTreeNode context, NaryValueRelationalExpression expr) {
@@ -692,17 +743,17 @@ public class Translator {
         }
     }
 
-    private DBObject translateUnaryLogicalExpression(FieldTreeNode context, UnaryLogicalExpression expr) {
+    private DBObject translateUnaryLogicalExpression(FieldTreeNode context, UnaryLogicalExpression expr, EntityMetadata emd) {
         List<DBObject> l=new ArrayList<>(1);
-        l.add(translate(context,expr.getQuery()));
+        l.add(translate(context,expr.getQuery(), emd));
         return new BasicDBObject(UNARY_LOGICAL_OPERATOR_MAP.get(expr.getOp()), l);
     }
 
-    private DBObject translateNaryLogicalExpression(FieldTreeNode context, NaryLogicalExpression expr) {
+    private DBObject translateNaryLogicalExpression(FieldTreeNode context, NaryLogicalExpression expr, EntityMetadata emd) {
         List<QueryExpression> queries = expr.getQueries();
         List<DBObject> list = new ArrayList<>(queries.size());
         for (QueryExpression query : queries) {
-            list.add(translate(context, query));
+            list.add(translate(context, query, emd));
         }
         return new BasicDBObject(NARY_LOGICAL_OPERATOR_MAP.get(expr.getOp()), list);
     }
@@ -782,7 +833,7 @@ public class Translator {
                 return writeArrayArrayComparisonJS(field1,field2,op);
             } else {
                 return writeArrayFieldComparisonJS(field2,field1,BINARY_COMPARISON_OPERATOR_JS_MAP.get(op.invert()));
-            } 
+            }
         } else if(field2IsArray) {
             return writeArrayFieldComparisonJS(field1,field2,BINARY_COMPARISON_OPERATOR_JS_MAP.get(op));
         } else {
@@ -842,18 +893,18 @@ public class Translator {
             str.append(writeComparisonJS(lField,lIsArray,rField,rIsArray,expr.getOp()));
             str.append("return false;}");
         }
-        
+
         return new BasicDBObject("$where", str.toString());
     }
 
-    private DBObject translateArrayElemMatch(FieldTreeNode context, ArrayMatchExpression expr) {
+    private DBObject translateArrayElemMatch(FieldTreeNode context, ArrayMatchExpression expr, EntityMetadata emd) {
         FieldTreeNode arrayNode = resolve(context, expr.getArray());
         if (arrayNode instanceof ArrayField) {
             ArrayElement el = ((ArrayField) arrayNode).getElement();
             if (el instanceof ObjectArrayElement) {
                 return new BasicDBObject(translatePath(expr.getArray()),
                         new BasicDBObject("$elemMatch",
-                                translate(el, expr.getElemMatch())));
+                                translate(el, expr.getElemMatch(), emd)));
             }
         }
         throw Error.get(ERR_INVALID_FIELD, expr.toString());
@@ -1048,15 +1099,21 @@ public class Translator {
     private void toBson(BasicDBObject dest,
                         SimpleField fieldMd,
                         Path path,
-                        JsonNode node) {
+                        JsonNode node, EntityMetadata md) {
         Object value = toValue(fieldMd.getType(), node);
         // Should we add fields with null values to the bson doc? Answer: no
         if (value != null) {
             if (path.equals(ID_PATH)) {
                 value = createIdFrom(value);
             }
+            if (getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes()).anyMatch(i -> i.getField().equals(path))) {
+                if (fieldMd.getType().equals(StringType.TYPE)) {
+                    Path hidden = getHiddenForField(new Path(path.tail(0)));
+                    dest.append(hidden.toString(), value.toString().toUpperCase());
+                }
+            }
             dest.append(path.tail(0), value);
-        } 
+        }
     }
 
     /**
@@ -1074,7 +1131,7 @@ public class Translator {
             }
 
             if (fieldMdNode instanceof SimpleField) {
-                toBson(ret, (SimpleField) fieldMdNode, path, node);
+                toBson(ret, (SimpleField) fieldMdNode, path, node, md);
             } else if (fieldMdNode instanceof ObjectField) {
                 convertObjectFieldToBson(node, cursor, ret, path, md);
             } else if (fieldMdNode instanceof ArrayField) {
@@ -1201,5 +1258,5 @@ public class Translator {
             size+=size(doc);
         return size;
     }
-    
+
 }

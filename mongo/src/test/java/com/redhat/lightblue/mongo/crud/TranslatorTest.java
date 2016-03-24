@@ -18,9 +18,12 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
+import static org.junit.Assert.assertEquals;
+import java.io.IOException;
 import java.util.Set;
-import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.mongodb.DBObject;
 import com.mongodb.BasicDBObject;
@@ -29,6 +32,8 @@ import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.mongo.crud.CannotTranslateException;
 import com.redhat.lightblue.mongo.crud.Translator;
 import com.redhat.lightblue.metadata.CompositeMetadata;
+import com.redhat.lightblue.query.QueryExpression;
+import com.redhat.lightblue.query.RegexMatchExpression;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.JsonDoc;
@@ -37,7 +42,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
 import org.bson.types.ObjectId;
 
 /**
@@ -48,17 +52,67 @@ public class TranslatorTest extends AbstractMongoCrudTest {
     private Translator translator;
     private EntityMetadata md;
 
+    @Override
     @Before
     public void setup() throws Exception {
         super.setup();
 
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
-        // load metadata 
+        // load metadata
         md = getMd("./testMetadata.json");
         // and add it to metadata resolver (the context)
         ctx.add(md);
         // create translator with the context
         translator = new Translator(ctx, nodeFactory);
+    }
+
+    @Test
+    public void populateHiddenFields() throws IOException, ProcessingException {
+        // use a different md for this test
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        md = getMd("./testMetadata_index.json");
+        ctx.add(md);
+        translator = new Translator(ctx, nodeFactory);
+
+        ObjectNode obj = JsonNodeFactory.instance.objectNode();
+        obj.put(Translator.OBJECT_TYPE_STR, "test")
+            .put("field1", "testField1")
+            .put("field2", "testField2")
+            .put("field3", "testField3");
+
+        DBObject bson = translator.toBson(new JsonDoc(obj));
+
+        Assert.assertEquals("TESTFIELD1", bson.get(Translator.HIDDEN_SUB_PATH + ".field1"));
+
+        Assert.assertNull("testField2", bson.get(Translator.HIDDEN_SUB_PATH + ".field2"));
+
+        Assert.assertEquals("TESTFIELD3", bson.get(Translator.HIDDEN_SUB_PATH + ".field3"));
+    }
+
+    @Test
+    public void getHiddenForField() {
+        assertEquals("objField.@mongoHidden.strField", Translator.getHiddenForField(new Path("objField.strField")).toString());
+        assertEquals("objField.@mongoHidden.strField2", Translator.getHiddenForField(new Path("objField.strField2")).toString());
+        assertEquals("@mongoHidden.strField", Translator.getHiddenForField(new Path("strField")).toString());
+    }
+
+    @Test
+    public void getFieldForHidden() {
+        assertEquals("objField.strField", Translator.getFieldForHidden(new Path("objField.@mongoHidden.strField")).toString());
+        assertEquals("objField.strField2", Translator.getFieldForHidden(new Path("objField.@mongoHidden.strField2")).toString());
+        assertEquals("strField", Translator.getFieldForHidden(new Path("@mongoHidden.strField")).toString());
+    }
+
+    @Test
+    public void translateHiddenIndexesQuery() throws IOException, ProcessingException {
+        String query = "{'field':'field1','regex':'value','caseInsensitive':'true'}";
+        BasicDBObject expected = new BasicDBObject("@mongoHidden.field1", new BasicDBObject("$regex", "VALUE"));
+
+        QueryExpression queryExp = RegexMatchExpression.fromJson(JsonUtils.json(query.replace('\'', '\"')));
+        EntityMetadata indexMd = getMd("./testMetadata_index.json");
+
+        BasicDBObject trans = (BasicDBObject) translator.translate(indexMd, queryExp);
+        assertEquals(expected, trans);
     }
 
     @Test
@@ -133,11 +187,11 @@ public class TranslatorTest extends AbstractMongoCrudTest {
         Assert.assertNotNull(mongoUpdateExpr);
     }
     /*
-     array_update_expression := { $append : { path : rvalue_expression } } |  
+     array_update_expression := { $append : { path : rvalue_expression } } |
      { $append : { path : [ rvalue_expression, ... ] }} |
-     { $insert : { path : rvalue_expression } } |  
-     { $insert : { path : [ rvalue_expression,...] }} |  
-     { $foreach : { path : update_query_expression,   
+     { $insert : { path : rvalue_expression } } |
+     { $insert : { path : [ rvalue_expression,...] }} |
+     { $foreach : { path : update_query_expression,
      $update : foreach_update_expression } }
      */
 
@@ -205,7 +259,7 @@ public class TranslatorTest extends AbstractMongoCrudTest {
         DBObject obj=translator.toBson(doc);
         Assert.assertNull(obj.get("ref"));
     }
-    
+
     @Test
     public void translateNullReference() throws Exception {
         String docStr = loadResource(getClass().getSimpleName() + "-data-with-null-ref.json");

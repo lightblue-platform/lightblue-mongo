@@ -18,36 +18,88 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.mongodb.*;
-import com.redhat.lightblue.config.ControllerConfiguration;
-import com.redhat.lightblue.crud.*;
-import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
-import com.redhat.lightblue.eval.Projector;
-import com.redhat.lightblue.eval.Updater;
-import com.redhat.lightblue.interceptor.InterceptPoint;
-import com.redhat.lightblue.metadata.*;
-import com.redhat.lightblue.metadata.types.StringType;
-import com.redhat.lightblue.mongo.metadata.MongoMetadataConstants;
-import com.redhat.lightblue.mongo.common.DBResolver;
-import com.redhat.lightblue.mongo.common.MongoDataStore;
-import com.redhat.lightblue.mongo.config.MongoConfiguration;
-import com.redhat.lightblue.query.*;
-import com.redhat.lightblue.util.Error;
-import com.redhat.lightblue.util.JsonDoc;
-import com.redhat.lightblue.util.MutablePath;
-import com.redhat.lightblue.util.Path;
-import com.redhat.lightblue.extensions.ExtensionSupport;
-import com.redhat.lightblue.extensions.Extension;
-import com.redhat.lightblue.extensions.synch.LockingSupport;
-import com.redhat.lightblue.extensions.valuegenerator.ValueGeneratorSupport;
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.apache.commons.lang3.StringUtils;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.mongodb.BasicDBList;
+import com.mongodb.BasicDBObject;
+import com.mongodb.DB;
+import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
+import com.mongodb.DBObject;
+import com.mongodb.DuplicateKeyException;
+import com.mongodb.MongoException;
+import com.mongodb.MongoExecutionTimeoutException;
+import com.mongodb.MongoSocketException;
+import com.mongodb.MongoTimeoutException;
+import com.mongodb.util.JSON;
+import com.redhat.lightblue.config.ControllerConfiguration;
+import com.redhat.lightblue.crud.CRUDController;
+import com.redhat.lightblue.crud.CRUDDeleteResponse;
+import com.redhat.lightblue.crud.CRUDFindResponse;
+import com.redhat.lightblue.crud.CRUDInsertionResponse;
+import com.redhat.lightblue.crud.CRUDOperation;
+import com.redhat.lightblue.crud.CRUDOperationContext;
+import com.redhat.lightblue.crud.CRUDSaveResponse;
+import com.redhat.lightblue.crud.CRUDUpdateResponse;
+import com.redhat.lightblue.crud.ConstraintValidator;
+import com.redhat.lightblue.crud.CrudConstants;
+import com.redhat.lightblue.crud.DocCtx;
+import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
+import com.redhat.lightblue.eval.Projector;
+import com.redhat.lightblue.eval.Updater;
+import com.redhat.lightblue.extensions.Extension;
+import com.redhat.lightblue.extensions.ExtensionSupport;
+import com.redhat.lightblue.extensions.synch.LockingSupport;
+import com.redhat.lightblue.extensions.valuegenerator.ValueGeneratorSupport;
+import com.redhat.lightblue.interceptor.InterceptPoint;
+import com.redhat.lightblue.metadata.EntityInfo;
+import com.redhat.lightblue.metadata.EntityMetadata;
+import com.redhat.lightblue.metadata.EntitySchema;
+import com.redhat.lightblue.metadata.Field;
+import com.redhat.lightblue.metadata.FieldCursor;
+import com.redhat.lightblue.metadata.FieldTreeNode;
+import com.redhat.lightblue.metadata.Index;
+import com.redhat.lightblue.metadata.IndexSortKey;
+import com.redhat.lightblue.metadata.Indexes;
+import com.redhat.lightblue.metadata.Metadata;
+import com.redhat.lightblue.metadata.MetadataConstants;
+import com.redhat.lightblue.metadata.MetadataListener;
+import com.redhat.lightblue.metadata.SimpleField;
+import com.redhat.lightblue.metadata.types.StringType;
+import com.redhat.lightblue.mongo.common.DBResolver;
+import com.redhat.lightblue.mongo.common.MongoDataStore;
+import com.redhat.lightblue.mongo.config.MongoConfiguration;
+import com.redhat.lightblue.mongo.metadata.MongoMetadataConstants;
+import com.redhat.lightblue.query.FieldProjection;
+import com.redhat.lightblue.query.Projection;
+import com.redhat.lightblue.query.ProjectionList;
+import com.redhat.lightblue.query.QueryExpression;
+import com.redhat.lightblue.query.Sort;
+import com.redhat.lightblue.query.SortKey;
+import com.redhat.lightblue.query.UpdateExpression;
+import com.redhat.lightblue.util.Error;
+import com.redhat.lightblue.util.JsonDoc;
+import com.redhat.lightblue.util.MutablePath;
+import com.redhat.lightblue.util.Path;
 
 public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport {
 
@@ -103,7 +155,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     public ControllerConfiguration getControllerConfiguration() {
         return controllerCfg;
     }
-    
+
     /**
      * Insertion operation for mongo
      */
@@ -307,19 +359,19 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("delete end: deleted: {}}", response.getNumDeleted());
         return response;
     }
-    
+
     protected long getMaxQueryTimeMS(MongoConfiguration cfg, CRUDOperationContext ctx) {
         // pick the default, even if we don't have a configuration coming in
         long output = MongoConfiguration.DEFAULT_MAX_QUERY_TIME_MS;
-        
+
         // if we have a config, get that value
         if (cfg != null) {
             output = cfg.getMaxQueryTimeMS();
         }
-        
+
         // if context has execution option for maxQueryTimeMS use that instead of global default
-        if (ctx != null 
-                && ctx.getExecutionOptions() != null 
+        if (ctx != null
+                && ctx.getExecutionOptions() != null
                 && ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS) != null) {
             try {
                 output = Long.parseLong(ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS));
@@ -329,7 +381,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 LOGGER.debug("Unable to parse execution option: maxQueryTimeMS=" + ctx.getExecutionOptions().getOptionValueFor(MongoConfiguration.PROPERTY_NAME_MAX_QUERY_TIME_MS));
             }
         }
-        
+
         return output;
     }
 
@@ -421,7 +473,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             return (E)new MongoSequenceSupport(this);
         return null;
     }
-    
+
     @Override
     public MetadataListener getMetadataListener() {
         return this;
@@ -429,7 +481,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     @Override
     public void afterUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
-        createUpdateEntityInfoIndexes(ei);
+        createUpdateEntityInfoIndexes(ei, md);
     }
 
     @Override
@@ -445,6 +497,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     @Override
     public void beforeCreateNewSchema(Metadata md, EntityMetadata emd) {
+        validateNoHiddenInMetaData(emd);
         validateIndexFields(emd.getEntityInfo());
         ensureIdField(emd);
     }
@@ -464,15 +517,24 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         return newPath.immutableCopy();
     }
 
+    private void validateNoHiddenInMetaData(EntityMetadata emd) {
+        FieldCursor cursor = emd.getFieldCursor();
+        while (cursor.next()) {
+            if(cursor.getCurrentPath().getLast().equals(Translator.HIDDEN_SUB_PATH.getLast())) {
+                throw Error.get(MongoCrudConstants.ERR_RESERVED_FIELD);
+            }
+        }
+    }
+
     /**
      * No two index should have the same field signature
      */
     private void validateSaneIndexSet(List<Index> indexes) {
         int n=indexes.size();
         for(int i=0;i<n;i++) {
-            List<SortKey> keys1=indexes.get(i).getFields();
+            List<IndexSortKey> keys1=indexes.get(i).getFields();
             for(int j=i+1;j<n;j++) {
-                List<SortKey> keys2=indexes.get(j).getFields();
+                List<IndexSortKey> keys2=indexes.get(j).getFields();
                 if(sameSortKeys(keys1,keys2)) {
                     throw Error.get(MongoCrudConstants.ERR_DUPLICATE_INDEX);
                 }
@@ -480,7 +542,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         }
     }
 
-    private  boolean sameSortKeys(List<SortKey> keys1,List<SortKey> keys2) {
+    private  boolean sameSortKeys(List<IndexSortKey> keys1,List<IndexSortKey> keys2) {
         if(keys1.size()==keys2.size()) {
             for(int i=0;i<keys1.size();i++) {
                 SortKey k1=keys1.get(i);
@@ -496,15 +558,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     private void validateIndexFields(EntityInfo ei) {
         for (Index ix : ei.getIndexes().getIndexes()) {
-            List<SortKey> fields = ix.getFields();
-            List<SortKey> newFields = null;
+            List<IndexSortKey> fields = ix.getFields();
+            List<IndexSortKey> newFields = null;
             boolean copied = false;
             int i = 0;
             for (SortKey key : fields) {
                 Path p = key.getField();
                 Path newPath = translateIndexPath(p);
                 if (!p.equals(newPath)) {
-                    SortKey newKey = new SortKey(newPath, key.isDesc());
+                    IndexSortKey newKey = new IndexSortKey(newPath, key.isDesc());
                     if (!copied) {
                         newFields = new ArrayList<>();
                         newFields.addAll(fields);
@@ -557,7 +619,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         // We are looking for a unique index on _id
         boolean found = false;
         for (Index ix : indexes.getIndexes()) {
-            List<SortKey> fields = ix.getFields();
+            List<IndexSortKey> fields = ix.getFields();
             if (fields.size() == 1 && fields.get(0).getField().equals(Translator.ID_PATH)
                     && ix.isUnique()) {
                 found = true;
@@ -568,8 +630,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             LOGGER.debug("Adding _id index");
             Index idIndex = new Index();
             idIndex.setUnique(true);
-            List<SortKey> fields = new ArrayList<>();
-            fields.add(new SortKey(Translator.ID_PATH, false));
+            List<IndexSortKey> fields = new ArrayList<>();
+            fields.add(new IndexSortKey(Translator.ID_PATH, false));
             idIndex.setFields(fields);
             List<Index> ix = indexes.getIndexes();
             ix.add(idIndex);
@@ -580,7 +642,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("ensureIdIndex: end");
     }
 
-    private void createUpdateEntityInfoIndexes(EntityInfo ei) {
+    private void createUpdateEntityInfoIndexes(EntityInfo ei, Metadata md) {
         LOGGER.debug("createUpdateEntityInfoIndexes: begin");
 
         Indexes indexes = ei.getIndexes();
@@ -600,7 +662,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             //
             //  - If there is an index with null name in metadata, see if there is an index with same
             //    fields and flags. If so, no change. Otherwise, create index. Drop all indexes with the same field signature.
-            
+
             List<Index> createIndexes=new ArrayList<>();
             List<DBObject> dropIndexes=new ArrayList<>();
             List<DBObject> foundIndexes=new ArrayList<>();
@@ -617,6 +679,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                         }
                         if(found!=null) {
                             foundIndexes.add(found);
+                            // indexFieldsMatch will handle checking for hidden versions of the index
                             if(indexFieldsMatch(index,found) &&
                                indexOptionsMatch(index,found) ) {
                                 LOGGER.debug("{} already exists",index.getName());
@@ -683,11 +746,24 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 LOGGER.info("Dropping {}",index.get("name"));
                 entityCollection.dropIndex(index.get("name").toString());
             }
+            // we want to run in the background if we're only creating indexes (no field generation)
+            boolean hidden = false;
+            // fieldMap is <canonicalPath, hiddenPath>
+            Map<String, String> fieldMap = new HashMap<>();
             for(Index index:createIndexes) {
                 LOGGER.info("Creating index {} with {}",index.getName(),index.getFields());
                 DBObject newIndex = new BasicDBObject();
-                for (SortKey p : index.getFields()) {
-                    newIndex.put(p.getField().toString(), p.isDesc() ? -1 : 1);
+                for (IndexSortKey p : index.getFields()) {
+                    String field = Translator.translatePath(p.getField());
+                    if (p.isCaseInsensitive()) {
+                        // build a map of the index's field to it's actual @mongoHidden path
+                        field = Translator.getHiddenForField(p.getField()).toString();
+                        fieldMap.put(p.getField().toString(), field);
+                        // if we have a case insensitive index, we want the index creation operation to be blocking
+                        hidden = true;
+                        LOGGER.info("Index creation will be blocking.");
+                    }
+                    newIndex.put(field, p.isDesc() ? -1 : 1);
                 }
                 BasicDBObject options = new BasicDBObject("unique", index.isUnique());
                 // if index is unique also make it a sparse index, so we can have non-required unique fields
@@ -695,22 +771,195 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 if (index.getName() != null && index.getName().trim().length() > 0) {
                     options.append("name", index.getName().trim());
                 }
-                options.append("background", true);
+                // if we have hidden fields to generate, we want index creation to be blocking so we can ensure that the indexes are created before we generate the fields
+                options.append("background", !hidden);
                 LOGGER.debug("Creating index {} with options {}", newIndex, options);
                 entityCollection.createIndex(newIndex, options);
             }
+            if (hidden) {
+                LOGGER.info("Executing post-index creation updates...");
+                // case insensitive indexes have been updated or created. recalculate all hidden fields
+                Thread pop = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            populateHiddenFields(ei, fieldMap);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                });
+                pop.start();
+
+                // TODO: remove hidden fields on index deletions? Worth it?
+            }
         } catch (MongoException me) {
             throw Error.get(MongoCrudConstants.ERR_ENTITY_INDEX_NOT_CREATED, me.getMessage());
-        } catch (Error e) {
-            // rethrow lightblue error
-            throw e;
         } catch (Exception e) {
             throw analyzeException(e, MetadataConstants.ERR_ILL_FORMED_METADATA);
         } finally {
             Error.pop();
         }
-
         LOGGER.debug("createUpdateEntityInfoIndexes: end");
+    }
+
+    /**
+     * Reindexes all lightblue managed, hidden, indexes.
+     *
+     * This operation is blocking and is therefore suggested to be ran in a separate thread
+     *
+     * @param md
+     * @throws IOException
+     */
+    public void reindex(EntityMetadata md) throws IOException {
+        Map<String, String> fieldMap = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes()).collect(Collectors.toMap(i -> i.getField().toString(),
+                i -> Translator.getHiddenForField(i.getField()).toString()));
+        if (!fieldMap.keySet().isEmpty()) {
+            populateHiddenFields(md.getEntityInfo(), fieldMap);
+        }
+    }
+
+    /**
+     *
+     * Populates all hidden fields from their initial index values in the collection in this context
+     *
+     * This method has the potential to be extremely heavy and nonperformant. Recommended to run in a background thread.
+     *
+     * @param ei
+     * @param fieldMap
+     *            <index, hiddenPath>
+     * @throws IOException
+     * @throws URISyntaxException
+     */
+    protected void populateHiddenFields(EntityInfo ei, Map<String, String> fieldMap) throws IOException {
+        LOGGER.debug("Starting population of hidden fields due to new or modified indexes.");
+        MongoDataStore ds = (MongoDataStore) ei.getDataStore();
+        DB entityDB = dbResolver.get(ds);
+        DBCollection coll = entityDB.getCollection(ds.getCollectionName());
+        DBCursor cursor = coll.find();
+
+        while (cursor.hasNext()) {
+            DBObject doc = cursor.next();
+            DBObject original = (DBObject) ((BasicDBObject) doc).copy();
+            for (String index : fieldMap.keySet()) {
+                int arrIndex = index.indexOf("*");
+                if (arrIndex > -1) {
+                    // recurse if we have more arrays in the path
+                    populateHiddenArrayField(doc, index, fieldMap.get(index));
+                } else {
+                    Object dbObject = Translator.getDBObject(doc, new Path(index));
+                    ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
+                    JsonDoc.modify(arrNode, new Path(fieldMap.get(index)), JsonNodeFactory.instance.textNode(dbObject.toString().toUpperCase()), true);
+                    ObjectMapper mapper = new ObjectMapper();
+                    JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
+                    DBObject obj = (DBObject) JSON.parse(merged.toString());
+                    ((BasicDBObject) doc).clear();
+                    ((BasicDBObject) doc).putAll(obj);
+                }
+            }
+            if (!doc.equals(original)) {
+                coll.save(doc);
+            }
+        }
+        cursor.close();
+        LOGGER.debug("Finished population of hidden fields.");
+    }
+
+    /**
+     * Given an index and it's hidden counterpart, populate the document with the correct value for the hidden field
+     *
+     * @param doc
+     * @param index
+     * @param hidden
+     * @throws IOException
+     */
+    private void populateHiddenArrayField(DBObject doc, String index, String hidden) throws IOException {
+        String[] indexSplit = splitArrayPath(index);
+        String fieldPre = indexSplit[0];
+        String fieldPost = indexSplit[1];
+
+        String[] hiddenSplit = splitArrayPath(hidden);
+        String hiddenPre = hiddenSplit[0];
+        String hiddenPost = hiddenSplit[1];
+
+        BasicDBList docArr = (BasicDBList) Translator.getDBObject(doc, new Path(fieldPre));
+        if (docArr != null) {
+            ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
+            for (int i = 0; i < docArr.size(); i++) {
+                // check if there's an array in the index
+                int indx = fieldPost.indexOf("*");
+                String fullIdxPath = fieldPre + "." + i + fieldPost;
+                String fullHiddenPath = hiddenPre + "." + i + hiddenPost;
+                if (indx > -1) {
+                    // if we have another array, descend
+                    populateHiddenArrayField(doc, fullIdxPath, fullHiddenPath);
+                } else {
+                    // if no more arrays, set the field and continue
+                    String node = null;
+                    Object object = docArr.get(i);
+                    if (object instanceof BasicDBObject) {
+                        node = ((BasicDBObject) object).get(fieldPost.substring(1)).toString().toUpperCase();
+                    } else {
+                        node = object.toString().toUpperCase();
+                    }
+                    JsonDoc.modify(arrNode, new Path(fullHiddenPath), JsonNodeFactory.instance.textNode(node), true);
+                }
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
+                DBObject obj = (DBObject) JSON.parse(merged.toString());
+                ((BasicDBObject) doc).clear();
+                ((BasicDBObject) doc).putAll(obj);
+                ;
+            }
+        }
+    }
+
+    /**
+     * Splits a path with a * based on its first occurrence
+     *
+     * @param index
+     * @return A tuple where the first index is the path before the array and the second index is the path after the array
+     */
+    private String[] splitArrayPath(String index) {
+        String[] indexSplit = index.split("\\*");
+        String fieldPre = indexSplit[0];
+        fieldPre = fieldPre.substring(0, fieldPre.length() - 1);
+        String fieldPost = StringUtils.join(Arrays.copyOfRange(indexSplit, 1, indexSplit.length), "*");
+        if (!fieldPost.isEmpty()) {
+            if (index.lastIndexOf("*") == index.length() - 1) {
+                // re-append the * from the split
+                fieldPost += "*";
+            } else if (index.lastIndexOf(".") == index.length() - 1) {
+                fieldPost = fieldPost.substring(0, fieldPost.length() - 1);
+            }
+        }
+        return new String[]{fieldPre, fieldPost};
+    }
+
+    private static JsonNode merge(JsonNode mainNode, JsonNode updateNode) {
+        updateNode.fieldNames().forEachRemaining(f -> {
+            JsonNode valueToBeUpdated = mainNode.get(f);
+            JsonNode updatedValue = updateNode.get(f);
+            // if node is an array
+            if (valueToBeUpdated != null && updatedValue.isArray()) {
+                for (int i = 0; i < updatedValue.size(); i++) {
+                    JsonNode updatedChildNode = updatedValue.get(i);
+                    if (valueToBeUpdated.size() <= i) {
+                        ((ArrayNode) valueToBeUpdated).add(updatedChildNode);
+                    }
+                    JsonNode childNodeToBeUpdated = valueToBeUpdated.get(i);
+                    merge(childNodeToBeUpdated, updatedChildNode);
+                }
+            // if node is an object
+            } else if (valueToBeUpdated != null && valueToBeUpdated.isObject()) {
+                merge(valueToBeUpdated, updatedValue);
+            } else {
+                if (mainNode instanceof ObjectNode) {
+                    ((ObjectNode) mainNode).replace(f, updatedValue);
+                }
+            }
+        });
+        return mainNode;
     }
 
     private DBObject findIndexWithSignature(List<DBObject> existingIndexes,Index index) {
@@ -720,22 +969,29 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         }
         return null;
     }
-    
+
     private boolean isIdIndex(Index index) {
-        List<SortKey> fields = index.getFields();
+        List<IndexSortKey> fields = index.getFields();
         return fields.size() == 1
                 && fields.get(0).getField().equals(Translator.ID_PATH);
     }
 
-    private boolean isIdIndex(DBObject index) {
+
+      private boolean isIdIndex(DBObject index) {
         BasicDBObject keys=(BasicDBObject)index.get("key");
         if(keys!=null&&keys.size()==1&&keys.containsKey("_id"))
             return true;
         return false;
     }
 
-    private boolean compareSortKeys(SortKey sortKey, String fieldName, Object dir) {
-        if (sortKey.getField().toString().equals(fieldName)) {
+    private boolean compareSortKeys(IndexSortKey sortKey, String fieldName, Object dir) {
+        String field = sortKey.getField().toString();
+        if (sortKey.isCaseInsensitive()) {
+            // if this is a case insensitive key, we need to change the field to how mongo actually stores the index
+            field = Translator.translatePath(Translator.getHiddenForField(sortKey.getField()));
+        }
+
+        if (field.equals(fieldName)) {
             int direction = ((Number) dir).intValue();
             return sortKey.isDesc() == (direction < 0);
         }
@@ -745,11 +1001,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     protected boolean indexFieldsMatch(Index index, DBObject existingIndex) {
         BasicDBObject keys = (BasicDBObject) existingIndex.get("key");
         if (keys != null) {
-            List<SortKey> fields = index.getFields();
+            List<IndexSortKey> fields = index.getFields();
             if (keys.size() == fields.size()) {
-                Iterator<SortKey> sortKeyItr = fields.iterator();
+                Iterator<IndexSortKey> sortKeyItr = fields.iterator();
                 for (Map.Entry<String, Object> dbKeyEntry : keys.entrySet()) {
-                    SortKey sortKey = sortKeyItr.next();
+                    IndexSortKey sortKey = sortKeyItr.next();
                     if (!compareSortKeys(sortKey, dbKeyEntry.getKey(), dbKeyEntry.getValue())) {
                         return false;
                     }
