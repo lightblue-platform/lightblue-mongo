@@ -104,6 +104,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     @Test
     public void ensureIndexNotRecreated() throws IOException, InterruptedException {
+        db.getCollection("testCollectionIndex1").drop();
         EntityMetadata md = createMetadata();
         controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
@@ -135,7 +136,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     @Test
     public void createIndexAfterDataExists_CI() throws IOException, InterruptedException {
-
+        db.getCollection("testCollectionIndex1").drop();
         EntityMetadata md = createMetadata();
         controller.afterUpdateEntityInfo(null, md.getEntityInfo(),false);
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
