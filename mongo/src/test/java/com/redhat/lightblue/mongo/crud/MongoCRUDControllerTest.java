@@ -102,7 +102,37 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
       });
     }
 
-    @SuppressWarnings("unused")
+    @Test
+    public void ensureIndexNotRecreated() throws IOException, InterruptedException {
+        EntityMetadata md = createMetadata();
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
+        ctx.addDocument(doc);
+        controller.insert(ctx, null);
+        md = addCIIndexes(md);
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
+
+        Thread.sleep(2000);
+        DBCollection coll = db.getCollection("testCollectionIndex1");
+        DBCursor find = coll.find();
+        DBObject obj = find.next();
+        assertTrue(((DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString())).containsField("field3"));
+
+        DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
+        hidden.removeField("field3");
+        obj.put(Translator.HIDDEN_SUB_PATH.toString(), hidden);
+        coll.save(obj);
+        find.close();
+
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
+        coll = db.getCollection("testCollectionIndex1");
+        find = coll.find();
+        obj = find.next();
+        assertFalse(((DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString())).containsField("field3"));
+    }
+
     @Test
     public void createIndexAfterDataExists_CI() throws IOException, InterruptedException {
 
@@ -116,7 +146,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         md = addCIIndexes(md);
         controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
 
-        // wait a couple of seconds because the update runs in a background thread
+        // wait a couple of seconds because the update runs in a ind thread
         Thread.sleep(2000);
         DBCursor cursor = db.getCollection("testCollectionIndex1").find();
         cursor.count();
@@ -126,7 +156,6 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             DBObject arrayObj0Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
             DBObject arrayObj1Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(1)).get(Translator.HIDDEN_SUB_PATH.toString());
             DBObject field2Hidden = (DBObject) ((DBObject) obj.get("field2")).get(Translator.HIDDEN_SUB_PATH.toString());
-
 
             assertEquals("FIELDTHREE", hidden.get("field3"));
             assertEquals("ARRAYFIELDONE", ((BasicDBList) hidden.get("arrayField")).get(0));
@@ -323,6 +352,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         index2.setFields(indexFields2);
 
         Index index3 = new Index();
+
         index3.setName("testIndex3");
         index3.setUnique(true);
         List<IndexSortKey> indexFields3 = new ArrayList<>();
