@@ -746,7 +746,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 LOGGER.info("Dropping {}",index.get("name"));
                 entityCollection.dropIndex(index.get("name").toString());
             }
-            boolean background = true;
+            // we want to run in the background if we're only creating indexes (no field generation)
+            boolean hidden = false;
             // fieldMap is <canonicalPath, hiddenPath>
             Map<String, String> fieldMap = new HashMap<>();
             for(Index index:createIndexes) {
@@ -756,13 +757,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     String field = Translator.translatePath(p.getField());
                     if (p.isCaseInsensitive()) {
                         // build a map of the index's field to it's actual @mongoHidden path
-
                         field = Translator.getHiddenForField(p.getField()).toString();
-
                         fieldMap.put(p.getField().toString(), field);
-
-                        // if we have a case insensitive index, we want this operation to be blocking because we need to generate fields afterwards
-                        background = false;
+                        // if we have a case insensitive index, we want the index creation operation to be blocking
+                        hidden = true;
                         LOGGER.info("Index creation will be blocking.");
                     }
                     newIndex.put(field, p.isDesc() ? -1 : 1);
@@ -773,14 +771,14 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 if (index.getName() != null && index.getName().trim().length() > 0) {
                     options.append("name", index.getName().trim());
                 }
-                options.append("background", background);
+                // if we have hidden fields to generate, we want index creation to be blocking so we can ensure that the indexes are created before we generate the fields
+                options.append("background", !hidden);
                 LOGGER.debug("Creating index {} with options {}", newIndex, options);
                 entityCollection.createIndex(newIndex, options);
             }
-            if (!background) {
+            if (hidden) {
                 LOGGER.info("Executing post-index creation updates...");
-                // if we're not running in the background, we need to execute the items in this block afterwards
-                // caseInsensitive indexes have been updated or created, run the server-side updater on mongo to recalculate all hidden fields
+                // case insensitive indexes have been updated or created. recalculate all hidden fields
                 Thread pop = new Thread(new Runnable() {
                     @Override
                     public void run() {
