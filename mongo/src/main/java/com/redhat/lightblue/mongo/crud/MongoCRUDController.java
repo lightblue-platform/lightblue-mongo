@@ -235,9 +235,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                         LOGGER.error("saveOrInsert failed: {}", e);
                         inputDoc.addError(analyzeException(e, operation, MongoCrudConstants.ERR_SAVE_ERROR, true));
                     }
+                    JsonDoc jsonDoc = translator.toJson(dbObject);
+                    LOGGER.debug("Translated doc: {}", jsonDoc);
+                    inputDoc.setUpdatedDocument(jsonDoc);
                     if (projector != null) {
-                        JsonDoc jsonDoc = translator.toJson(dbObject);
-                        LOGGER.debug("Translated doc: {}", jsonDoc);
                         inputDoc.setOutputDocument(projector.project(jsonDoc, ctx.getFactory().getNodeFactory()));
                     } else {
                         inputDoc.setOutputDocument(new JsonDoc(new ObjectNode(ctx.getFactory().getNodeFactory())));
