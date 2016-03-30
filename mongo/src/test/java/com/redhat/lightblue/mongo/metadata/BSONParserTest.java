@@ -35,20 +35,6 @@ public class BSONParserTest {
         Extensions<BSONObject> extensions = new Extensions<>();
         extensions.addDefaultExtensions();
         extensions.registerDataStoreParser("empty", new FakeDataStoreParser<BSONObject>("empty"));
-        extensions.registerPropertyParser("fake", new PropertyParser<BSONObject>() {
-            @Override
-            public Object parse(String name, MetadataParser<BSONObject> p, BSONObject node) {
-                p.getStringProperty(node, "answer");
-                return 42;
-            }
-
-            @Override
-            public void convert(MetadataParser<BSONObject> p, BSONObject parent, Object object) {
-                BSONObject t = p.newNode();
-                p.putObject(parent, "fake", t);
-                p.putString(t, "answer", object.toString());
-            }
-        });
         parser = new BSONParser(extensions, new DefaultTypes());
     }
 
@@ -71,7 +57,7 @@ public class BSONParserTest {
         Enums enums = new Enums();
         enums.addEnum(e);
 
-        BSONObject enumsNode = parser.newNode();
+        BSONObject enumsNode = (BSONObject)parser.newNode();
         parser.convertEnums(enumsNode, enums);
 
         String bsonString = enumsNode.toString();
@@ -103,7 +89,7 @@ public class BSONParserTest {
         Enums enums = new Enums();
         enums.addEnum(e);
 
-        BSONObject enumsNode = parser.newNode();
+        BSONObject enumsNode = (BSONObject)parser.newNode();
         parser.convertEnums(enumsNode, enums);
 
         String bsonString = enumsNode.toString();
@@ -121,7 +107,7 @@ public class BSONParserTest {
         String enumValue1 = "FakeEnumValue1";
         String enumValue2 = "FakeEnumValue2";
 
-        BSONObject enumsNode = parser.newNode();
+        BSONObject enumsNode = (BSONObject)parser.newNode();
         enumsNode.put("name", enumName);
         enumsNode.put("values", Arrays.asList(enumValue1, enumValue2));
 
@@ -142,14 +128,14 @@ public class BSONParserTest {
         String enumValue2 = "FakeEnumValue2";
         String enumDescription2 = "this is a fake description of enum value 2";
 
-        BSONObject enum1Node = parser.newNode();
+        BSONObject enum1Node = (BSONObject)parser.newNode();
         enum1Node.put("name", enumValue1);
         enum1Node.put("description", enumDescription1);
-        BSONObject enum2Node = parser.newNode();
+        BSONObject enum2Node = (BSONObject)parser.newNode();
         enum2Node.put("name", enumValue2);
         enum2Node.put("description", enumDescription2);
 
-        BSONObject enumsNode = parser.newNode();
+        BSONObject enumsNode = (BSONObject)parser.newNode();
         enumsNode.put("name", enumName);
         enumsNode.put("annotatedValues", Arrays.asList(enum1Node, enum2Node));
 
