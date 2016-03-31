@@ -608,6 +608,40 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void saveTestForUpdatedCopyOfDoc() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        // Insert a doc
+        System.out.println("Write doc:" + doc);
+        controller.insert(ctx, projection);
+        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        System.out.println("Saved id:" + id);
+
+        // Read the doc
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
+                projection("{'field':'*','recursive':1}"), null, null, null);
+        JsonDoc readDoc = ctx.getDocuments().get(0);
+
+        // Now we save the doc, and expect that the invisible field is still there
+        readDoc.modify(new Path("field1"), nodeFactory.textNode("updated"), false);
+        System.out.println("To update:" + readDoc);
+        ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
+        ctx.add(md);
+        ctx.addDocument(readDoc);
+        controller.save(ctx, false, projection);
+
+        // Make sure ctx has the modified doc
+        Assert.assertEquals("updated",ctx.getDocuments().get(0).getUpdatedDocument().get(new Path("field1")).asText());
+        Assert.assertNull(ctx.getDocuments().get(0).getOutputDocument().get(new Path("field1")));
+    }
+    
+   @Test
     public void upsertTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
