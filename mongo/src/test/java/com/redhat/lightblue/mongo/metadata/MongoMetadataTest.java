@@ -74,9 +74,9 @@ public class MongoMetadataTest {
     public void setup() throws Exception {
         Factory factory = new Factory();
         factory.addCRUDController("mongo", new TestCRUDController());
-        Extensions<BSONObject> x = new Extensions<>();
+        Extensions<Object> x = new Extensions<>();
         x.addDefaultExtensions();
-        x.registerDataStoreParser("mongo", new MongoDataStoreParser<BSONObject>());
+        x.registerDataStoreParser("mongo", new MongoDataStoreParser<Object>());
         db=mongo.getConnection().getDB("mongo");
         md = new MongoMetadata(db, x, new DefaultTypes(), factory, null);
         BasicDBObject index = new BasicDBObject("name", 1);

@@ -51,140 +51,86 @@ import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonUtils;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class BSONParser extends MetadataParser<BSONObject> {
+public class BSONParser extends MetadataParser<Object> {
     private static final Logger LOGGER = LoggerFactory.getLogger(BSONParser.class);
 
     public static final String DELIMITER_ID = "|";
 
-    public BSONParser(Extensions<BSONObject> ex,
+    public BSONParser(Extensions<Object> ex,
                       TypeResolver resolver) {
         super(ex, resolver);
     }
 
     @Override
-    public String getStringProperty(BSONObject object, String name) {
-        Object x = object.get(name);
-        if (x != null) {
-            if (x instanceof String) {
-                return (String) x;
-            } else {
-                throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, name);
-            }
-        } else {
-            return null;
-        }
-    }
-
-    @Override
-    public BSONObject getObjectProperty(BSONObject object, String name) {
-        Object x = object.get(name);
-        if (x != null) {
-            if (x instanceof BSONObject) {
-                return (BSONObject) x;
-            } else {
-                throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, name);
-            }
-        } else {
-            return null;
-        }
-    }
-
-    @Override
-    public Object getValueProperty(BSONObject object, String name) {
-        Object x = object.get(name);
-        if (x != null) {
-            if (x instanceof Number
-                    || x instanceof String
-                    || x instanceof Date
-                    || x instanceof Boolean) {
-                return x;
-            } else {
-                throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, name);
-            }
-        } else {
-            return null;
-        }
-    }
-
-    @Override
-    public List<String> getStringList(BSONObject object, String name) {
-        Object x = object.get(name);
-        if (x != null) {
-            if (x instanceof List) {
-                ArrayList<String> ret = new ArrayList<>();
-                for (Object o : (List) x) {
-                    ret.add(o.toString());
-                }
-                return ret;
-            } else {
-                throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, name);
-            }
-        } else {
-            return null;
-        }
-    }
-
-    @Override
-    public List<BSONObject> getObjectList(BSONObject object, String name) {
-        Object x = object.get(name);
-        if (x != null) {
-            if (x instanceof List) {
-                return (List<BSONObject>) x;
-            } else {
-                throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, name);
-            }
-        } else {
-            return null;
-        }
-    }
-
-    @Override
-    public BSONObject newNode() {
+    public Object newMap() {
         return new BasicDBObject();
     }
 
     @Override
-    public Set<String> getChildNames(BSONObject object) {
-        return object.keySet();
+    public Object getMapProperty(Object map,String name) {
+        return ((BSONObject)map).get(name);
     }
 
     @Override
-    public void putString(BSONObject object, String name, String value) {
-        object.put(name, value);
+    public Set<String> getMapPropertyNames(Object map) {
+        return ((BSONObject)map).keySet();
     }
 
     @Override
-    public void putObject(BSONObject object, String name, Object value) {
-        object.put(name, value);
+    public void setMapProperty(Object map,String name,Object value) {
+        ((BSONObject)map).put(name,value);
+    }
+
+   @Override
+    public  Object newList() {
+       return new ArrayList<Object>();
     }
 
     @Override
-    public void putValue(BSONObject object, String name, Object value) {
-        object.put(name, value);
+    public int getListSize(Object list) {
+        return ((List)list).size();
     }
 
     @Override
-    public Object newArrayField(BSONObject object, String name) {
-        Object ret = new ArrayList();
-        object.put(name, ret);
-        return ret;
+    public Object getListElement(Object list,int n) {
+        return ((List)list).get(n);
     }
 
     @Override
-    public void addStringToArray(Object array, String value) {
-        ((List) array).add(value);
+    public void addListElement(Object list,Object element) {
+        ((List)list).add(element);
     }
 
     @Override
-    public void addObjectToArray(Object array, Object value) {
-        ((List) array).add(value);
+    public Object asValue(Object value) {
+        if(value==null) {
+            return null;
+        } else if(value instanceof BSONObject ||
+                  value instanceof List) {
+            throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, value.toString());
+        } else {
+            return value;
+        }
     }
 
     @Override
-    public Set<String> findFieldsNotIn(BSONObject elements, Set<String> removeAllFields) {
-        final Set<String> strings = new HashSet<>(elements.keySet());
-        strings.removeAll(removeAllFields);
-        return strings;
+    public Object asRepresentation(Object value) {
+        return value;
+    }
+
+    
+    
+    @Override
+    public MetadataParser.PropertyType getType(Object object) {
+        if(object instanceof List) {
+            return MetadataParser.PropertyType.LIST;
+        } else if(object instanceof BSONObject) {
+            return MetadataParser.PropertyType.MAP;
+        } else if(object==null) {
+            return MetadataParser.PropertyType.NULL;
+        } else {
+            return MetadataParser.PropertyType.VALUE;
+        }
     }
 
     /**
@@ -194,7 +140,7 @@ public class BSONParser extends MetadataParser<BSONObject> {
     public BSONObject convert(EntityInfo info) {
         Error.push("convert[info|bson]");
         try {
-            BSONObject doc = super.convert(info);
+            BSONObject doc = (BSONObject)super.convert(info);
 
             // entityInfo._id = {entityInfo.name}|
             putValue(doc, "_id", getStringProperty(doc, "name") + DELIMITER_ID);
@@ -219,7 +165,7 @@ public class BSONParser extends MetadataParser<BSONObject> {
     public BSONObject convert(EntitySchema schema) {
         Error.push("convert[info|bson]");
         try {
-            BSONObject doc = super.convert(schema);
+            BSONObject doc = (BSONObject)super.convert(schema);
             putValue(doc, "_id", getStringProperty(doc, "name") + DELIMITER_ID + getRequiredStringProperty(getRequiredObjectProperty(doc, "version"), "value"));
 
             return doc;
@@ -236,69 +182,42 @@ public class BSONParser extends MetadataParser<BSONObject> {
     }
 
     @Override
-    public List<BSONObject> getObjectList(BSONObject object) {
-        if (object instanceof List) {
-            return (List<BSONObject>) object;
-        } else {
-            throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA);
-        }
-    }
-
-    @Override
-    public Projection getProjection(BSONObject object, String name) {
-        String x = (String) object.get(name);
+    public Projection getProjection(Object object, String name) {
+        String x = (String) ((BSONObject)object).get(name);
         return x == null ? null : Projection.fromJson(toJson(x));
     }
 
     @Override
-    public QueryExpression getQuery(BSONObject object, String name) {
-        String x = (String) object.get(name);
+    public QueryExpression getQuery(Object object, String name) {
+        String x = (String) ((BSONObject)object).get(name);
         return x == null ? null : QueryExpression.fromJson(toJson(x));
     }
 
     @Override
-    public Sort getSort(BSONObject object, String name) {
-        String x = (String) object.get(name);
+    public Sort getSort(Object object, String name) {
+        String x = (String) ((BSONObject)object).get(name);
         return x == null ? null : Sort.fromJson(toJson(x));
     }
 
     @Override
-    public void putProjection(BSONObject object, String name, Projection p) {
+    public void putProjection(Object object, String name, Projection p) {
         if (p != null) {
-            object.put(name, p.toJson().toString());
+            ((BSONObject)object).put(name, p.toJson().toString());
         }
     }
 
     @Override
-    public void putQuery(BSONObject object, String name, QueryExpression q) {
+    public void putQuery(Object object, String name, QueryExpression q) {
         if (q != null) {
-            object.put(name, q.toJson().toString());
+            ((BSONObject)object).put(name, q.toJson().toString());
         }
     }
 
     @Override
-    public void putSort(BSONObject object, String name, Sort s) {
+    public void putSort(Object object, String name, Sort s) {
         if (s != null) {
-            object.put(name, s.toJson().toString());
+            ((BSONObject)object).put(name, s.toJson().toString());
         }
-    }
-
-    private static Object convertValue(JsonNode node) {
-        if (node instanceof BigIntegerNode) {
-            return node.bigIntegerValue();
-        } else if (node instanceof BooleanNode) {
-            return node.asBoolean();
-        } else if (node instanceof DecimalNode) {
-            return node.decimalValue();
-        } else if (node instanceof DoubleNode
-                || node instanceof FloatNode) {
-            return node.asDouble();
-        } else if (node instanceof IntNode
-                || node instanceof LongNode
-                || node instanceof ShortNode) {
-            return node.asLong();
-        }
-        return node.asText();
     }
 
     private static JsonNode toJson(String object) {
