@@ -32,9 +32,9 @@ public class BSONParserTest {
 
     @Before
     public void setup() {
-        Extensions<BSONObject> extensions = new Extensions<>();
+        Extensions<Object> extensions = new Extensions<>();
         extensions.addDefaultExtensions();
-        extensions.registerDataStoreParser("empty", new FakeDataStoreParser<BSONObject>("empty"));
+        extensions.registerDataStoreParser("empty", new FakeDataStoreParser<Object>("empty"));
         parser = new BSONParser(extensions, new DefaultTypes());
     }
 

@@ -61,9 +61,9 @@ public class CacheTest {
     public void setup() throws Exception {
         Factory factory = new Factory();
         factory.addCRUDController("mongo", new TestCRUDController());
-        Extensions<BSONObject> x = new Extensions<>();
+        Extensions<Object> x = new Extensions<>();
         x.addDefaultExtensions();
-        x.registerDataStoreParser("mongo", new MongoDataStoreParser<BSONObject>());
+        x.registerDataStoreParser("mongo", new MongoDataStoreParser<Object>());
         // 50 msecs version lookup
         // 100 msecs cache refresh
         cache.setCacheParams(50l,100l);

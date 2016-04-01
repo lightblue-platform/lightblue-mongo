@@ -56,7 +56,7 @@ public class BSONParser extends MetadataParser<Object> {
 
     public static final String DELIMITER_ID = "|";
 
-    public BSONParser(Extensions ex,
+    public BSONParser(Extensions<Object> ex,
                       TypeResolver resolver) {
         super(ex, resolver);
     }

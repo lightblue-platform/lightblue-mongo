@@ -59,7 +59,7 @@ public class MongoMetadata extends AbstractMetadata {
 
     public MongoMetadata(DB db,
                          String metadataCollection,
-                         Extensions<BSONObject> parserExtensions,
+                         Extensions<Object> parserExtensions,
                          TypeResolver typeResolver,
                          Factory factory,
                          MetadataCache cache) {
@@ -70,7 +70,7 @@ public class MongoMetadata extends AbstractMetadata {
     }
 
     public MongoMetadata(DB db,
-                         Extensions<BSONObject> parserExtensions,
+                         Extensions<Object> parserExtensions,
                          TypeResolver typeResolver,
                          Factory factory,
                          MetadataCache cache) {

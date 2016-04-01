@@ -56,9 +56,9 @@ public class MongoMetadataConfiguration extends AbstractMetadataConfiguration {
         DataSourceConfiguration cfg = datasources.getDataSourceConfiguration(datasource);
         if (cfg != null) {
             DBResolver dbresolver = new MongoDBResolver(datasources);
-            Extensions<BSONObject> parserExtensions = new Extensions<>();
+            Extensions<Object> parserExtensions = new Extensions<>();
             parserExtensions.addDefaultExtensions();
-            parserExtensions.registerDataStoreParser(MongoDataStoreParser.NAME, new MongoDataStoreParser<BSONObject>());
+            parserExtensions.registerDataStoreParser(MongoDataStoreParser.NAME, new MongoDataStoreParser<Object>());
 
             // register any of the common configuration bits from abstract parent
             registerWithExtensions(parserExtensions);
