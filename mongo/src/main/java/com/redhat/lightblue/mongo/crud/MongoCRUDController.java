@@ -602,12 +602,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             LOGGER.debug("Adding _id field");
             idField = new SimpleField(ID_STR, StringType.TYPE);
             schema.getFields().addNew(idField);
-        } else {
-            if (field instanceof SimpleField) {
-                idField = (SimpleField) field;
-            } else {
-                throw Error.get(MongoMetadataConstants.ERR_INVALID_ID);
-            }
+        } else if (!(field instanceof SimpleField)) {
+            throw Error.get(MongoMetadataConstants.ERR_INVALID_ID);
         }
 
         LOGGER.debug("ensureIdField: end");
@@ -837,32 +833,31 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         MongoDataStore ds = (MongoDataStore) ei.getDataStore();
         DB entityDB = dbResolver.get(ds);
         DBCollection coll = entityDB.getCollection(ds.getCollectionName());
-        DBCursor cursor = coll.find();
-
-        while (cursor.hasNext()) {
-            DBObject doc = cursor.next();
-            DBObject original = (DBObject) ((BasicDBObject) doc).copy();
-            for (String index : fieldMap.keySet()) {
-                int arrIndex = index.indexOf("*");
-                if (arrIndex > -1) {
-                    // recurse if we have more arrays in the path
-                    populateHiddenArrayField(doc, index, fieldMap.get(index));
-                } else {
-                    Object dbObject = Translator.getDBObject(doc, new Path(index));
-                    ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
-                    JsonDoc.modify(arrNode, new Path(fieldMap.get(index)), JsonNodeFactory.instance.textNode(dbObject.toString().toUpperCase()), true);
-                    ObjectMapper mapper = new ObjectMapper();
-                    JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
-                    DBObject obj = (DBObject) JSON.parse(merged.toString());
-                    ((BasicDBObject) doc).clear();
-                    ((BasicDBObject) doc).putAll(obj);
+        try (DBCursor cursor = coll.find()) {
+            while (cursor.hasNext()) {
+                DBObject doc = cursor.next();
+                DBObject original = (DBObject) ((BasicDBObject) doc).copy();
+                for (String index : fieldMap.keySet()) {
+                    int arrIndex = index.indexOf("*");
+                    if (arrIndex > -1) {
+                        // recurse if we have more arrays in the path
+                        populateHiddenArrayField(doc, index, fieldMap.get(index));
+                    } else {
+                        Object dbObject = Translator.getDBObject(doc, new Path(index));
+                        ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
+                        JsonDoc.modify(arrNode, new Path(fieldMap.get(index)), JsonNodeFactory.instance.textNode(dbObject.toString().toUpperCase()), true);
+                        ObjectMapper mapper = new ObjectMapper();
+                        JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
+                        DBObject obj = (DBObject) JSON.parse(merged.toString());
+                        ((BasicDBObject) doc).clear();
+                        ((BasicDBObject) doc).putAll(obj);
+                    }
+                }
+                if (!doc.equals(original)) {
+                    coll.save(doc);
                 }
             }
-            if (!doc.equals(original)) {
-                coll.save(doc);
-            }
         }
-        cursor.close();
         LOGGER.debug("Finished population of hidden fields.");
     }
 
@@ -896,7 +891,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     populateHiddenArrayField(doc, fullIdxPath, fullHiddenPath);
                 } else {
                     // if no more arrays, set the field and continue
-                    String node = null;
+                    String node;
                     Object object = docArr.get(i);
                     if (object instanceof BasicDBObject) {
                         node = ((BasicDBObject) object).get(fieldPost.substring(1)).toString().toUpperCase();
@@ -910,7 +905,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 DBObject obj = (DBObject) JSON.parse(merged.toString());
                 ((BasicDBObject) doc).clear();
                 ((BasicDBObject) doc).putAll(obj);
-                ;
             }
         }
     }
@@ -980,9 +974,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
       private boolean isIdIndex(DBObject index) {
         BasicDBObject keys=(BasicDBObject)index.get("key");
-        if(keys!=null&&keys.size()==1&&keys.containsKey("_id"))
-            return true;
-        return false;
+        return (keys!=null&&keys.size()==1&&keys.containsField("_id"));
     }
 
     private boolean compareSortKeys(IndexSortKey sortKey, String fieldName, Object dir) {
