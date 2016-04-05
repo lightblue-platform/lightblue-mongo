@@ -19,11 +19,7 @@
 package com.redhat.lightblue.mongo.crud;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -40,7 +36,6 @@ import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.Field;
-import com.redhat.lightblue.metadata.IndexSortKey;
 import com.redhat.lightblue.mongo.hystrix.FindOneCommand;
 import com.redhat.lightblue.mongo.hystrix.InsertCommand;
 import com.redhat.lightblue.mongo.hystrix.UpdateCommand;
@@ -202,12 +197,6 @@ public class BasicDocSaver implements DocSaver {
             LOGGER.debug("Inaccessible fields:{}", paths);
             if (paths == null || paths.isEmpty()) {
                 try {
-                    Stream<IndexSortKey> ciIndexes = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes());
-                    Map<String, String> fieldMap = new HashMap<>();
-                    ciIndexes.forEach(i -> {
-                        String hidden = Translator.getHiddenForField(i.getField()).toString();
-                        fieldMap.put(i.getField().toString(), hidden);
-                    });
                     try {
                         Translator.populateDocHiddenFields(dbObject, md);
                     } catch (IOException e) {
