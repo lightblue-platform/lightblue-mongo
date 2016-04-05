@@ -44,7 +44,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import com.mongodb.util.JSON;
@@ -63,7 +62,6 @@ import com.redhat.lightblue.metadata.ResolvedReferenceField;
 import com.redhat.lightblue.metadata.SimpleArrayElement;
 import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.Type;
-import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.query.ArrayContainsExpression;
 import com.redhat.lightblue.query.ArrayMatchExpression;
 import com.redhat.lightblue.query.ArrayUpdateExpression;
@@ -731,7 +729,17 @@ public class Translator {
         }
     }
 
-    public static void populateDoc(DBObject doc, Map<String, String> fieldMap) throws IOException{
+    public static void populateDocHiddenFields(DBObject doc, EntityMetadata md) throws IOException {
+        Stream<IndexSortKey> ciIndexes = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes());
+        Map<String, String> fieldMap = new HashMap<>();
+        ciIndexes.forEach(i -> {
+            String hidden = Translator.getHiddenForField(i.getField()).toString();
+            fieldMap.put(i.getField().toString(), hidden);
+        });
+        populateDocHiddenFields(doc, fieldMap);
+    }
+
+    public static void populateDocHiddenFields(DBObject doc, Map<String, String> fieldMap) throws IOException{
         for (String index : fieldMap.keySet()) {
             int arrIndex = index.indexOf("*");
             if (arrIndex > -1) {
@@ -758,6 +766,7 @@ public class Translator {
      * @param hidden
      * @throws IOException
      */
+    @SuppressWarnings("rawtypes")
     private static void populateHiddenArrayField(DBObject doc, String index, String hidden) throws IOException {
         String[] indexSplit = splitArrayPath(index);
         String fieldPre = indexSplit[0];
@@ -767,7 +776,7 @@ public class Translator {
         String hiddenPre = hiddenSplit[0];
         String hiddenPost = hiddenSplit[1];
 
-        BasicDBList docArr = (BasicDBList) Translator.getDBObject(doc, new Path(fieldPre));
+        List docArr = (List) Translator.getDBObject(doc, new Path(fieldPre));
         if (docArr != null) {
             ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
             for (int i = 0; i < docArr.size(); i++) {
@@ -1226,12 +1235,6 @@ public class Translator {
         if (value != null) {
             if (path.equals(ID_PATH)) {
                 value = createIdFrom(value);
-            }
-            if (getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes()).anyMatch(i -> i.getField().equals(path))) {
-                if (fieldMd.getType().equals(StringType.TYPE)) {
-                    Path hidden = getHiddenForField(new Path(path.tail(0)));
-                    dest.append(hidden.toString(), value.toString().toUpperCase());
-                }
             }
             dest.append(path.tail(0), value);
         }

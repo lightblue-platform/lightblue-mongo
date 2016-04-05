@@ -830,7 +830,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             while (cursor.hasNext()) {
                 DBObject doc = cursor.next();
                 DBObject original = (DBObject) ((BasicDBObject) doc).copy();
-                Translator.populateDoc(doc, fieldMap);
+                Translator.populateDocHiddenFields(doc, fieldMap);
                 if (!doc.equals(original)) {
                     coll.save(doc);
                 }
