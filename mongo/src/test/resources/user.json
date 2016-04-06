@@ -1,0 +1,907 @@
+{
+  "entityInfo": {
+    "name": "user",
+    "defaultVersion": "0.0.5-SNAPSHOT",
+    "indexes": [
+      {
+        "name": "user_personalInformation_lastNames",
+        "fields": [
+          {
+            "field": "personalInformation.lastNames",
+            "dir": "$asc",
+            "caseInsensitive": true
+          }
+        ]
+      },
+      {
+        "name": "user_personalInformation_firstName",
+        "fields": [
+          {
+            "field": "personalInformation.firstName",
+            "dir": "$asc",
+            "caseInsensitive": true
+          }
+        ]
+      },
+      {
+        "name": "user_authentication_principal_providerName_isUserSimple",
+        "unique": true,
+        "fields": [
+          {
+            "field": "authentications.*.principal",
+            "dir": "$asc",
+            "caseInsensitive": false
+          },
+          {
+            "field": "authentications.*.providerName",
+            "dir": "$asc",
+            "caseInsensitive": false
+          },
+          {
+            "field": "isUserSimple",
+            "dir": "$asc",
+            "caseInsensitive": false
+          }
+        ]
+      },
+      {
+        "name": "user_authentications_uid",
+        "fields": [
+          {
+            "field": "authentications.*.uid",
+            "dir": "$asc",
+            "caseInsensitive": false
+          }
+        ]
+      },
+      {
+        "name": "user_preference",
+        "fields": [
+          {
+            "field": "preferences.*.system",
+            "dir": "$asc",
+            "caseInsensitive": false
+          },
+          {
+            "field": "preferences.*.code",
+            "dir": "$asc",
+            "caseInsensitive": false
+          }
+        ]
+      },
+      {
+        "name": "user_legalEntity_email",
+        "fields": [
+          {
+            "field": "legalEntities.*.emails.*.address",
+            "dir": "$asc",
+            "caseInsensitive": true
+          }
+        ]
+      },
+      {
+        "name": "user_legalEntity_email_validation_key",
+        "fields": [
+          {
+            "field": "legalEntities.*.emails.*.validation.key",
+            "dir": "$asc",
+            "caseInsensitive": false
+          }
+        ]
+      },
+      {
+        "name": "user_legalEntity_physicalAddresses_uid",
+        "fields": [
+          {
+            "field": "legalEntities.*.physicalAddresses.*.uid",
+            "dir": "$asc",
+            "caseInsensitive": false
+          }
+        ]
+      },
+      {
+        "name": "user_legalEntity",
+        "fields": [
+          {
+            "field": "legalEntities.*.legalEntityId",
+            "dir": "$asc",
+            "caseInsensitive": false
+          }
+        ]
+      },
+      {
+        "name": "user_permissionCode",
+        "fields": [
+          {
+            "field": "legalEntities.*.permissions.*.permissionCode",
+            "dir": "$asc",
+            "caseInsensitive": false
+          }
+        ]
+      },
+      {
+        "name": null,
+        "unique": true,
+        "fields": [
+          {
+            "field": "_id",
+            "dir": "$asc",
+            "caseInsensitive": false
+          }
+        ]
+      }
+    ],
+    "enums": [
+      {
+        "name": "phoneType",
+        "values": [
+          "fax",
+          "other"
+        ],
+        "annotatedValues": [
+          {
+            "name": "fax",
+            "description": "a fax number"
+          },
+          {
+            "name": "other",
+            "description": "general bucket for unclassified phone number"
+          }
+        ]
+      },
+      {
+        "name": "accessLevel",
+        "values": [
+          "read",
+          "write",
+          "admin"
+        ],
+        "description": "Optional level of access a permission grants."
+      },
+      {
+        "name": "addressType",
+        "values": [
+          "shipTo",
+          "billTo",
+          "market"
+        ],
+        "annotatedValues": [
+          {
+            "name": "shipTo",
+            "description": "An address that can be used for shipping goods."
+          },
+          {
+            "name": "billTo",
+            "description": "An address that can be used for billing."
+          },
+          {
+            "name": "market",
+            "description": "An address used for sending marketing material.  Also used as a general / default address."
+          }
+        ]
+      },
+      {
+        "name": "providerName",
+        "values": [
+          "Red Hat",
+          "Microsoft",
+          "jboss.org",
+          "developer.redhat.com"
+        ],
+        "annotatedValues": [
+          {
+            "name": "Red Hat",
+            "description": "The provider for any properties using Red Hat SSO."
+          },
+          {
+            "name": "Microsoft",
+            "description": "The Microsoft login provider"
+          },
+          {
+            "name": "jboss.org",
+            "description": "The jboss.org login provider"
+          },
+          {
+            "name": "developer.redhat.com",
+            "description": "The developer.redhat login provider"
+          }
+        ]
+      },
+      {
+        "name": "status",
+        "values": [
+          "enabled",
+          "disabled"
+        ],
+        "annotatedValues": [
+          {
+            "name": "enabled",
+            "description": "User is able to log in."
+          },
+          {
+            "name": "disabled",
+            "description": "User is not able to log in."
+          }
+        ]
+      }
+    ],
+    "hooks": [
+      
+    ],
+    "datastore": {
+      "datasource": "mongodata",
+      "collection": "user",
+      "backend": "mongo"
+    },
+    "_id": "user|"
+  },
+  "schema": {
+    "name": "user",
+    "version": {
+      "value": "0.0.5-SNAPSHOT",
+      "changelog": "Add simple users promoCode"
+    },
+    "status": {
+      "value": "active"
+    },
+    "fields": {
+      "migrationDate": {
+        "type": "date",
+        "description": null,
+        "valueGenerator": {
+          "type": "CurrentTime"
+        }
+      },
+      "lastUpdatedBy": {
+        "type": "string",
+        "description": null,
+        "constraints": {
+          "required": true
+        }
+      },
+      "preferences": {
+        "type": "array",
+        "description": null,
+        "items": {
+          "type": "object",
+          "fields": {
+            "code": {
+              "type": "string",
+              "description": null
+            },
+            "system": {
+              "type": "string",
+              "description": null
+            },
+            "value": {
+              "type": "string",
+              "description": null
+            }
+          }
+        }
+      },
+      "lastUpdateDate": {
+        "type": "date",
+        "description": null,
+        "valueGenerator": {
+          "type": "CurrentTime",
+          "configuration": {
+            "overwrite": "true"
+          }
+        },
+        "constraints": {
+          "required": true
+        }
+      },
+      "personalInformation": {
+        "type": "object",
+        "description": null,
+        "fields": {
+          "middleNames": {
+            "type": "string",
+            "description": null
+          },
+          "firstName": {
+            "type": "string",
+            "description": null,
+            "constraints": {
+              "required": true
+            }
+          },
+          "localeCode": {
+            "type": "string",
+            "description": "NOTE not an enum or reference, but would like to name this localeCode"
+          },
+          "prefix": {
+            "type": "string",
+            "description": null
+          },
+          "timeZone": {
+            "type": "string",
+            "description": null
+          },
+          "lastNames": {
+            "type": "string",
+            "description": null,
+            "constraints": {
+              "required": true
+            }
+          },
+          "legacyCompanyName": {
+            "type": "string",
+            "description": "Deprecated field. Use legalEntities.legalEntity.name instead."
+          },
+          "suffix": {
+            "type": "string",
+            "description": null
+          },
+          "birthDate": {
+            "type": "date",
+            "description": null
+          }
+        }
+      },
+      "creationDate": {
+        "type": "date",
+        "description": null,
+        "valueGenerator": {
+          "type": "CurrentTime"
+        },
+        "constraints": {
+          "required": true
+        }
+      },
+      "simpleUserId": {
+        "type": "integer",
+        "description": "Numeric id required by legacy simple user service and model."
+      },
+      "authentications": {
+        "type": "array",
+        "description": null,
+        "items": {
+          "type": "object",
+          "fields": {
+            "principal": {
+              "type": "string",
+              "description": "This field together with providerName is unique. The principal will be upper-case to be consistent with Oracle and to make search easier",
+              "constraints": {
+                "minLength": 1,
+                "maxLength": 250,
+                "required": true
+              }
+            },
+            "uid": {
+              "type": "integer",
+              "description": null,
+              "valueGenerator": {
+                "type": "IntSequence",
+                "configuration": {
+                  "initialValue": "100",
+                  "name": "authenticationUidIntSequence"
+                }
+              },
+              "constraints": {
+                "element-identity": true
+              }
+            },
+            "principalDisplay": {
+              "type": "string",
+              "description": "The display name of the principal",
+              "constraints": {
+                "required": true
+              }
+            },
+            "mechanismCode": {
+              "type": "string",
+              "description": "TODO reference to authentication mechanism"
+            },
+            "userRedHatCredentials": {
+              "type": "reference",
+              "description": "Added as a workaround for an association bug in array forEach query.  NOTE this cannot currently check that the authentication providerName = 'Red Hat'.  This must be done by the client.",
+              "entity": "userRedHatCredential",
+              "versionValue": "0.0.4-SNAPSHOT",
+              "query": {
+                "$and": [
+                  {
+                    "field": "userId",
+                    "op": "$eq",
+                    "rfield": "$parent.$parent._id"
+                  }
+                ]
+              }
+            },
+            "mechanism": {
+              "type": "reference",
+              "description": null,
+              "entity": "userAuthenticationMechanism",
+              "versionValue": "0.0.1",
+              "query": {
+                "field": "code",
+                "op": "$eq",
+                "rfield": "$parent.mechanismCode"
+              }
+            },
+            "providerName": {
+              "type": "string",
+              "description": "The name of the authentication provider",
+              "constraints": {
+                "enum": "providerName",
+                "required": true
+              }
+            }
+          }
+        },
+        "constraints": {
+          "minItems": 1,
+          "required": true
+        }
+      },
+      "isUserSimple": {
+        "type": "boolean",
+        "description": "Indicates if user is a simple user, i.e. does not have personalInformation. This field was added to implement simple user promotion through create and will be removed once simple user promotion through update is implemented. See https://mojo.redhat.com/thread/938917",
+        "constraints": {
+          "required": true
+        }
+      },
+      "simpleUserPromoCode": {
+        "type": "string",
+        "description": "simple user's promo code"
+      },
+      "migratedFrom": {
+        "type": "string",
+        "description": null
+      },
+      "createdBy": {
+        "type": "string",
+        "description": null,
+        "constraints": {
+          "required": true
+        }
+      },
+      "legalEntities": {
+        "type": "array",
+        "description": "TODO: set maxItems: 1.    Eventually it will be possible to have many legalEntities.  With start and end date this means a legalEntity can be listed more than once!",
+        "items": {
+          "type": "object",
+          "fields": {
+            "emails": {
+              "type": "array",
+              "description": "TODO add maxItems: 1",
+              "items": {
+                "type": "object",
+                "fields": {
+                  "uid": {
+                    "type": "string",
+                    "description": null,
+                    "valueGenerator": {
+                      "type": "UUID"
+                    },
+                    "constraints": {
+                      "element-identity": true
+                    }
+                  },
+                  "address": {
+                    "type": "string",
+                    "description": null,
+                    "constraints": {
+                      "required": true
+                    }
+                  },
+                  "physicalAddressUid": {
+                    "type": "integer",
+                    "description": null
+                  },
+                  "isPrimary": {
+                    "type": "boolean",
+                    "description": "Indicates if contact information is for the primary user or not. Unset is assumed to be false."
+                  },
+                  "validation": {
+                    "type": "object",
+                    "description": null,
+                    "fields": {
+                      "validationDate": {
+                        "type": "date",
+                        "description": null
+                      },
+                      "creationDate": {
+                        "type": "date",
+                        "description": null,
+                        "valueGenerator": {
+                          "type": "CurrentTime"
+                        },
+                        "constraints": {
+                          "required": true
+                        }
+                      },
+                      "key": {
+                        "type": "string",
+                        "description": null
+                      },
+                      "attempts": {
+                        "type": "integer",
+                        "description": null
+                      },
+                      "expirationDate": {
+                        "type": "date",
+                        "description": null
+                      }
+                    }
+                  },
+                  "status": {
+                    "type": "string",
+                    "description": null,
+                    "constraints": {
+                      "enum": "status",
+                      "required": true
+                    }
+                  }
+                }
+              }
+            },
+            "uid": {
+              "type": "string",
+              "description": null,
+              "valueGenerator": {
+                "type": "UUID"
+              },
+              "constraints": {
+                "element-identity": true
+              }
+            },
+            "endDate": {
+              "type": "date",
+              "description": null
+            },
+            "legalEntityId": {
+              "type": "integer",
+              "description": null
+            },
+            "permissions": {
+              "type": "array",
+              "description": null,
+              "items": {
+                "type": "object",
+                "fields": {
+                  "uid": {
+                    "type": "string",
+                    "description": null,
+                    "valueGenerator": {
+                      "type": "UUID"
+                    },
+                    "constraints": {
+                      "element-identity": true
+                    }
+                  },
+                  "accessLevel": {
+                    "type": "string",
+                    "description": null,
+                    "constraints": {
+                      "enum": "accessLevel"
+                    }
+                  },
+                  "endDate": {
+                    "type": "date",
+                    "description": null
+                  },
+                  "permission": {
+                    "type": "reference",
+                    "description": null,
+                    "entity": "userPermission",
+                    "versionValue": "0.0.1",
+                    "query": {
+                      "field": "code",
+                      "op": "$eq",
+                      "rfield": "$parent.permissionCode"
+                    }
+                  },
+                  "permissionCode": {
+                    "type": "string",
+                    "description": null,
+                    "constraints": {
+                      "required": true
+                    }
+                  },
+                  "startDate": {
+                    "type": "date",
+                    "description": null,
+                    "constraints": {
+                      "required": true
+                    }
+                  }
+                }
+              }
+            },
+            "telephones": {
+              "type": "array",
+              "description": "TODO add maxItems: 2",
+              "items": {
+                "type": "object",
+                "fields": {
+                  "number": {
+                    "type": "string",
+                    "description": null
+                  },
+                  "uid": {
+                    "type": "string",
+                    "description": null,
+                    "valueGenerator": {
+                      "type": "UUID"
+                    },
+                    "constraints": {
+                      "required": true
+                    }
+                  },
+                  "areaCode": {
+                    "type": "string",
+                    "description": null
+                  },
+                  "extension": {
+                    "type": "string",
+                    "description": null
+                  },
+                  "phoneType": {
+                    "type": "string",
+                    "description": null,
+                    "constraints": {
+                      "enum": "phoneType",
+                      "required": true
+                    }
+                  },
+                  "physicalAddressUid": {
+                    "type": "integer",
+                    "description": null
+                  },
+                  "countryCode": {
+                    "type": "string",
+                    "description": null
+                  },
+                  "isPrimary": {
+                    "type": "boolean",
+                    "description": "Indicates if contact information is for the primary user or not. Unset is assumed to be false."
+                  },
+                  "rawNumber": {
+                    "type": "string",
+                    "description": null,
+                    "constraints": {
+                      "required": true
+                    }
+                  },
+                  "status": {
+                    "type": "string",
+                    "description": null,
+                    "constraints": {
+                      "enum": "status",
+                      "required": true
+                    }
+                  }
+                }
+              }
+            },
+            "physicalAddresses": {
+              "type": "array",
+              "description": null,
+              "items": {
+                "type": "object",
+                "fields": {
+                  "defaultFlag": {
+                    "type": "boolean",
+                    "description": "If true, this is the default site for this user on the given legal entity.  Only one can be default at any given time.",
+                    "constraints": {
+                      "required": true
+                    }
+                  },
+                  "city": {
+                    "type": "string",
+                    "description": null
+                  },
+                  "countryIso2Code": {
+                    "type": "string",
+                    "description": null,
+                    "constraints": {
+                      "minLength": 2,
+                      "maxLength": 2,
+                      "required": true
+                    }
+                  },
+                  "postalCode": {
+                    "type": "string",
+                    "description": null
+                  },
+                  "county": {
+                    "type": "string",
+                    "description": null
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "User editable description of the address."
+                  },
+                  "addressTypes": {
+                    "type": "array",
+                    "description": null,
+                    "items": {
+                      "type": "object",
+                      "fields": {
+                        "uid": {
+                          "type": "integer",
+                          "description": null,
+                          "valueGenerator": {
+                            "type": "IntSequence",
+                            "configuration": {
+                              "initialValue": "25000000",
+                              "name": "userLegalEntitiesPhysicalAddressesAddressTypesUidIntSequence"
+                            }
+                          },
+                          "constraints": {
+                            "element-identity": true
+                          }
+                        },
+                        "code": {
+                          "type": "string",
+                          "description": null,
+                          "constraints": {
+                            "enum": "addressType",
+                            "required": true
+                          }
+                        },
+                        "status": {
+                          "type": "string",
+                          "description": null,
+                          "constraints": {
+                            "enum": "status",
+                            "required": true
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "firstName": {
+                    "type": "string",
+                    "description": null
+                  },
+                  "uid": {
+                    "type": "integer",
+                    "description": null,
+                    "valueGenerator": {
+                      "type": "IntSequence",
+                      "configuration": {
+                        "initialValue": "25000000",
+                        "name": "userLegalEntitiesPhysicalAddressesUidIntSequence"
+                      }
+                    },
+                    "constraints": {
+                      "element-identity": true
+                    }
+                  },
+                  "street": {
+                    "type": "array",
+                    "description": null,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "lastNames": {
+                    "type": "string",
+                    "description": null
+                  },
+                  "state": {
+                    "type": "string",
+                    "description": null
+                  },
+                  "status": {
+                    "type": "string",
+                    "description": null,
+                    "constraints": {
+                      "enum": "status",
+                      "required": true
+                    }
+                  },
+                  "addressTypes#": {
+                    "type": "integer",
+                    "description": null
+                  },
+                  "street#": {
+                    "type": "integer",
+                    "description": null
+                  }
+                }
+              }
+            },
+            "department": {
+              "type": "string",
+              "description": null
+            },
+            "title": {
+              "type": "string",
+              "description": null,
+              "constraints": {
+                "maxLength": 128
+              }
+            },
+            "startDate": {
+              "type": "date",
+              "description": null,
+              "constraints": {
+                "required": true
+              }
+            },
+            "legalEntity": {
+              "type": "reference",
+              "description": null,
+              "entity": "legalEntity",
+              "versionValue": "0.0.1",
+              "query": {
+                "field": "_id",
+                "op": "$eq",
+                "rfield": "$parent.legalEntityId"
+              }
+            },
+            "emails#": {
+              "type": "integer",
+              "description": null
+            },
+            "permissions#": {
+              "type": "integer",
+              "description": null
+            },
+            "telephones#": {
+              "type": "integer",
+              "description": null,
+              "access": {
+                "find": [
+                  "anyone"
+                ]
+              }
+            },
+            "physicalAddresses#": {
+              "type": "integer",
+              "description": null
+            }
+          }
+        }
+      },
+      "_id": {
+        "type": "integer",
+        "description": "Numeric id required by legacy user service and model.",
+        "valueGenerator": {
+          "type": "IntSequence",
+          "configuration": {
+            "initialValue": "50000000",
+            "name": "userIdIntSequence"
+          }
+        },
+        "constraints": {
+          "identity": true
+        }
+      },
+      "status": {
+        "type": "string",
+        "description": null,
+        "constraints": {
+          "enum": "status",
+          "required": true
+        }
+      },
+      "objectType": {
+        "type": "string",
+        "description": null,
+        "constraints": {
+          "required": true,
+          "minLength": 1
+        }
+      },
+      "preferences#": {
+        "type": "integer",
+        "description": null
+      },
+      "authentications#": {
+        "type": "integer",
+        "description": null
+      },
+      "legalEntities#": {
+        "type": "integer",
+        "description": null
+      }
+    },
+    "_id": "user|0.0.5-SNAPSHOT"
+  }
+}

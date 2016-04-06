@@ -21,15 +21,14 @@ package com.redhat.lightblue.mongo.crud;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import org.junit.Assert;
-import
-org.junit.Before;
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -37,6 +36,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.github.fge.jsonschema.core.exceptions.ProcessingException;
 import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
@@ -130,6 +130,21 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         find = coll.find();
         obj = find.next();
         assertFalse(((DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString())).containsField("field3"));
+    }
+
+    @Test
+    public void createUser_CI() throws IOException, ProcessingException {
+        db.getCollection("user").drop();
+        EntityMetadata emd = getMd("./user.json");
+        emd.getEntitySchema().getAccess().getInsert().setRoles("anyone");
+        emd.getEntitySchema().getAccess().getFind().setRoles("anyone");
+        controller.afterUpdateEntityInfo(null, emd.getEntityInfo(), false);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./user-complex.json"));
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("user", CRUDOperation.INSERT);
+        ctx.add(emd);
+        ctx.addDocument(doc);
+        CRUDInsertionResponse insert = controller.insert(ctx, null);
+        assertEquals(1, insert.getNumInserted());
     }
 
     @Test
