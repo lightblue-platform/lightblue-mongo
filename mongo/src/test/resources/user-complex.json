@@ -1,0 +1,54 @@
+    {
+      "migrationDate": "20160331T15:34:07.010-0400",
+      "lastUpdatedBy": "lightblue migration",
+      "preferences": [
+        {
+          "code": "emailFormat",
+          "system": "email",
+          "value": "HTML"
+        }
+      ],
+      "lastUpdateDate": "20160216T23:27:08.000-0500",
+      "creationDate": "20160216T12:28:39.000-0500",
+      "authentications": [
+        {
+      "principal": "LOGIN1",
+      "providerName": "Red Hat"
+        }
+      ],
+      "isUserSimple": true,
+      "migratedFrom": "foo",
+      "createdBy": "unknown",
+      "legalEntities": [
+        {
+          "emails": [
+            {
+              "uid": "1",
+              "address": "a@b.c",
+              "isPrimary": true,
+              "validation": {
+                "validationDate": "20150101T00:00:00.000-0500",
+                "creationDate": "20160331T15:34:11.967-0400"
+              },
+              "status": "enabled"
+            }
+          ],
+          "uid": "1",
+          "permissions": [
+            {
+              "uid": "1180",
+              "accessLevel": "admin",
+              "permissionCode": "cloud_access_1",
+              "startDate": "20160216T12:29:33.000-0500"
+            }
+          ],
+          "startDate": "19691231T19:00:00.000-0500"
+        }
+      ],
+      "_id": -1,
+      "status": "enabled",
+      "objectType": "user",
+      "preferences#": 1,
+      "authentications#": 1,
+      "legalEntities#": 1
+    }
