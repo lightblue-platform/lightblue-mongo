@@ -27,8 +27,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
 import org.junit.Assert;
 import
 org.junit.Before;
@@ -135,6 +133,39 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void addDataAfterIndexExists_CI() throws IOException {
+        db.getCollection("testCollectionIndex1").drop();
+        EntityMetadata emd = addCIIndexes(createMetadata());
+        controller.afterUpdateEntityInfo(null, emd.getEntityInfo(),false);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
+
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
+        ctx.add(emd);
+        ctx.addDocument(doc);
+        controller.insert(ctx, null);
+        DBCursor cursor = db.getCollection("testCollectionIndex1").find();
+        cursor.forEach(obj -> {
+            DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
+            DBObject arrayObj0Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
+            DBObject arrayObj1Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(1)).get(Translator.HIDDEN_SUB_PATH.toString());
+            DBObject field2Hidden = (DBObject) ((DBObject) obj.get("field2")).get(Translator.HIDDEN_SUB_PATH.toString());
+
+            assertEquals("FIELDTHREE", hidden.get("field3"));
+            assertEquals("ARRAYFIELDONE", ((BasicDBList) hidden.get("arrayField")).get(0));
+            assertEquals("ARRAYFIELDTWO", ((BasicDBList) hidden.get("arrayField")).get(1));
+            assertEquals("ARRAYOBJXONE", arrayObj0Hidden.get("x"));
+            assertEquals("ARRAYOBJONESUBOBJONE", ((BasicDBList) arrayObj0Hidden.get("arraySubObj")).get(0));
+            assertEquals("ARRAYOBJONESUBOBJTWO", ((BasicDBList) arrayObj0Hidden.get("arraySubObj")).get(1));
+            assertEquals("ARRAYOBJXTWO", arrayObj1Hidden.get("x"));
+            assertEquals("ARRAYOBJTWOSUBOBJONE", ((BasicDBList) arrayObj1Hidden.get("arraySubObj")).get(0));
+            assertEquals("ARRAYOBJTWOSUBOBJTWO", ((BasicDBList) arrayObj1Hidden.get("arraySubObj")).get(1));
+            assertEquals("FIELDTWOX", field2Hidden.get("x"));
+            assertEquals("FIELDTWOSUBARRONE", ((BasicDBList) field2Hidden.get("subArrayField")).get(0));
+            assertEquals("FIELDTWOSUBARRTWO", ((BasicDBList) field2Hidden.get("subArrayField")).get(1));
+        });
+    }
+
+    @Test
     public void createIndexAfterDataExists_CI() throws IOException, InterruptedException {
         db.getCollection("testCollectionIndex1").drop();
         EntityMetadata md = createMetadata();
@@ -150,8 +181,6 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         // wait a couple of seconds because the update runs in a ind thread
         Thread.sleep(5000);
         DBCursor cursor = db.getCollection("testCollectionIndex1").find();
-        cursor.count();
-        StreamSupport.stream(cursor.spliterator(), false).collect(Collectors.toList());
         cursor.forEach(obj -> {
             DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
             DBObject arrayObj0Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
@@ -640,7 +669,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals("updated",ctx.getDocuments().get(0).getUpdatedDocument().get(new Path("field1")).asText());
         Assert.assertNull(ctx.getDocuments().get(0).getOutputDocument().get(new Path("field1")));
     }
-    
+
    @Test
     public void upsertTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");

@@ -18,9 +18,11 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,11 +32,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import org.apache.commons.lang3.StringUtils;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
@@ -42,6 +46,7 @@ import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
+import com.mongodb.util.JSON;
 import com.redhat.lightblue.crud.MetadataResolver;
 import com.redhat.lightblue.metadata.ArrayElement;
 import com.redhat.lightblue.metadata.ArrayField;
@@ -57,7 +62,6 @@ import com.redhat.lightblue.metadata.ResolvedReferenceField;
 import com.redhat.lightblue.metadata.SimpleArrayElement;
 import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.Type;
-import com.redhat.lightblue.metadata.types.StringType;
 import com.redhat.lightblue.query.ArrayContainsExpression;
 import com.redhat.lightblue.query.ArrayMatchExpression;
 import com.redhat.lightblue.query.ArrayUpdateExpression;
@@ -725,6 +729,132 @@ public class Translator {
         }
     }
 
+    public static void populateDocHiddenFields(DBObject doc, EntityMetadata md) throws IOException {
+        Stream<IndexSortKey> ciIndexes = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes());
+        Map<String, String> fieldMap = new HashMap<>();
+        ciIndexes.forEach(i -> {
+            String hidden = Translator.getHiddenForField(i.getField()).toString();
+            fieldMap.put(i.getField().toString(), hidden);
+        });
+        populateDocHiddenFields(doc, fieldMap);
+    }
+
+    public static void populateDocHiddenFields(DBObject doc, Map<String, String> fieldMap) throws IOException{
+        for (String index : fieldMap.keySet()) {
+            int arrIndex = index.indexOf("*");
+            if (arrIndex > -1) {
+                // recurse if we have more arrays in the path
+                populateHiddenArrayField(doc, index, fieldMap.get(index));
+            } else {
+                Object dbObject = Translator.getDBObject(doc, new Path(index));
+                ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
+                JsonDoc.modify(arrNode, new Path(fieldMap.get(index)), JsonNodeFactory.instance.textNode(dbObject.toString().toUpperCase()), true);
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
+                DBObject obj = (DBObject) JSON.parse(merged.toString());
+                ((BasicDBObject) doc).clear();
+                ((BasicDBObject) doc).putAll(obj);
+            }
+        }
+    }
+
+    /**
+     * Given an index and it's hidden counterpart, populate the document with the correct value for the hidden field
+     *
+     * @param doc
+     * @param index
+     * @param hidden
+     * @throws IOException
+     */
+    @SuppressWarnings("rawtypes")
+    private static void populateHiddenArrayField(DBObject doc, String index, String hidden) throws IOException {
+        String[] indexSplit = splitArrayPath(index);
+        String fieldPre = indexSplit[0];
+        String fieldPost = indexSplit[1];
+
+        String[] hiddenSplit = splitArrayPath(hidden);
+        String hiddenPre = hiddenSplit[0];
+        String hiddenPost = hiddenSplit[1];
+
+        List docArr = (List) Translator.getDBObject(doc, new Path(fieldPre));
+        if (docArr != null) {
+            ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
+            for (int i = 0; i < docArr.size(); i++) {
+                // check if there's an array in the index
+                int indx = fieldPost.indexOf("*");
+                String fullIdxPath = fieldPre + "." + i + fieldPost;
+                String fullHiddenPath = hiddenPre + "." + i + hiddenPost;
+                if (indx > -1) {
+                    // if we have another array, descend
+                    populateHiddenArrayField(doc, fullIdxPath, fullHiddenPath);
+                } else {
+                    // if no more arrays, set the field and continue
+                    String node;
+                    Object object = docArr.get(i);
+                    if (object instanceof BasicDBObject) {
+                        node = ((BasicDBObject) object).get(fieldPost.substring(1)).toString().toUpperCase();
+                    } else {
+                        node = object.toString().toUpperCase();
+                    }
+                    JsonDoc.modify(arrNode, new Path(fullHiddenPath), JsonNodeFactory.instance.textNode(node), true);
+                }
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
+                DBObject obj = (DBObject) JSON.parse(merged.toString());
+                ((BasicDBObject) doc).clear();
+                ((BasicDBObject) doc).putAll(obj);
+            }
+        }
+    }
+
+    /**
+     * Splits a path with a * based on its first occurrence
+     *
+     * @param index
+     * @return A tuple where the first index is the path before the array and the second index is the path after the array
+     */
+    private static String[] splitArrayPath(String index) {
+        String[] indexSplit = index.split("\\*");
+        String fieldPre = indexSplit[0];
+        fieldPre = fieldPre.substring(0, fieldPre.length() - 1);
+        String fieldPost = StringUtils.join(Arrays.copyOfRange(indexSplit, 1, indexSplit.length), "*");
+        if (!fieldPost.isEmpty()) {
+            if (index.lastIndexOf("*") == index.length() - 1) {
+                // re-append the * from the split
+                fieldPost += "*";
+            } else if (index.lastIndexOf(".") == index.length() - 1) {
+                fieldPost = fieldPost.substring(0, fieldPost.length() - 1);
+            }
+        }
+        return new String[]{fieldPre, fieldPost};
+    }
+
+    private static JsonNode merge(JsonNode mainNode, JsonNode updateNode) {
+        updateNode.fieldNames().forEachRemaining(f -> {
+            JsonNode valueToBeUpdated = mainNode.get(f);
+            JsonNode updatedValue = updateNode.get(f);
+            // if node is an array
+            if (valueToBeUpdated != null && updatedValue.isArray()) {
+                for (int i = 0; i < updatedValue.size(); i++) {
+                    JsonNode updatedChildNode = updatedValue.get(i);
+                    if (valueToBeUpdated.size() <= i) {
+                        ((ArrayNode) valueToBeUpdated).add(updatedChildNode);
+                    }
+                    JsonNode childNodeToBeUpdated = valueToBeUpdated.get(i);
+                    merge(childNodeToBeUpdated, updatedChildNode);
+                }
+            // if node is an object
+            } else if (valueToBeUpdated != null && valueToBeUpdated.isObject()) {
+                merge(valueToBeUpdated, updatedValue);
+            } else {
+                if (mainNode instanceof ObjectNode) {
+                    ((ObjectNode) mainNode).replace(f, updatedValue);
+                }
+            }
+        });
+        return mainNode;
+    }
+
     private DBObject translateNaryFieldRelationalExpression(FieldTreeNode context, NaryFieldRelationalExpression expr) {
         Type t = resolve(context, expr.getField()).getType();
         if (t.supportsEq()) {
@@ -1105,12 +1235,6 @@ public class Translator {
         if (value != null) {
             if (path.equals(ID_PATH)) {
                 value = createIdFrom(value);
-            }
-            if (getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes()).anyMatch(i -> i.getField().equals(path))) {
-                if (fieldMd.getType().equals(StringType.TYPE)) {
-                    Path hidden = getHiddenForField(new Path(path.tail(0)));
-                    dest.append(hidden.toString(), value.toString().toUpperCase());
-                }
             }
             dest.append(path.tail(0), value);
         }

@@ -18,8 +18,8 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
+import java.io.IOException;
 import java.util.Set;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,7 +52,7 @@ public class BasicDocSaver implements DocSaver {
 
     private final FieldAccessRoleEvaluator roleEval;
     private final Translator translator;
-    
+
     private long maxQueryTimeMS;
 
     /**
@@ -118,6 +118,11 @@ public class BasicDocSaver implements DocSaver {
                     if (paths == null || paths.isEmpty()) {
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, inputDoc);
                         merge.merge(oldDBObject,dbObject);
+                        try {
+                            Translator.populateDocHiddenFields(dbObject, md);
+                        } catch (IOException e) {
+                            throw new RuntimeException("Error populating document: \n" + dbObject);
+                        }
                         result = new UpdateCommand(collection, q, dbObject, upsert, false).executeAndUnwrap();
                         inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, inputDoc);
@@ -192,6 +197,11 @@ public class BasicDocSaver implements DocSaver {
             LOGGER.debug("Inaccessible fields:{}", paths);
             if (paths == null || paths.isEmpty()) {
                 try {
+                    try {
+                        Translator.populateDocHiddenFields(dbObject, md);
+                    } catch (IOException e) {
+                        throw new RuntimeException("Error populating document: \n" + dbObject);
+                    }
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_INSERT_DOC, ctx, inputDoc);
                     WriteResult r = new InsertCommand(collection, dbObject).executeAndUnwrap();
                     inputDoc.setCRUDOperationPerformed(CRUDOperation.INSERT);

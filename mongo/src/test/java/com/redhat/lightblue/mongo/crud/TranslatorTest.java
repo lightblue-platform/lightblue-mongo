@@ -81,12 +81,13 @@ public class TranslatorTest extends AbstractMongoCrudTest {
             .put("field3", "testField3");
 
         DBObject bson = translator.toBson(new JsonDoc(obj));
+        Translator.populateDocHiddenFields(bson, md);
 
-        Assert.assertEquals("TESTFIELD1", bson.get(Translator.HIDDEN_SUB_PATH + ".field1"));
+        DBObject hidden = (DBObject) bson.get(Translator.HIDDEN_SUB_PATH.toString());
 
-        Assert.assertNull("testField2", bson.get(Translator.HIDDEN_SUB_PATH + ".field2"));
-
-        Assert.assertEquals("TESTFIELD3", bson.get(Translator.HIDDEN_SUB_PATH + ".field3"));
+        Assert.assertEquals("TESTFIELD1", hidden.get("field1"));
+        Assert.assertNull("testField2", hidden.get("field2"));
+        Assert.assertEquals("TESTFIELD3", hidden.get("field3"));
     }
 
     @Test
