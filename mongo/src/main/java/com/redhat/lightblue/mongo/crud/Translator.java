@@ -282,7 +282,8 @@ public class Translator {
                 trc = ((DBObject) trc).get(segment);
             }
             if (trc == null&&seg+1<n) {
-                throw Error.get(MongoCrudConstants.ERR_TRANSLATION_ERROR, p.toString());
+                LOGGER.warn(Error.get(MongoCrudConstants.ERR_TRANSLATION_ERROR, p.toString()).toString());
+                return null;
             }
         }
         return trc;
@@ -746,14 +747,16 @@ public class Translator {
                 // recurse if we have more arrays in the path
                 populateHiddenArrayField(doc, index, fieldMap.get(index));
             } else {
-                Object dbObject = Translator.getDBObject(doc, new Path(index));
-                ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
-                JsonDoc.modify(arrNode, new Path(fieldMap.get(index)), JsonNodeFactory.instance.textNode(dbObject.toString().toUpperCase()), true);
-                ObjectMapper mapper = new ObjectMapper();
-                JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
-                DBObject obj = (DBObject) JSON.parse(merged.toString());
-                ((BasicDBObject) doc).clear();
-                ((BasicDBObject) doc).putAll(obj);
+                Object dbObject = getDBObject(doc, new Path(index));
+                if (dbObject != null) {
+                    ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
+                    JsonDoc.modify(arrNode, new Path(fieldMap.get(index)), JsonNodeFactory.instance.textNode(dbObject.toString().toUpperCase()), true);
+                    ObjectMapper mapper = new ObjectMapper();
+                    JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
+                    DBObject obj = (DBObject) JSON.parse(merged.toString());
+                    ((BasicDBObject) doc).clear();
+                    ((BasicDBObject) doc).putAll(obj);
+                }
             }
         }
     }
@@ -776,7 +779,8 @@ public class Translator {
         String hiddenPre = hiddenSplit[0];
         String hiddenPost = hiddenSplit[1];
 
-        List docArr = (List) Translator.getDBObject(doc, new Path(fieldPre));
+        List docArr = (List) getDBObject(doc, new Path(fieldPre));
+
         if (docArr != null) {
             ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
             for (int i = 0; i < docArr.size(); i++) {
