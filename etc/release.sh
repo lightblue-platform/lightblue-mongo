@@ -15,7 +15,6 @@ fi
 
 # prepare and verify state
 git fetch --all
-rm -rf ~/.m2/repository/com/redhat/lightblue/
 
 BRANCH=`git branch | grep ^* | awk '{print $2}'`
 
@@ -41,7 +40,7 @@ mvn versions:use-latest-versions versions:update-properties -Dincludes=com.redha
 git commit -a -m "Updated versions to non snapshot"
 
 # prepare for release (note, this will warn if any snapshot dependencies still exist and allow for fixing)
-mvn release:prepare -P release \
+mvn clean -U release:prepare -P release \
                     -DpushChanges=false \
                     -DreleaseVersion=$RELEASE_VERSION \
                     -DdevelopmentVersion=$DEVEL_VERSION \
