@@ -280,6 +280,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         assertTrue(indexInfo.toString().contains("@mongoHidden.arrayField.*"));
         assertTrue(indexInfo.toString().contains("field2.@mongoHidden.x"));
         assertTrue(indexInfo.toString().contains("field2.@mongoHidden.subArrayField.*"));
+        assertTrue(indexInfo.toString().contains("arrayObj.*.arraySubObj2.*.@mongoHidden.y"));
     }
 
 
@@ -347,6 +348,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ArrayField afSubSub = new ArrayField("arraySubObj", saSubSub);
         oaObject.getFields().put(afSubSub);
 
+        ObjectArrayElement objSubSub = new ObjectArrayElement();
+        objSubSub.getFields().put(new SimpleField("y", StringType.TYPE));
+        ArrayField objSubSubField = new ArrayField("arraySubObj2", objSubSub);
+        oaObject.getFields().put(objSubSubField);
+
         ArrayField afObject = new ArrayField("arrayObj", oaObject);
         e.getFields().put(afObject);
 
@@ -382,7 +388,6 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         index2.setFields(indexFields2);
 
         Index index3 = new Index();
-
         index3.setName("testIndex3");
         index3.setUnique(true);
         List<IndexSortKey> indexFields3 = new ArrayList<>();
@@ -396,12 +401,19 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         indexFields4.add(new IndexSortKey(new Path("field2.subArrayField.*"), true, true));
         index4.setFields(indexFields4);
 
+        Index index5 = new Index();
+        index5.setName("testIndex5");
+        index5.setUnique(true);
+        List<IndexSortKey> indexFields5 = new ArrayList<>();
+        indexFields5.add(new IndexSortKey(new Path("arrayObj.*.arraySubObj2.*.y"), true, true));
+        index5.setFields(indexFields5);
 
         List<Index> indexes = new ArrayList<>();
         indexes.add(index1);
         indexes.add(index2);
         indexes.add(index3);
         indexes.add(index4);
+        indexes.add(index5);
         e.getEntityInfo().getIndexes().setIndexes(indexes);
         return e;
     }
