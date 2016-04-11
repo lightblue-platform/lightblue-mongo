@@ -840,7 +840,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 projection("{'field':'_id'}"));
         //Assert.assertEquals(AtomicIterateUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
         Assert.assertEquals(IterateAndUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
-        Assert.assertEquals(10, upd.getNumUpdated());
+        Assert.assertEquals(9, upd.getNumUpdated()); // Doesn't update the one with field3:1000
         Assert.assertEquals(0, upd.getNumFailed());
         try (DBCursor c = coll.find(new BasicDBObject("field3", new BasicDBObject("$gt", 10)))) {
             Assert.assertEquals(10, c.count());
@@ -850,7 +850,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
         ctx.add(md);
         upd = controller.update(ctx, query("{'field':'field3','op':'>','rvalue':10}"),
-                update("{ '$set': { 'field3' : 1000 } }"), null);
+                update("{ '$set': { 'field3' : 1001 } }"), null);
         //Assert.assertEquals(AtomicIterateUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
         Assert.assertEquals(IterateAndUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
         Assert.assertEquals(10, upd.getNumUpdated());
