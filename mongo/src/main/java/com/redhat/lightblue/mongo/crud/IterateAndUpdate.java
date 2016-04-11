@@ -132,6 +132,7 @@ public class IterateAndUpdate implements DocUpdater {
                             DBObject updatedObject = translator.toBson(doc);
                             merge.merge(document,updatedObject);
                             WriteResult result = new SaveCommand(collection, updatedObject).executeAndUnwrap();
+                            numUpdated++;
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             LOGGER.debug("Number of rows affected : ", result.getN());
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
@@ -150,7 +151,6 @@ public class IterateAndUpdate implements DocUpdater {
                     numFailed++;
                     doc.setOutputDocument(errorProjector.project(doc, nodeFactory));
                 } else {
-                    numUpdated++;
                     if (projector != null) {
                         LOGGER.debug("Projecting document {}", docIndex);
                         doc.setOutputDocument(projector.project(doc, nodeFactory));
