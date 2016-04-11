@@ -87,7 +87,6 @@ import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.ProjectionList;
 import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
-import com.redhat.lightblue.query.SortKey;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
@@ -539,8 +538,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private  boolean sameSortKeys(List<IndexSortKey> keys1,List<IndexSortKey> keys2) {
         if(keys1.size()==keys2.size()) {
             for(int i=0;i<keys1.size();i++) {
-                SortKey k1=keys1.get(i);
-                SortKey k2=keys2.get(i);
+                IndexSortKey k1=keys1.get(i);
+                IndexSortKey k2=keys2.get(i);
                 if(!k1.getField().equals(k2.getField())||
                    k1.isDesc()!=k2.isDesc())
                     return false;
@@ -556,11 +555,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             List<IndexSortKey> newFields = null;
             boolean copied = false;
             int i = 0;
-            for (SortKey key : fields) {
+            for (IndexSortKey key : fields) {
                 Path p = key.getField();
                 Path newPath = translateIndexPath(p);
                 if (!p.equals(newPath)) {
-                    IndexSortKey newKey = new IndexSortKey(newPath, key.isDesc());
+                    IndexSortKey newKey = new IndexSortKey(newPath, key.isDesc(), key.isCaseInsensitive());
                     if (!copied) {
                         newFields = new ArrayList<>();
                         newFields.addAll(fields);
