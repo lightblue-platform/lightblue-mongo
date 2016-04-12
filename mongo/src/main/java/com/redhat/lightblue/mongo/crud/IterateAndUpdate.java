@@ -165,6 +165,7 @@ public class IterateAndUpdate implements DocUpdater {
         }
         response.setNumUpdated(numUpdated);
         response.setNumFailed(numFailed);
+        response.setNumMatched(docIndex);
     }
 
 }
