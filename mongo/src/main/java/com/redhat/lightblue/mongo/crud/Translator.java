@@ -793,14 +793,19 @@ public class Translator {
                     populateHiddenArrayField(doc, fullIdxPath, fullHiddenPath);
                 } else {
                     // if no more arrays, set the field and continue
-                    String node;
+                    String node = null;
                     Object object = docArr.get(i);
                     if (object instanceof BasicDBObject) {
-                        node = ((BasicDBObject) object).get(fieldPost.substring(1)).toString().toUpperCase();
+                        Object obj = getDBObject((BasicDBObject) object, new Path(fieldPost.substring(1)));
+                        if (obj != null) {
+                            node = obj.toString().toUpperCase();
+                        }
                     } else {
                         node = object.toString().toUpperCase();
                     }
-                    JsonDoc.modify(arrNode, new Path(fullHiddenPath), JsonNodeFactory.instance.textNode(node), true);
+                    if (node != null) {
+                        JsonDoc.modify(arrNode, new Path(fullHiddenPath), JsonNodeFactory.instance.textNode(node), true);
+                    }
                 }
                 ObjectMapper mapper = new ObjectMapper();
                 JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));

@@ -144,10 +144,12 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.addDocument(doc);
         controller.insert(ctx, null);
         DBCursor cursor = db.getCollection("testCollectionIndex1").find();
+        assertTrue(cursor.hasNext());
         cursor.forEach(obj -> {
             DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
             DBObject arrayObj0Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
             DBObject arrayObj1Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(1)).get(Translator.HIDDEN_SUB_PATH.toString());
+            DBObject arrayObj2Hidden = (DBObject) ((DBObject) ((BasicDBList) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(2)).get("arraySubObj2")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
             DBObject field2Hidden = (DBObject) ((DBObject) obj.get("field2")).get(Translator.HIDDEN_SUB_PATH.toString());
 
             assertEquals("FIELDTHREE", hidden.get("field3"));
@@ -162,6 +164,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             assertEquals("FIELDTWOX", field2Hidden.get("x"));
             assertEquals("FIELDTWOSUBARRONE", ((BasicDBList) field2Hidden.get("subArrayField")).get(0));
             assertEquals("FIELDTWOSUBARRTWO", ((BasicDBList) field2Hidden.get("subArrayField")).get(1));
+            assertEquals("ARRAYSUBOBJ2Y", arrayObj2Hidden.get("y"));
+
         });
     }
 
@@ -181,10 +185,12 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         // wait a couple of seconds because the update runs in a ind thread
         Thread.sleep(5000);
         DBCursor cursor = db.getCollection("testCollectionIndex1").find();
+        assertTrue(cursor.hasNext());
         cursor.forEach(obj -> {
             DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
             DBObject arrayObj0Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
             DBObject arrayObj1Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(1)).get(Translator.HIDDEN_SUB_PATH.toString());
+            DBObject arrayObj2Hidden = (DBObject) ((DBObject) ((BasicDBList) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(2)).get("arraySubObj2")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
             DBObject field2Hidden = (DBObject) ((DBObject) obj.get("field2")).get(Translator.HIDDEN_SUB_PATH.toString());
 
             assertEquals("FIELDTHREE", hidden.get("field3"));
@@ -199,6 +205,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             assertEquals("FIELDTWOX", field2Hidden.get("x"));
             assertEquals("FIELDTWOSUBARRONE", ((BasicDBList) field2Hidden.get("subArrayField")).get(0));
             assertEquals("FIELDTWOSUBARRTWO", ((BasicDBList) field2Hidden.get("subArrayField")).get(1));
+            assertEquals("ARRAYSUBOBJ2Y", arrayObj2Hidden.get("y"));
+
         });
     }
 
