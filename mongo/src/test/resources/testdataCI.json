@@ -20,6 +20,13 @@
         "arrayObjTwoSubObjOne",
         "arrayObjTwoSubObjTwo"
       ]
+    },
+    {
+      "arraySubObj2": [
+        {
+          "y": "arraySubObj2Y"
+        }
+      ]
     }
   ],
   "field2": {
