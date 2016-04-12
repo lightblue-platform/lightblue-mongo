@@ -36,7 +36,7 @@ fi
 
 # update to non-snapshot versions of lightblue dependencies and commit
 # excludes overrides includes, so to exclude com.redhat.lightblue, add it to excludes
-mvn versions:use-latest-versions versions:update-properties -Dincludes=com.redhat.lightblue:*,INCLUDES_DEPS -Dexcludes=EXCLUDES_DEPS
+mvn versions:use-latest-versions versions:update-properties -Dincludes=com.redhat.lightblue:*,$INCLUDES_DEPS -Dexcludes=$EXCLUDES_DEPS
 git commit -a -m "Updated versions to non snapshot"
 
 # prepare for release (note, this will warn if any snapshot dependencies still exist and allow for fixing)
@@ -53,7 +53,7 @@ git push origin master --tags
 mvn release:perform -P release | tee release.log || exit
 
 # update to latest lightblue snapshot dependencies
-mvn versions:use-latest-snapshots versions:update-properties -DallowSnapshots=true -Dincludes=com.redhat.lightblue:*,INCLUDES_DEPS -Dexcludes=EXCLUDES_DEPS
+mvn versions:use-latest-snapshots versions:update-properties -DallowSnapshots=true -Dincludes=com.redhat.lightblue:*,$INCLUDES_DEPS -Dexcludes=$EXCLUDES_DEPS
 git add pom.xml **/pom.xml
 git commit -m "Updated to latest snapshot dependencies"
 git push origin master
