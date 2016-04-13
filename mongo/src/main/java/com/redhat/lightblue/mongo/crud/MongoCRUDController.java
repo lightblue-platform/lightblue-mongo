@@ -479,7 +479,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     @Override
     public void beforeUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
-        validateIndexFields(ei);
         ensureIdIndex(ei);
         validateSaneIndexSet(ei.getIndexes().getIndexes());
     }
@@ -491,7 +490,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     @Override
     public void beforeCreateNewSchema(Metadata md, EntityMetadata emd) {
         validateNoHiddenInMetaData(emd);
-        validateIndexFields(emd.getEntityInfo());
         ensureIdField(emd);
     }
 
