@@ -945,12 +945,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             } else {
                 if(me instanceof MongoTimeoutException||
                    me instanceof MongoExecutionTimeoutException) {
+                    LOGGER.error(CrudConstants.ERR_DATASOURCE_TIMEOUT, e);
                     return Error.get(CrudConstants.ERR_DATASOURCE_TIMEOUT, e.getMessage());
                 } else if(me instanceof DuplicateKeyException) {
                     return Error.get(MongoCrudConstants.ERR_DUPLICATE,e.getMessage());
                 } else if(me instanceof MongoSocketException) {
+                    LOGGER.error(MongoCrudConstants.ERR_CONNECTION_ERROR, e);
                     return Error.get(MongoCrudConstants.ERR_CONNECTION_ERROR,e.getMessage());
                 } else {
+                    LOGGER.error(MongoCrudConstants.ERR_MONGO_ERROR, e);
                     return Error.get(MongoCrudConstants.ERR_MONGO_ERROR,e.getMessage());
                 }
             }
