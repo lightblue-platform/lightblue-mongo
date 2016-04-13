@@ -36,6 +36,7 @@ fi
 
 # update to non-snapshot versions of lightblue dependencies and commit
 # excludes overrides includes, so to exclude com.redhat.lightblue, add it to excludes
+sed -i 's#\(<lightblue\.[^.]*\.version>[^-]*\)-SNAPSHOT\(</lightblue\.[^.]*\.version>\)#\1\2#g' pom.xml
 mvn versions:use-latest-versions versions:update-properties -Dincludes=com.redhat.lightblue:*,$INCLUDES_DEPS -Dexcludes=$EXCLUDES_DEPS
 git commit -a -m "Updated versions to non snapshot"
 
