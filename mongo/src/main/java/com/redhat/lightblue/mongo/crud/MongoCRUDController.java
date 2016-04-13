@@ -547,32 +547,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         return false;
     }
 
-    private void validateIndexFields(EntityInfo ei) {
-        for (Index ix : ei.getIndexes().getIndexes()) {
-            List<IndexSortKey> fields = ix.getFields();
-            List<IndexSortKey> newFields = null;
-            boolean copied = false;
-            int i = 0;
-            for (IndexSortKey key : fields) {
-                Path p = key.getField();
-                Path newPath = translateIndexPath(p);
-                if (!p.equals(newPath)) {
-                    IndexSortKey newKey = new IndexSortKey(newPath, key.isDesc(), key.isCaseInsensitive());
-                    if (!copied) {
-                        newFields = new ArrayList<>();
-                        newFields.addAll(fields);
-                        copied = true;
-                    }
-                    newFields.set(i, newKey);
-                }
-            }
-            if (copied) {
-                ix.setFields(newFields);
-                LOGGER.debug("Index rewritten as {}", ix);
-            }
-        }
-    }
-
     private void ensureIdField(EntityMetadata md) {
         ensureIdField(md.getEntitySchema());
     }
