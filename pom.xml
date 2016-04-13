@@ -28,7 +28,7 @@
     <groupId>com.redhat.lightblue.mongo</groupId>
     <artifactId>lightblue-mongo-pom</artifactId>
     <packaging>pom</packaging>
-    <version>1.13.0-SNAPSHOT</version>
+    <version>1.13.0</version>
     <name>lightblue-mongo: ${project.groupId}|${project.artifactId}</name>
     <description>Lightblue MongoDB implementation</description>
     <licenses>
@@ -42,7 +42,7 @@
         <connection>scm:git:https://github.com/lightblue-platform/lightblue-mongo.git</connection>
         <developerConnection>scm:git:git@github.com:lightblue-platform/lightblue-mongo.git</developerConnection>
         <url>https://github.com/lightblue-platform/lightblue-core</url>
-      <tag>V1.12.0</tag>
+      <tag>V1.13.0</tag>
     </scm>
     <distributionManagement>
         <repository>
