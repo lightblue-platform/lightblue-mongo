@@ -21,6 +21,7 @@ package com.redhat.lightblue.mongo.metadata;
 import java.util.Set;
 import java.util.HashSet;
 import java.util.ArrayList;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -47,7 +48,7 @@ import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.test.AbstractJsonNodeTest;
-import org.bson.BSONObject;
+
 import org.json.JSONException;
 import org.junit.After;
 import org.junit.Assert;
@@ -59,7 +60,11 @@ import org.skyscreamer.jsonassert.JSONAssert;
 
 import com.redhat.lightblue.mongo.test.MongoServerExternalResource;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 import java.util.Iterator;
 
 public class MongoMetadataTest {
@@ -355,9 +360,15 @@ public class MongoMetadataTest {
         ObjectField o = new ObjectField("field2");
         o.getFields().put(new SimpleField("x", IntegerType.TYPE));
         e.getFields().put(o);
+
+
         md.createNewMetadata(e);
 
         EntityInfo ei = new EntityInfo("testEntity");
+        ArrayField af = new ArrayField("arrField", new SimpleArrayElement(StringType.TYPE));
+        e.getFields().put(af);
+        IndexSortKey isk = new IndexSortKey(new Path("arrField.*"), true, true);
+        ei.getIndexes().add(new Index(isk));
         ei.setDataStore(new MongoDataStore(null, null, "somethingelse"));
         md.updateEntityInfo(ei);
     }

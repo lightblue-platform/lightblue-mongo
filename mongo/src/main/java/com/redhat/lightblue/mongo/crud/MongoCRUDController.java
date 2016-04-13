@@ -479,7 +479,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     @Override
     public void beforeUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
-        validateIndexFields(ei);
         ensureIdIndex(ei);
         validateSaneIndexSet(ei.getIndexes().getIndexes());
     }
@@ -491,7 +490,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     @Override
     public void beforeCreateNewSchema(Metadata md, EntityMetadata emd) {
         validateNoHiddenInMetaData(emd);
-        validateIndexFields(emd.getEntityInfo());
         ensureIdField(emd);
     }
 
@@ -547,32 +545,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             return true;
         }
         return false;
-    }
-
-    private void validateIndexFields(EntityInfo ei) {
-        for (Index ix : ei.getIndexes().getIndexes()) {
-            List<IndexSortKey> fields = ix.getFields();
-            List<IndexSortKey> newFields = null;
-            boolean copied = false;
-            int i = 0;
-            for (IndexSortKey key : fields) {
-                Path p = key.getField();
-                Path newPath = translateIndexPath(p);
-                if (!p.equals(newPath)) {
-                    IndexSortKey newKey = new IndexSortKey(newPath, key.isDesc(), key.isCaseInsensitive());
-                    if (!copied) {
-                        newFields = new ArrayList<>();
-                        newFields.addAll(fields);
-                        copied = true;
-                    }
-                    newFields.set(i, newKey);
-                }
-            }
-            if (copied) {
-                ix.setFields(newFields);
-                LOGGER.debug("Index rewritten as {}", ix);
-            }
-        }
     }
 
     private void ensureIdField(EntityMetadata md) {
