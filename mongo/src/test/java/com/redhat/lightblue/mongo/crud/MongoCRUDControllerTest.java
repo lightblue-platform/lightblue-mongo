@@ -133,6 +133,33 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void updateDocument_CI() throws Exception{
+        db.getCollection("testCollectionIndex1").drop();
+        EntityMetadata emd = addCIIndexes(createMetadata());
+        controller.afterUpdateEntityInfo(null, emd.getEntityInfo(),false);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
+
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
+        ctx.add(emd);
+        ctx.addDocument(doc);
+        controller.insert(ctx, null);
+
+        ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.UPDATE);
+        ctx.add(emd);
+        controller.update(ctx,
+                query("{'field':'field1','op':'$eq','rvalue':'fieldOne'}"),
+                update("{ '$set': { 'field3' : 'newFieldThree' } }"),
+                projection("{'field':'field3'}"));
+
+        DBCursor cursor = db.getCollection("testCollectionIndex1").find();
+        assertTrue(cursor.hasNext());
+        cursor.forEach(obj -> {
+            DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
+            assertEquals("NEWFIELDTHREE", hidden.get("field3"));
+        });
+    }
+
+    @Test
     public void addDataAfterIndexExists_CI() throws IOException {
         db.getCollection("testCollectionIndex1").drop();
         EntityMetadata emd = addCIIndexes(createMetadata());
@@ -217,31 +244,27 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         EntityMetadata e = addCIIndexes(createMetadata());
         controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
+        List<Index> indexes = e.getEntityInfo().getIndexes().getIndexes();
+        List<Index> newIndexes = new ArrayList<>();
+
+        indexes.forEach(i -> {
+            List<IndexSortKey> fields = i.getFields();
+            List<IndexSortKey> newFields = new ArrayList<>();
+            fields.forEach(f -> {
+                newFields.add(new IndexSortKey(f.getField(), f.isDesc(), !f.isCaseInsensitive()));
+            });
+            i.setFields(newFields);
+            newIndexes.add(i);
+        });
+
         e.getEntityInfo().getIndexes().getIndexes().clear();
-
-        Index index = new Index();
-        index.setName("testIndex");
-        index.setUnique(true);
-        List<IndexSortKey> indexFields = new ArrayList<>();
-        indexFields.add(new IndexSortKey(new Path("field1"), true, true));
-        indexFields.add(new IndexSortKey(new Path("field3"), true));
-        indexFields.add(new IndexSortKey(new Path("arrayField.*"), true));
-        indexFields.add(new IndexSortKey(new Path("arrayObj.*.x"), true));
-        indexFields.add(new IndexSortKey(new Path("arrayObj.*.arraySubObj.*"), true));
-        indexFields.add(new IndexSortKey(new Path("field2.x"), true));
-        indexFields.add(new IndexSortKey(new Path("field2.subArrayField.*"), true));
-
-        index.setFields(indexFields);
-        List<Index> indexes = new ArrayList<>();
-        indexes.add(index);
-        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        e.getEntityInfo().getIndexes().setIndexes(newIndexes);
 
         controller.afterUpdateEntityInfo(null, e.getEntityInfo(),false);
 
         DBCollection entityCollection = db.getCollection("testCollectionIndex1");
 
         List<String> indexInfo = entityCollection.getIndexInfo().stream()
-                .filter(i -> "testIndex".equals(i.get("name")))
                 .map(j -> j.get("key"))
                 .map(i -> i.toString())
                 .collect(Collectors.toList());
@@ -376,6 +399,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         e.getEntityInfo().setDefaultVersion("1.0.0");
         e.getEntitySchema().getAccess().getInsert().setRoles("anyone");
         e.getEntitySchema().getAccess().getFind().setRoles("anyone");
+        e.getEntitySchema().getAccess().getUpdate().setRoles("anyone");
+
         return e;
     }
 

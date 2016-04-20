@@ -750,6 +750,7 @@ public class Translator {
                 Object dbObject = getDBObject(doc, new Path(index));
                 if (dbObject != null) {
                     ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
+                    LOGGER.debug("Adding field '" + fieldMap.get(index) + "' to document with value " + dbObject.toString().toUpperCase());
                     JsonDoc.modify(arrNode, new Path(fieldMap.get(index)), JsonNodeFactory.instance.textNode(dbObject.toString().toUpperCase()), true);
                     ObjectMapper mapper = new ObjectMapper();
                     JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
@@ -804,6 +805,7 @@ public class Translator {
                         node = object.toString().toUpperCase();
                     }
                     if (node != null) {
+                        LOGGER.debug("Adding field '" + fullHiddenPath + "' to document with value " + node);
                         JsonDoc.modify(arrNode, new Path(fullHiddenPath), JsonNodeFactory.instance.textNode(node), true);
                     }
                 }
@@ -1258,11 +1260,12 @@ public class Translator {
             Path path = cursor.getCurrentPath();
             JsonNode node = cursor.getCurrentNode();
             LOGGER.debug("field: {}", path);
-            FieldTreeNode fieldMdNode = md.resolve(path);
-            if (fieldMdNode == null) {
-                throw Error.get(ERR_INVALID_FIELD, path.toString());
+            FieldTreeNode fieldMdNode = null;
+            try {
+                fieldMdNode = md.resolve(path);
+            } catch (Exception e) {
+                return null;
             }
-
             if (fieldMdNode instanceof SimpleField) {
                 toBson(ret, (SimpleField) fieldMdNode, path, node, md);
             } else if (fieldMdNode instanceof ObjectField) {
