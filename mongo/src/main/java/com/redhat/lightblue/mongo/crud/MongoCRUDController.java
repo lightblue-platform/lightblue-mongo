@@ -540,9 +540,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             for(int i=0;i<keys1.size();i++) {
                 IndexSortKey k1=keys1.get(i);
                 IndexSortKey k2=keys2.get(i);
-                if(!k1.getField().equals(k2.getField())||
-                   k1.isDesc()!=k2.isDesc())
+                if (!k1.getField().equals(k2.getField()) || k1.isDesc() != k2.isDesc() || k1.isCaseInsensitive() != k2.isCaseInsensitive()) {
                     return false;
+                }
             }
             return true;
         }
