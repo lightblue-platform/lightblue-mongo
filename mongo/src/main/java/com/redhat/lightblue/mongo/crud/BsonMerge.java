@@ -176,7 +176,7 @@ public final class BsonMerge extends DocComparator<Object,Object,DBObject,List> 
                         // Is the removed field in metadata?
                         try {
                             // don't try to resolve a hidden field
-                            if (!removedField.equals(Translator.HIDDEN_SUB_PATH)) {
+                            if (hasHiddenField(removedField)) {
                                 md.resolve(removedField);
                                 hidden=false;
                             } else {
@@ -197,6 +197,15 @@ public final class BsonMerge extends DocComparator<Object,Object,DBObject,List> 
             throw new RuntimeException(e);
         }
         return ret;
+    }
+
+    private boolean hasHiddenField(Path path) {
+        for (int i = 0; i < path.numSegments(); i++) {
+            if (path.head(i).equals(Translator.HIDDEN_SUB_PATH.toString())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void addField(DBObject doc,
