@@ -1127,6 +1127,7 @@ public class Translator {
             Path p = mdCursor.getCurrentPath();
             FieldTreeNode field = mdCursor.getCurrentNode();
             String fieldName = field.getName();
+            LOGGER.debug("{}", p);
             // Retrieve field value
             Object value = object.get(fieldName);
             if (value != null) {
