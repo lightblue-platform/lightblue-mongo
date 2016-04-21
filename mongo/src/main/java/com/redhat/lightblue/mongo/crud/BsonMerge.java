@@ -46,7 +46,7 @@ import com.redhat.lightblue.util.MutablePath;
  */
 public final class BsonMerge extends DocComparator<Object,Object,DBObject,List> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(BsonMerge.class);   
+    private static final Logger LOGGER = LoggerFactory.getLogger(BsonMerge.class);
 
     private final EntityMetadata md;
 
@@ -80,7 +80,7 @@ public final class BsonMerge extends DocComparator<Object,Object,DBObject,List> 
         return !(value instanceof Collection)&&
             !(value instanceof DBObject);
     }
-    
+
     @Override
     protected boolean isArray(Object value) {
         return value instanceof Collection;
@@ -147,7 +147,7 @@ public final class BsonMerge extends DocComparator<Object,Object,DBObject,List> 
         return value.size();
     }
 
-    
+
     /**
      * Copies all fields in oldDoc that are not in metadata into newDoc
      *
@@ -164,9 +164,9 @@ public final class BsonMerge extends DocComparator<Object,Object,DBObject,List> 
                 if(delta instanceof DocComparator.Removal) {
                     DocComparator.Removal<Object> removal=(DocComparator.Removal<Object>)delta;
                     Path removedField=removal.getField1();
-                    
+
                     boolean hidden=true;
-                    
+
                     // If this is a removed array element, we don't add it back
                     int numSegments=removedField.numSegments();
                     if(numSegments>1&&removedField.isIndex(numSegments-1)) {
@@ -175,8 +175,13 @@ public final class BsonMerge extends DocComparator<Object,Object,DBObject,List> 
                     if(hidden) {
                         // Is the removed field in metadata?
                         try {
-                            md.resolve(removedField);
-                            hidden=false;
+                            // don't try to resolve a hidden field
+                            if (!removedField.equals(Translator.HIDDEN_SUB_PATH)) {
+                                md.resolve(removedField);
+                                hidden=false;
+                            } else {
+                                hidden = true;
+                            }
                         } catch (Exception e) {
                             hidden=true;
                         }

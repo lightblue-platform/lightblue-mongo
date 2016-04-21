@@ -1127,7 +1127,6 @@ public class Translator {
             Path p = mdCursor.getCurrentPath();
             FieldTreeNode field = mdCursor.getCurrentNode();
             String fieldName = field.getName();
-            LOGGER.debug("{}", p);
             // Retrieve field value
             Object value = object.get(fieldName);
             if (value != null) {
@@ -1260,12 +1259,7 @@ public class Translator {
             Path path = cursor.getCurrentPath();
             JsonNode node = cursor.getCurrentNode();
             LOGGER.debug("field: {}", path);
-            FieldTreeNode fieldMdNode = null;
-            try {
-                fieldMdNode = md.resolve(path);
-            } catch (Exception e) {
-                return null;
-            }
+            FieldTreeNode fieldMdNode = md.resolve(path);
             if (fieldMdNode instanceof SimpleField) {
                 toBson(ret, (SimpleField) fieldMdNode, path, node, md);
             } else if (fieldMdNode instanceof ObjectField) {
