@@ -176,7 +176,7 @@ public final class BsonMerge extends DocComparator<Object,Object,DBObject,List> 
                         // Is the removed field in metadata?
                         try {
                             // don't try to resolve a hidden field
-                            if (hasHiddenField(removedField)) {
+                            if (!hasHiddenField(removedField)) {
                                 md.resolve(removedField);
                                 hidden=false;
                             } else {
