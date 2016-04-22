@@ -93,6 +93,7 @@ import com.redhat.lightblue.query.ValueComparisonExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.JsonNodeCursor;
+import com.redhat.lightblue.util.MutablePath;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.Util;
 
@@ -325,7 +326,7 @@ public class Translator {
         Error.push("translateQuery");
         FieldTreeNode mdRoot = md.getFieldTreeRoot();
         try {
-            return translate(mdRoot, query, md);
+            return translate(mdRoot, query, md, new MutablePath());
         } catch (Error e) {
             // rethrow lightblue error
             throw e;
@@ -582,24 +583,24 @@ public class Translator {
         return ret;
     }
 
-    private DBObject translate(FieldTreeNode context, QueryExpression query, EntityMetadata emd) {
+    private DBObject translate(FieldTreeNode context, QueryExpression query, EntityMetadata emd, MutablePath fullPath) {
         DBObject ret;
         if (query instanceof ArrayContainsExpression) {
             ret = translateArrayContains(context, (ArrayContainsExpression) query);
         } else if (query instanceof ArrayMatchExpression) {
-            ret = translateArrayElemMatch(context, (ArrayMatchExpression) query, emd);
+            ret = translateArrayElemMatch(context, (ArrayMatchExpression) query, emd, fullPath);
         } else if (query instanceof FieldComparisonExpression) {
             ret = translateFieldComparison(context, (FieldComparisonExpression) query);
         } else if (query instanceof NaryLogicalExpression) {
-            ret = translateNaryLogicalExpression(context, (NaryLogicalExpression) query, emd);
+            ret = translateNaryLogicalExpression(context, (NaryLogicalExpression) query, emd, fullPath);
         } else if (query instanceof NaryValueRelationalExpression) {
             ret = translateNaryValueRelationalExpression(context, (NaryValueRelationalExpression) query);
         } else if (query instanceof NaryFieldRelationalExpression) {
             ret = translateNaryFieldRelationalExpression(context, (NaryFieldRelationalExpression) query);
         } else if (query instanceof RegexMatchExpression) {
-            ret = translateRegexMatchExpression((RegexMatchExpression) query, emd, context.getFullPath());
+            ret = translateRegexMatchExpression(context, (RegexMatchExpression) query, emd, fullPath);
         } else if (query instanceof UnaryLogicalExpression) {
-            ret = translateUnaryLogicalExpression(context, (UnaryLogicalExpression) query, emd);
+            ret = translateUnaryLogicalExpression(context, (UnaryLogicalExpression) query, emd, fullPath);
         } else {
             ret = translateValueComparisonExpression(context, (ValueComparisonExpression) query);
         }
@@ -658,7 +659,8 @@ public class Translator {
         }
     }
 
-    private DBObject translateRegexMatchExpression(RegexMatchExpression expr, EntityMetadata emd, Path path) {
+    private DBObject translateRegexMatchExpression(FieldTreeNode context, RegexMatchExpression expr, EntityMetadata emd, MutablePath fullPath) {
+        fullPath.push(expr.getField());
         StringBuilder options = new StringBuilder();
         BasicDBObject regex = new BasicDBObject("$regex", expr.getRegex());
         Path field = expr.getField();
@@ -666,14 +668,13 @@ public class Translator {
         if (expr.isCaseInsensitive()) {
             options.append('i');
             for(Index index : emd.getEntityInfo().getIndexes().getIndexes()){
-                if(index.isCaseInsensitiveKey(path)){
+                if(index.isCaseInsensitiveKey(fullPath)){
                     field = getHiddenForField(expr.getField());
                     regex.replace("$regex", expr.getRegex().toUpperCase());
                     options.deleteCharAt(options.length() - 1);
                     break;
                 }
             }
-
         }
         if (expr.isMultiline()) {
             options.append('m');
@@ -688,6 +689,7 @@ public class Translator {
         if (opStr.length() > 0) {
             regex.append("$options", opStr);
         }
+        fullPath.pop();
         return new BasicDBObject(translatePath(field), regex);
     }
 
@@ -884,17 +886,17 @@ public class Translator {
         }
     }
 
-    private DBObject translateUnaryLogicalExpression(FieldTreeNode context, UnaryLogicalExpression expr, EntityMetadata emd) {
+    private DBObject translateUnaryLogicalExpression(FieldTreeNode context, UnaryLogicalExpression expr, EntityMetadata emd, MutablePath fullPath) {
         List<DBObject> l=new ArrayList<>(1);
-        l.add(translate(context,expr.getQuery(), emd));
+        l.add(translate(context,expr.getQuery(), emd, fullPath));
         return new BasicDBObject(UNARY_LOGICAL_OPERATOR_MAP.get(expr.getOp()), l);
     }
 
-    private DBObject translateNaryLogicalExpression(FieldTreeNode context, NaryLogicalExpression expr, EntityMetadata emd) {
+    private DBObject translateNaryLogicalExpression(FieldTreeNode context, NaryLogicalExpression expr, EntityMetadata emd, MutablePath fullPath) {
         List<QueryExpression> queries = expr.getQueries();
         List<DBObject> list = new ArrayList<>(queries.size());
         for (QueryExpression query : queries) {
-            list.add(translate(context, query, emd));
+            list.add(translate(context, query, emd, fullPath));
         }
         return new BasicDBObject(NARY_LOGICAL_OPERATOR_MAP.get(expr.getOp()), list);
     }
@@ -1038,14 +1040,15 @@ public class Translator {
         return new BasicDBObject("$where", str.toString());
     }
 
-    private DBObject translateArrayElemMatch(FieldTreeNode context, ArrayMatchExpression expr, EntityMetadata emd) {
+    private DBObject translateArrayElemMatch(FieldTreeNode context, ArrayMatchExpression expr, EntityMetadata emd, MutablePath fullPath) {
         FieldTreeNode arrayNode = resolve(context, expr.getArray());
         if (arrayNode instanceof ArrayField) {
             ArrayElement el = ((ArrayField) arrayNode).getElement();
             if (el instanceof ObjectArrayElement) {
-                return new BasicDBObject(translatePath(expr.getArray()),
-                        new BasicDBObject("$elemMatch",
-                                translate(el, expr.getElemMatch(), emd)));
+                fullPath.push(expr.getArray()).push(Path.ANYPATH);
+                BasicDBObject obj = new BasicDBObject(translatePath(expr.getArray()), new BasicDBObject("$elemMatch", translate(el, expr.getElemMatch(), emd, fullPath)));
+                fullPath.pop().pop();
+                return obj;
             }
         }
         throw Error.get(ERR_INVALID_FIELD, expr.toString());
