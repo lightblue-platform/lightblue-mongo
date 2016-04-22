@@ -597,7 +597,7 @@ public class Translator {
         } else if (query instanceof NaryFieldRelationalExpression) {
             ret = translateNaryFieldRelationalExpression(context, (NaryFieldRelationalExpression) query);
         } else if (query instanceof RegexMatchExpression) {
-            ret = translateRegexMatchExpression((RegexMatchExpression) query, emd);
+            ret = translateRegexMatchExpression((RegexMatchExpression) query, emd, context.getFullPath());
         } else if (query instanceof UnaryLogicalExpression) {
             ret = translateUnaryLogicalExpression(context, (UnaryLogicalExpression) query, emd);
         } else {
@@ -658,7 +658,7 @@ public class Translator {
         }
     }
 
-    private DBObject translateRegexMatchExpression(RegexMatchExpression expr, EntityMetadata emd) {
+    private DBObject translateRegexMatchExpression(RegexMatchExpression expr, EntityMetadata emd, Path path) {
         StringBuilder options = new StringBuilder();
         BasicDBObject regex = new BasicDBObject("$regex", expr.getRegex());
         Path field = expr.getField();
@@ -666,7 +666,7 @@ public class Translator {
         if (expr.isCaseInsensitive()) {
             options.append('i');
             for(Index index : emd.getEntityInfo().getIndexes().getIndexes()){
-                if(index.isCaseInsensitiveKey(field)){
+                if(index.isCaseInsensitiveKey(path)){
                     field = getHiddenForField(expr.getField());
                     regex.replace("$regex", expr.getRegex().toUpperCase());
                     options.deleteCharAt(options.length() - 1);

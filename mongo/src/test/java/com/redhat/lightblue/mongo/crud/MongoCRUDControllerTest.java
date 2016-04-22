@@ -133,6 +133,23 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void findDocument_CI() throws Exception {
+        db.getCollection("testCollectionIndex1").drop();
+        EntityMetadata emd = addCIIndexes(createMetadata());
+        controller.afterUpdateEntityInfo(null, emd.getEntityInfo(), false);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
+
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
+        ctx.add(emd);
+        ctx.addDocument(doc);
+        controller.insert(ctx, null);
+
+        controller.find(ctx,
+                query("{'field':'field2.subArrayField.*', 'regex':'fieldTwoSubArrOne', 'options':'i'}"),
+                projection("{'field':'field2.subArrayField.*'}"), null, null, null);
+    }
+
+    @Test
     public void updateDocument_CI() throws Exception{
         db.getCollection("testCollectionIndex1").drop();
         EntityMetadata emd = addCIIndexes(createMetadata());
