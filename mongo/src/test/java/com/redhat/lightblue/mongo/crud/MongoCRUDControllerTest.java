@@ -160,6 +160,37 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void saveDocument_CI() throws Exception {
+        db.getCollection("testCollectionIndex1").drop();
+        EntityMetadata emd = addCIIndexes(createMetadata());
+        controller.afterUpdateEntityInfo(null, emd.getEntityInfo(),false);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
+
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
+        ctx.add(emd);
+        ctx.addDocument(doc);
+        controller.insert(ctx, null);
+
+        DBCursor cursor = db.getCollection("testCollectionIndex1").find();
+        String id = cursor.next().get("_id").toString();
+
+        doc = new JsonDoc(loadJsonNode("./testdataCI2.json"));
+        doc.modify(new Path("_id"), JsonNodeFactory.instance.textNode(id), true);
+        ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.SAVE);
+        ctx.add(emd);
+        ctx.addDocument(doc);
+
+        controller.save(ctx, true, projection("{'field':'field3'}"));
+
+        cursor = db.getCollection("testCollectionIndex1").find();
+        assertTrue(cursor.hasNext());
+        cursor.forEach(obj -> {
+            DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
+            assertEquals("NEWFIELDTHREE", hidden.get("field3"));
+        });
+    }
+
+    @Test
     public void addDataAfterIndexExists_CI() throws IOException {
         db.getCollection("testCollectionIndex1").drop();
         EntityMetadata emd = addCIIndexes(createMetadata());
