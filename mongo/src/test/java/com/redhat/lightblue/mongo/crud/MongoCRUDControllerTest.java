@@ -276,10 +276,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         assertFalse(indexInfo.toString().contains("@mongoHidden.field3"));
         assertTrue(indexInfo.toString().contains("field3"));
 
-        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.x"));
+        assertFalse(indexInfo.toString().contains("arrayObj.@mongoHidden.x"));
         assertTrue(indexInfo.toString().contains("arrayObj.x"));
 
-        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.arraySubObj.*"));
+        assertFalse(indexInfo.toString().contains("arrayObj.@mongoHidden.arraySubObj.*"));
         assertTrue(indexInfo.toString().contains("arrayObj.arraySubObj"));
 
         assertFalse(indexInfo.toString().contains("@mongoHidden.arrayField.*"));
@@ -308,12 +308,12 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         assertTrue(indexInfo.toString().contains("field1"));
         assertTrue(indexInfo.toString().contains("@mongoHidden.field3"));
-        assertTrue(indexInfo.toString().contains("arrayObj.*.@mongoHidden.x"));
-        assertTrue(indexInfo.toString().contains("arrayObj.*.@mongoHidden.arraySubObj.*"));
-        assertTrue(indexInfo.toString().contains("@mongoHidden.arrayField.*"));
+        assertTrue(indexInfo.toString().contains("arrayObj.@mongoHidden.x"));
+        assertTrue(indexInfo.toString().contains("arrayObj.@mongoHidden.arraySubObj"));
+        assertTrue(indexInfo.toString().contains("@mongoHidden.arrayField"));
         assertTrue(indexInfo.toString().contains("field2.@mongoHidden.x"));
-        assertTrue(indexInfo.toString().contains("field2.@mongoHidden.subArrayField.*"));
-        assertTrue(indexInfo.toString().contains("arrayObj.*.arraySubObj2.*.@mongoHidden.y"));
+        assertTrue(indexInfo.toString().contains("field2.@mongoHidden.subArrayField"));
+        assertTrue(indexInfo.toString().contains("arrayObj.arraySubObj2.@mongoHidden.y"));
     }
 
 
