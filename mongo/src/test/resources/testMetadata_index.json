@@ -26,6 +26,15 @@
 	                 "caseInsensitive":true
 	                }
 	            ]
+            },
+            {
+                "unique":true,
+                "fields": [
+                    {"field":"field7.*.elemf1",
+                     "dir":"$asc",
+                     "caseInsensitive":true
+                    }
+                ]
             }
         ]
     },

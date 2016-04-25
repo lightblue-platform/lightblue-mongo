@@ -133,6 +133,58 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void findDocument_CI() throws Exception {
+        db.getCollection("testCollectionIndex1").drop();
+        EntityMetadata emd = addCIIndexes(createMetadata());
+        controller.afterUpdateEntityInfo(null, emd.getEntityInfo(), false);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
+
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
+        ctx.add(emd);
+        ctx.addDocument(doc);
+        controller.insert(ctx, null);
+
+        ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.FIND);
+        ctx.add(emd);
+        controller.find(ctx,
+                query("{'field':'field2.subArrayField.*', 'regex':'fieldTwoSubArrOne', 'options':'i'}"),
+                projection("{'field':'field2.subArrayField.*'}"), null, null, null);
+
+        assertEquals(1, ctx.getDocuments().size());
+    }
+
+    @Test
+    public void findDocumentElemMatch_CI() throws Exception {
+        db.getCollection("testCollectionIndex1").drop();
+        EntityMetadata emd = addCIIndexes(createMetadata());
+        controller.afterUpdateEntityInfo(null, emd.getEntityInfo(), false);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
+
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
+        ctx.add(emd);
+        ctx.addDocument(doc);
+        controller.insert(ctx, null);
+
+        DBCollection collection = db.getCollection("testCollectionIndex1");
+
+        BasicDBList hiddenList = new BasicDBList();
+        hiddenList.put(0,
+                new BasicDBObject("@mongoHidden",
+                        new BasicDBObject("x", "NEWVALUE")));
+
+        collection.update(new BasicDBObject("field1", "fieldOne"),
+                new BasicDBObject("$set",
+                    new BasicDBObject("arrayObj", hiddenList)));
+
+        ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.FIND);
+        ctx.add(emd);
+        controller.find(ctx, query("{'array': 'arrayObj', 'elemMatch': { 'field': 'x', 'regex': 'newValue', 'caseInsensitive': true}}"),
+                projection("{'field':'_id'}"), null, null, null);
+
+        assertEquals(1, ctx.getDocuments().size());
+    }
+
+    @Test
     public void updateDocument_CI() throws Exception{
         db.getCollection("testCollectionIndex1").drop();
         EntityMetadata emd = addCIIndexes(createMetadata());
@@ -307,10 +359,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         assertFalse(indexInfo.toString().contains("@mongoHidden.field3"));
         assertTrue(indexInfo.toString().contains("field3"));
 
-        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.x"));
+        assertFalse(indexInfo.toString().contains("arrayObj.@mongoHidden.x"));
         assertTrue(indexInfo.toString().contains("arrayObj.x"));
 
-        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.arraySubObj.*"));
+        assertFalse(indexInfo.toString().contains("arrayObj.@mongoHidden.arraySubObj.*"));
         assertTrue(indexInfo.toString().contains("arrayObj.arraySubObj"));
 
         assertFalse(indexInfo.toString().contains("@mongoHidden.arrayField.*"));
@@ -339,12 +391,12 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         assertTrue(indexInfo.toString().contains("field1"));
         assertTrue(indexInfo.toString().contains("@mongoHidden.field3"));
-        assertTrue(indexInfo.toString().contains("arrayObj.*.@mongoHidden.x"));
-        assertTrue(indexInfo.toString().contains("arrayObj.*.@mongoHidden.arraySubObj.*"));
-        assertTrue(indexInfo.toString().contains("@mongoHidden.arrayField.*"));
+        assertTrue(indexInfo.toString().contains("arrayObj.@mongoHidden.x"));
+        assertTrue(indexInfo.toString().contains("arrayObj.@mongoHidden.arraySubObj"));
+        assertTrue(indexInfo.toString().contains("@mongoHidden.arrayField"));
         assertTrue(indexInfo.toString().contains("field2.@mongoHidden.x"));
-        assertTrue(indexInfo.toString().contains("field2.@mongoHidden.subArrayField.*"));
-        assertTrue(indexInfo.toString().contains("arrayObj.*.arraySubObj2.*.@mongoHidden.y"));
+        assertTrue(indexInfo.toString().contains("field2.@mongoHidden.subArrayField"));
+        assertTrue(indexInfo.toString().contains("arrayObj.arraySubObj2.@mongoHidden.y"));
     }
 
 
