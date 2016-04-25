@@ -144,9 +144,44 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.addDocument(doc);
         controller.insert(ctx, null);
 
+        ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.FIND);
+        ctx.add(emd);
         controller.find(ctx,
                 query("{'field':'field2.subArrayField.*', 'regex':'fieldTwoSubArrOne', 'options':'i'}"),
                 projection("{'field':'field2.subArrayField.*'}"), null, null, null);
+
+        assertEquals(1, ctx.getDocuments().size());
+    }
+
+    @Test
+    public void findDocumentElemMatch_CI() throws Exception {
+        db.getCollection("testCollectionIndex1").drop();
+        EntityMetadata emd = addCIIndexes(createMetadata());
+        controller.afterUpdateEntityInfo(null, emd.getEntityInfo(), false);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
+
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
+        ctx.add(emd);
+        ctx.addDocument(doc);
+        controller.insert(ctx, null);
+
+        DBCollection collection = db.getCollection("testCollectionIndex1");
+
+        BasicDBList hiddenList = new BasicDBList();
+        hiddenList.put(0,
+                new BasicDBObject("@mongoHidden",
+                        new BasicDBObject("x", "NEWVALUE")));
+
+        collection.update(new BasicDBObject("field1", "fieldOne"),
+                new BasicDBObject("$set",
+                    new BasicDBObject("arrayObj", hiddenList)));
+
+        ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.FIND);
+        ctx.add(emd);
+        controller.find(ctx, query("{'array': 'arrayObj', 'elemMatch': { 'field': 'x', 'regex': 'newValue', 'caseInsensitive': true}}"),
+                projection("{'field':'_id'}"), null, null, null);
+
+        assertEquals(1, ctx.getDocuments().size());
     }
 
     @Test
