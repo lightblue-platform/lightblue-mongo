@@ -778,6 +778,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         if (!fieldMap.keySet().isEmpty()) {
             populateHiddenFields(ei, fieldMap);
         }
+        // This is not a common command, I think INFO level is safe and appropriate
+        LOGGER.info("Starting reindex of %s for fields:  %s", ei.getName(), fieldMap.keySet());
     }
 
     /**
