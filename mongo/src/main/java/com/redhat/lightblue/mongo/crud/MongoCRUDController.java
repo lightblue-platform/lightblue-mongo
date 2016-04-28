@@ -715,16 +715,16 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 LOGGER.info("Creating index {} with {}",index.getName(),index.getFields());
                 DBObject newIndex = new BasicDBObject();
                 for (IndexSortKey p : index.getFields()) {
-                    String field = Translator.translatePath(p.getField());
+                    Path field = p.getField();
                     if (p.isCaseInsensitive()) {
                         // build a map of the index's field to it's actual @mongoHidden path
-                        field = Translator.getHiddenForField(p.getField()).toString();
-                        fieldMap.put(p.getField().toString(), field);
+                        field = Translator.getHiddenForField(field);
+                        fieldMap.put(p.getField().toString(), field.toString());
                         // if we have a case insensitive index, we want the index creation operation to be blocking
                         hidden = true;
                         LOGGER.info("Index creation will be blocking.");
                     }
-                    newIndex.put(field, p.isDesc() ? -1 : 1);
+                    newIndex.put(Translator.translatePath(field), p.isDesc() ? -1 : 1);
                 }
                 BasicDBObject options = new BasicDBObject("unique", index.isUnique());
                 // if index is unique also make it a sparse index, so we can have non-required unique fields

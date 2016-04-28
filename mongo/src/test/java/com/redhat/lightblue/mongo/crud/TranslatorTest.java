@@ -105,8 +105,11 @@ public class TranslatorTest extends AbstractMongoCrudTest {
 
     @Test
     public void translateHiddenIndexesQuery() throws IOException, ProcessingException {
-        String query = "{'field':'field1','regex':'value','caseInsensitive':'true'}";
-        BasicDBObject expected = new BasicDBObject("@mongoHidden.field1", new BasicDBObject("$regex", "VALUE"));
+        String query = "{'array': 'field7', 'elemMatch': { 'field': 'elemf1', 'regex': 'value', 'caseInsensitive': true}}";
+        BasicDBObject expected = new BasicDBObject("field7",
+                new BasicDBObject("$elemMatch",
+                        new BasicDBObject("@mongoHidden.elemf1",
+                                new BasicDBObject("$regex", "VALUE"))));
 
         QueryExpression queryExp = RegexMatchExpression.fromJson(JsonUtils.json(query.replace('\'', '\"')));
         EntityMetadata indexMd = getMd("./testMetadata_index.json");
