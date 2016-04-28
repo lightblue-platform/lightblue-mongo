@@ -749,7 +749,14 @@ public class Translator {
                 // recurse if we have more arrays in the path
                 populateHiddenArrayField(doc, index, fieldMap.get(index));
             } else {
-                Object dbObject = getDBObject(doc, new Path(index));
+                Object dbObject = null;
+                try {
+                    dbObject = getDBObject(doc, new Path(index));
+                } catch (Exception e) {
+                    LOGGER.error("Error when populating hidden field `%s` with value from canonical field `%s`\n"
+                            + "Document being populated: \n%s", fieldMap.get(index), index, doc);
+                    throw e;
+                }
                 if (dbObject != null) {
                     ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
                     LOGGER.debug("Adding field '" + fieldMap.get(index) + "' to document with value " + dbObject.toString().toUpperCase());
@@ -782,7 +789,14 @@ public class Translator {
         String hiddenPre = hiddenSplit[0];
         String hiddenPost = hiddenSplit[1];
 
-        List docArr = (List) getDBObject(doc, new Path(fieldPre));
+        List docArr = null;
+        try {
+            docArr = (List) getDBObject(doc, new Path(fieldPre));
+        } catch (Exception e) {
+            LOGGER.error("Error when populating hidden field `%s` with value from canonical field `%s`\n"
+                    + "Document being populated: \n%s", hidden, index, doc);
+            throw e;
+        }
 
         if (docArr != null) {
             ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
@@ -799,7 +813,15 @@ public class Translator {
                     String node = null;
                     Object object = docArr.get(i);
                     if (object instanceof BasicDBObject) {
-                        Object obj = getDBObject((BasicDBObject) object, new Path(fieldPost.substring(1)));
+                        Object obj = null;
+                        try {
+                            obj = getDBObject((BasicDBObject) object, new Path(fieldPost.substring(1)));
+                        } catch (Exception e) {
+                            LOGGER.error("Error when populating hidden field `%s` with value from canonical field `%s`\n"
+                                    + "Document being populated: \n%s", fullHiddenPath, fullIdxPath, doc);
+                            throw e;
+                        }
+
                         if (obj != null) {
                             node = obj.toString().toUpperCase();
                         }

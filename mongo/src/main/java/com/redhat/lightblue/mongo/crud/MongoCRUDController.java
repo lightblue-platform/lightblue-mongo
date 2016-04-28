@@ -772,12 +772,14 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
      * @param md
      * @throws IOException
      */
-    public void reindex(EntityMetadata md) throws IOException {
-        Map<String, String> fieldMap = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes()).collect(Collectors.toMap(i -> i.getField().toString(),
+    public void reindex(EntityInfo ei) throws IOException {
+        Map<String, String> fieldMap = Translator.getCaseInsensitiveIndexes(ei.getIndexes().getIndexes()).collect(Collectors.toMap(i -> i.getField().toString(),
                 i -> Translator.getHiddenForField(i.getField()).toString()));
         if (!fieldMap.keySet().isEmpty()) {
-            populateHiddenFields(md.getEntityInfo(), fieldMap);
+            populateHiddenFields(ei, fieldMap);
         }
+        // This is not a common command, I think INFO level is safe and appropriate
+        LOGGER.info("Starting reindex of %s for fields:  %s", ei.getName(), fieldMap.keySet());
     }
 
     /**
