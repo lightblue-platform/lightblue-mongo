@@ -805,7 +805,12 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 DBObject original = (DBObject) ((BasicDBObject) doc).copy();
                 Translator.populateDocHiddenFields(doc, fieldMap);
                 if (!doc.equals(original)) {
-                    coll.save(doc);
+                    try {
+                        coll.save(doc);
+                    } catch (Exception e) {
+                        LOGGER.error(e.getMessage());
+                        LOGGER.error("Error saving doc:\n{}", doc );
+                    }
                 }
             }
         }
