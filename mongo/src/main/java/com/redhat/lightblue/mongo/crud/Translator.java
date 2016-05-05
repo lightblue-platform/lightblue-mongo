@@ -284,6 +284,7 @@ public class Translator {
             }
             if (trc == null&&seg+1<n) {
                 LOGGER.warn(Error.get(MongoCrudConstants.ERR_TRANSLATION_ERROR, p.toString()).toString());
+                LOGGER.debug("Error retrieving path {} with {} segments from {}", p, p.numSegments(), start);
                 return null;
             }
         }
