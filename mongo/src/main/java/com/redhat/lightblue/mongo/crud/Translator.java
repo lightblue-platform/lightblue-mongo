@@ -754,8 +754,8 @@ public class Translator {
                 try {
                     dbObject = getDBObject(doc, new Path(index));
                 } catch (Exception e) {
-                    LOGGER.error("Error when populating hidden field `%s` with value from canonical field `%s`\n"
-                            + "Document being populated: \n%s", fieldMap.get(index), index, doc);
+                    LOGGER.debug("Error when populating hidden field {} with value from canonical field {}\n"
+                            + "Document being populated: \n{}", fieldMap.get(index), index, doc);
                     throw e;
                 }
                 if (dbObject != null) {
@@ -794,8 +794,8 @@ public class Translator {
         try {
             docArr = (List) getDBObject(doc, new Path(fieldPre));
         } catch (Exception e) {
-            LOGGER.error("Error when populating hidden field `%s` with value from canonical field `%s`\n"
-                    + "Document being populated: \n%s", hidden, index, doc);
+            LOGGER.debug("Error when populating hidden field {} with value from canonical field {}\n"
+                    + "Document being populated: \n{}", hidden, index, doc);
             throw e;
         }
 
@@ -818,8 +818,8 @@ public class Translator {
                         try {
                             obj = getDBObject((BasicDBObject) object, new Path(fieldPost.substring(1)));
                         } catch (Exception e) {
-                            LOGGER.error("Error when populating hidden field `%s` with value from canonical field `%s`\n"
-                                    + "Document being populated: \n%s", fullHiddenPath, fullIdxPath, doc);
+                            LOGGER.debug("Error when populating hidden field {} with value from canonical field {}\n"
+                                    + "Document being populated: \n{}", fullHiddenPath, fullIdxPath, doc);
                             throw e;
                         }
 
