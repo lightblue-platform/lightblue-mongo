@@ -779,7 +779,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             populateHiddenFields(ei, fieldMap);
         }
         // This is not a common command, I think INFO level is safe and appropriate
-        LOGGER.info("Starting reindex of %s for fields:  %s", ei.getName(), fieldMap.keySet());
+        LOGGER.info("Starting reindex of {} for fields:  {}", ei.getName(), fieldMap.keySet());
     }
 
     /**
@@ -795,7 +795,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
      * @throws URISyntaxException
      */
     protected void populateHiddenFields(EntityInfo ei, Map<String, String> fieldMap) throws IOException {
-        LOGGER.debug("Starting population of hidden fields due to new or modified indexes.");
+        LOGGER.info("Starting population of hidden fields due to new or modified indexes.");
         MongoDataStore ds = (MongoDataStore) ei.getDataStore();
         DB entityDB = dbResolver.get(ds);
         DBCollection coll = entityDB.getCollection(ds.getCollectionName());
@@ -805,11 +805,16 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 DBObject original = (DBObject) ((BasicDBObject) doc).copy();
                 Translator.populateDocHiddenFields(doc, fieldMap);
                 if (!doc.equals(original)) {
-                    coll.save(doc);
+                    try {
+                        coll.save(doc);
+                    } catch (Exception e) {
+                        LOGGER.error(e.getMessage());
+                        LOGGER.error("Error saving doc:\n{}", doc );
+                    }
                 }
             }
         }
-        LOGGER.debug("Finished population of hidden fields.");
+        LOGGER.info("Finished population of hidden fields.");
     }
 
 
