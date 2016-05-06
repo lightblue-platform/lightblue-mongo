@@ -43,28 +43,23 @@ public interface DocSaver {
      * @param upsert Whether to insert if the document is not in db
      * @param collection The MongoDB collection to which documents will be
      * inserted or saved
-     * @param md Entity metadata
-     * @param dbObject Document to insert/save
-     * @param inputDoc The input document
+     * @param dbObjects Documents to insert/save
+     * @param inputDocs The input documents
      *
-     * The implementation should insert or save the document to the collection.
-     * If operation is insert, the document is inserted, and the _id is returned
-     * in the output document of inputDoc. If the operation is save, and the
-     * document to be saved has _id, the document is attempted to be updated in
-     * the db. If the db does not have the document but upsert=true, document is
+     * The implementation should insert or save the documents to the
+     * collection.  The elements of the dbObjects and inputDocs must
+     * match.  If operation is insert, the document is inserted, and
+     * the _id is returned in the output document of inputDoc. If the
+     * operation is save, and the document to be saved has _id, the
+     * document is attempted to be updated in the db. If the db does
+     * not have the document but upsert=true, document is
      * inserted. Otherwise, update fails.
      */
-    void saveDoc(CRUDOperationContext ctx,
-                 Op op,
-                 boolean upsert,
-                 DBCollection collection,
-                 EntityMetadata md,
-                 DBObject dbObject,
-                 DocCtx inputDoc);
-    
-    /**
-     * Sets the maximum time a query can execute on the server.  Any value less <= 0 means there is no limit.
-     * @param milliseconds the time limit in milliseconds, or lte 0 for no limit
-     */
-    void setMaxQueryTimeMS(long milliseconds);
+    void saveDocs(CRUDOperationContext ctx,
+                  Op op,
+                  boolean upsert,
+                  DBCollection collection,
+                  DBObject[] dbObjects,
+                  DocCtx[] inputDocs);
+        
 }
