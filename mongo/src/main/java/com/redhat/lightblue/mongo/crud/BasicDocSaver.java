@@ -235,7 +235,8 @@ public class BasicDocSaver implements DocSaver {
                     for(DocInfo doc:insertionAttemptList) {
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_INSERT_DOC, ctx, doc.inputDoc);
                         bw.insert(doc.newDoc);
-                    }
+                        doc.inputDoc.setCRUDOperationPerformed(CRUDOperation.INSERT);
+                   }
                     try {
                         LOGGER.debug("Bulk inserting docs");
                         bw.execute();
