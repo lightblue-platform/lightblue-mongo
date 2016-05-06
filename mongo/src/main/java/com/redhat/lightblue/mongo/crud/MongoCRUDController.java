@@ -214,20 +214,20 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 } else {
                     projector = null;
                 }
-                DocSaver saver = new BasicDocSaver(translator, roleEval);
-                saver.setMaxQueryTimeMS(getMaxQueryTimeMS(cfg, ctx));
+                DocSaver saver = new BasicDocSaver(translator, roleEval, md);
                 ctx.setProperty(PROP_SAVER, saver);
+
+                saver.saveDocs(ctx,
+                               operation.equals(OP_INSERT) ? DocSaver.Op.insert : DocSaver.Op.save,
+                               upsert,
+                               collection,
+                               dbObjects,
+                               documents.toArray(new DocCtx[documents.size()]));
+
+                
                 for (int docIndex = 0; docIndex < dbObjects.length; docIndex++) {
-                    DBObject dbObject = dbObjects[docIndex];
-                    DocCtx inputDoc = documents.get(docIndex);
-                    try {
-                        saver.saveDoc(ctx, operation.equals(OP_INSERT) ? DocSaver.Op.insert : DocSaver.Op.save,
-                                upsert, collection, md, dbObject, inputDoc);
-                    } catch (Exception e) {
-                        LOGGER.error("saveOrInsert failed: {}", e);
-                        inputDoc.addError(analyzeException(e, operation, MongoCrudConstants.ERR_SAVE_ERROR, true));
-                    }
-                    JsonDoc jsonDoc = translator.toJson(dbObject);
+                    DocCtx inputDoc=documents.get(docIndex);
+                    JsonDoc jsonDoc = translator.toJson(dbObjects[docIndex]);                    
                     LOGGER.debug("Translated doc: {}", jsonDoc);
                     inputDoc.setUpdatedDocument(jsonDoc);
                     if (projector != null) {
@@ -240,6 +240,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                         ret++;
                     }
                 }
+                
                 ctx.getHookManager().queueHooks(ctx);
             }
         } catch (Error e) {
