@@ -336,11 +336,21 @@ public class BasicDocSaver implements DocSaver {
         return null;
     }
 
+    private boolean valueEquals(Object v1,Object v2) {
+        LOGGER.debug("v1={}, v2={}",v1,v2);
+        if(!v1.equals(v2)) {
+            if(v1.toString().equals(v2.toString()))
+                return true;
+        } else
+            return true;
+        return false;
+    }
+    
     private boolean idEquals(Object[] id1,Object[] id2) {
         if(id1!=null&&id2!=null) {
             for(int i=0;i<id1.length;i++) {
                 if( (id1[i]==null&&id2[i]==null) ||
-                    (id1[i]!=null&&id2[i]!=null&&id1[i].equals(id2[i]))) {
+                    (id1[i]!=null&&id2[i]!=null&&valueEquals(id1[i],id2[i]))) {
                     ;
                 } else {
                     return false;
@@ -356,8 +366,9 @@ public class BasicDocSaver implements DocSaver {
      */
     private Object[] getFieldValues(DBObject object,Path[] fields) {
         Object[] ret=new Object[fields.length];
-        for(int i=0;i<ret.length;i++)
+        for(int i=0;i<ret.length;i++) {
             ret[i]=Translator.getDBObject(object,fields[i]);
+        }
         return ret;
     }
         
