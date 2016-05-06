@@ -150,20 +150,21 @@ public class BasicDocSaver implements DocSaver {
             if(!idQueries.isEmpty()) {
                 BasicDBObject retrievalq=new BasicDBObject("$or",idQueries);
                 LOGGER.debug("Existing document retrieval query={}",retrievalq);
-                DBCursor cursor=collection.find(retrievalq,null);
-                List<DBObject> results=cursor.toArray();
-                LOGGER.debug("Retrieved {} docs",results.size());
-                
-                // Now associate the docs in the retrieved results with the docs in the batch
-                for(DBObject dbDoc:results) {
-                    // Get the id from the doc
-                    Object[] id=getFieldValues(dbDoc,idPaths);
-                    // Find this doc in the batch
-                    DocInfo doc=findDoc(batch,id);
-                    if(doc!=null) {
-                        doc.oldDoc=dbDoc;
-                    } else {
-                        LOGGER.warn("Cannot find doc with id={}",id);
+                try (DBCursor cursor=collection.find(retrievalq,null)) {
+                    List<DBObject> results=cursor.toArray();
+                    LOGGER.debug("Retrieved {} docs",results.size());
+                    
+                    // Now associate the docs in the retrieved results with the docs in the batch
+                    for(DBObject dbDoc:results) {
+                        // Get the id from the doc
+                        Object[] id=getFieldValues(dbDoc,idPaths);
+                        // Find this doc in the batch
+                        DocInfo doc=findDoc(batch,id);
+                        if(doc!=null) {
+                            doc.oldDoc=dbDoc;
+                        } else {
+                            LOGGER.warn("Cannot find doc with id={}",id);
+                        }
                     }
                 }
             }
