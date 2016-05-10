@@ -71,12 +71,12 @@ public abstract class LightblueMongoTestHarness extends LightblueTestHarness {
 
     @Override
     protected JsonNode getLightblueMetadataJson() throws Exception {
-        return json(loadResource("/mongo-lightblue-metadata.json", AbstractMongoCRUDTestController.class), true);
+        return json(loadResource("/mongo-lightblue-metadata.json", LightblueMongoTestHarness.class), true);
     }
 
     @Override
     protected JsonNode getDatasourcesJson() throws Exception {
-        return json(loadResource("/mongo-datasources.json", AbstractMongoCRUDTestController.class), true);
+        return json(loadResource("/mongo-datasources.json", LightblueMongoTestHarness.class), true);
     }
 
     /**
