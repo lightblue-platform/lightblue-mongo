@@ -689,21 +689,21 @@ public class MongoMetadata extends AbstractMetadata {
             MongoCommandException ce = (MongoCommandException) e;
             // give a better Error.code in case auth failed which is represented in MongoDB by code == 18
             if (ce.getCode() == 18) {
-                return Error.get(MetadataConstants.ERR_AUTH_FAILED, e.getMessage());
+                return Error.get(MetadataConstants.ERR_AUTH_FAILED, e);
             } else {
-                return Error.get(MetadataConstants.ERR_DATASOURCE_UNKNOWN, e.getMessage());
+                return Error.get(MetadataConstants.ERR_DATASOURCE_UNKNOWN, e);
             }
         } else if (e instanceof MongoClientException) {
             if (e instanceof MongoTimeoutException) {
-                return Error.get(MetadataConstants.ERR_DATASOURCE_TIMEOUT, e.getMessage());
+                return Error.get(MetadataConstants.ERR_DATASOURCE_TIMEOUT, e);
             } else {
-                return Error.get(MetadataConstants.ERR_DATASOURCE_UNKNOWN, e.getMessage());
+                return Error.get(MetadataConstants.ERR_DATASOURCE_UNKNOWN, e);
             }
         } else if (e instanceof MongoException) {
             if (e instanceof MongoExecutionTimeoutException) {
-                return Error.get(MetadataConstants.ERR_DATASOURCE_TIMEOUT, e.getMessage());
+                return Error.get(MetadataConstants.ERR_DATASOURCE_TIMEOUT, e);
             } else {
-                return Error.get(MetadataConstants.ERR_DATASOURCE_UNKNOWN, e.getMessage());
+                return Error.get(MetadataConstants.ERR_DATASOURCE_UNKNOWN, e);
             }
         } else {
             if (msg == null) {
