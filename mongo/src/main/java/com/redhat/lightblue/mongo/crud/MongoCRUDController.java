@@ -32,6 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.BasicDBObject;
@@ -56,6 +57,7 @@ import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.ConstraintValidator;
 import com.redhat.lightblue.crud.CrudConstants;
 import com.redhat.lightblue.crud.DocCtx;
+import com.redhat.lightblue.crud.MetadataResolver;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
@@ -744,7 +746,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     @Override
                     public void run() {
                         try {
-                            populateHiddenFields(ei, fieldMap);
+                            populateHiddenFields(ei, md, fieldMap);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
@@ -772,11 +774,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
      * @param md
      * @throws IOException
      */
-    public void reindex(EntityInfo ei) throws IOException {
-        Map<String, String> fieldMap = Translator.getCaseInsensitiveIndexes(ei.getIndexes().getIndexes()).collect(Collectors.toMap(i -> i.getField().toString(),
-                i -> Translator.getHiddenForField(i.getField()).toString()));
+    public void reindex(EntityInfo ei, Metadata md) throws IOException {
+        reindex(ei, md, null, null);
+    }
+
+    public void reindex(EntityInfo ei, Metadata md, String version, QueryExpression query) throws IOException {
+        Map<String, String> fieldMap = Translator.getCaseInsensitiveIndexes(ei.getIndexes().getIndexes()).collect(Collectors.toMap(i -> i.getField().toString(), i -> Translator
+                .getHiddenForField(i.getField()).toString()));
         if (!fieldMap.keySet().isEmpty()) {
-            populateHiddenFields(ei, fieldMap);
+            populateHiddenFields(ei, md, version, fieldMap, query);
         }
         // This is not a common command, I think INFO level is safe and appropriate
         LOGGER.info("Starting reindex of %s for fields:  %s", ei.getName(), fieldMap.keySet());
@@ -794,18 +800,40 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
      * @throws IOException
      * @throws URISyntaxException
      */
-    protected void populateHiddenFields(EntityInfo ei, Map<String, String> fieldMap) throws IOException {
-        LOGGER.debug("Starting population of hidden fields due to new or modified indexes.");
+    protected void populateHiddenFields(EntityInfo ei, Metadata md, Map<String, String> fieldMap) throws IOException {
+        populateHiddenFields(ei, md, null, fieldMap, null);
+    }
+
+    protected void populateHiddenFields(EntityInfo ei, Metadata md, String version, Map<String, String> fieldMap, QueryExpression query) throws IOException {
+        LOGGER.info("Starting population of hidden fields due to new or modified indexes.");
         MongoDataStore ds = (MongoDataStore) ei.getDataStore();
         DB entityDB = dbResolver.get(ds);
         DBCollection coll = entityDB.getCollection(ds.getCollectionName());
-        try (DBCursor cursor = coll.find()) {
-            while (cursor.hasNext()) {
-                DBObject doc = cursor.next();
-                DBObject original = (DBObject) ((BasicDBObject) doc).copy();
-                Translator.populateDocHiddenFields(doc, fieldMap);
-                if (!doc.equals(original)) {
+        DBCursor cursor = null;
+        if (query != null){
+            MetadataResolver mdResolver = new MetadataResolver() {
+                @Override
+                public EntityMetadata getEntityMetadata(String entityName) {
+                    String v = version == null ? ei.getDefaultVersion() : version;
+                    return md.getEntityMetadata(entityName, v);
+                }
+            };
+            Translator trans = new Translator(mdResolver, JsonNodeFactory.instance);
+            DBObject mongoQuery = trans.translate(mdResolver.getEntityMetadata(ei.getName()), query);
+            cursor = coll.find(mongoQuery);
+        } else {
+            cursor = coll.find();
+        }
+        while (cursor.hasNext()) {
+            DBObject doc = cursor.next();
+            DBObject original = (DBObject) ((BasicDBObject) doc).copy();
+            Translator.populateDocHiddenFields(doc, fieldMap);
+            if (!doc.equals(original)) {
+                try {
                     coll.save(doc);
+                } catch (Exception e) {
+                    LOGGER.error(e.getMessage());
+                    LOGGER.error("Error saving doc:\n{}", doc);
                 }
             }
         }
