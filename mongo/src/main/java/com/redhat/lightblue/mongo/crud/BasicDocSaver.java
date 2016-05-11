@@ -222,7 +222,7 @@ public class BasicDocSaver implements DocSaver {
                             Translator.populateDocHiddenFields(doc.newDoc,md);
                             insertionAttemptList.add(doc);                        
                         } catch(IOException e) {
-                            doc.inputDoc.addError(Error.get("insert",MongoCrudConstants.ERR_TRANSLATION_ERROR));
+                            doc.inputDoc.addError(Error.get("insert", MongoCrudConstants.ERR_TRANSLATION_ERROR, e));
                         }
                     } else {
                         for(Path path : paths){
@@ -283,7 +283,7 @@ public class BasicDocSaver implements DocSaver {
                             Translator.populateDocHiddenFields(doc.newDoc, md);
                             updateAttemptList.add(doc);
                         } catch (Exception e) {
-                            doc.inputDoc.addError(Error.get("update",MongoCrudConstants.ERR_TRANSLATION_ERROR));
+                            doc.inputDoc.addError(Error.get("update", MongoCrudConstants.ERR_TRANSLATION_ERROR, e));
                         }
                     } else {
                         doc.inputDoc.addError(Error.get("update",
