@@ -226,10 +226,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                                dbObjects,
                                documents.toArray(new DocCtx[documents.size()]));
 
-                
+
                 for (int docIndex = 0; docIndex < dbObjects.length; docIndex++) {
                     DocCtx inputDoc=documents.get(docIndex);
-                    JsonDoc jsonDoc = translator.toJson(dbObjects[docIndex]);                    
+                    JsonDoc jsonDoc = translator.toJson(dbObjects[docIndex]);
                     LOGGER.debug("Translated doc: {}", jsonDoc);
                     inputDoc.setUpdatedDocument(jsonDoc);
                     if (projector != null) {
@@ -242,7 +242,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                         ret++;
                     }
                 }
-                
+
                 ctx.getHookManager().queueHooks(ctx);
             }
         } catch (Error e) {
@@ -834,10 +834,12 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     coll.save(doc);
                 } catch (Exception e) {
                     LOGGER.error(e.getMessage());
-                    LOGGER.error("Error saving doc:\n{}", doc);
+                    LOGGER.debug("Original doc:\n{}", original);
+                    LOGGER.debug("Error saving doc:\n{}", doc);
                 }
             }
         }
+        cursor.close();
         LOGGER.info("Finished population of hidden fields.");
     }
 
