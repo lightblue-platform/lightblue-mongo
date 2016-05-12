@@ -811,7 +811,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         DB entityDB = dbResolver.get(ds);
         DBCollection coll = entityDB.getCollection(ds.getCollectionName());
         DBCursor cursor = null;
-        if (query != null){
+        if (query != null) {
             MetadataResolver mdResolver = new MetadataResolver() {
                 @Override
                 public EntityMetadata getEntityMetadata(String entityName) {
@@ -825,21 +825,27 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         } else {
             cursor = coll.find();
         }
-        while (cursor.hasNext()) {
-            DBObject doc = cursor.next();
-            DBObject original = (DBObject) ((BasicDBObject) doc).copy();
-            Translator.populateDocHiddenFields(doc, fieldMap);
-            if (!doc.equals(original)) {
+        try {
+            while (cursor.hasNext()) {
+                DBObject doc = cursor.next();
+                DBObject original = (DBObject) ((BasicDBObject) doc).copy();
                 try {
-                    coll.save(doc);
+                    Translator.populateDocHiddenFields(doc, fieldMap);
+                    if (!doc.equals(original)) {
+                        coll.save(doc);
+                    }
                 } catch (Exception e) {
+                    // skip the doc if there's a problem, don't outright fail
                     LOGGER.error(e.getMessage());
                     LOGGER.debug("Original doc:\n{}", original);
                     LOGGER.debug("Error saving doc:\n{}", doc);
                 }
             }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            cursor.close();
         }
-        cursor.close();
         LOGGER.info("Finished population of hidden fields.");
     }
 
