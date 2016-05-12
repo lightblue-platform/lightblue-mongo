@@ -842,6 +842,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 }
             }
         } catch (Exception e) {
+            LOGGER.error("Error during reindexing");
+            LOGGER.error(e.getMessage());
             throw new RuntimeException(e);
         } finally {
             cursor.close();
