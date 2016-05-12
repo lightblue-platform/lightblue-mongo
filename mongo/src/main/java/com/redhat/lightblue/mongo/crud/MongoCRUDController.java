@@ -226,10 +226,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                                dbObjects,
                                documents.toArray(new DocCtx[documents.size()]));
 
-                
+
                 for (int docIndex = 0; docIndex < dbObjects.length; docIndex++) {
                     DocCtx inputDoc=documents.get(docIndex);
-                    JsonDoc jsonDoc = translator.toJson(dbObjects[docIndex]);                    
+                    JsonDoc jsonDoc = translator.toJson(dbObjects[docIndex]);
                     LOGGER.debug("Translated doc: {}", jsonDoc);
                     inputDoc.setUpdatedDocument(jsonDoc);
                     if (projector != null) {
@@ -242,7 +242,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                         ret++;
                     }
                 }
-                
+
                 ctx.getHookManager().queueHooks(ctx);
             }
         } catch (Error e) {
@@ -811,7 +811,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         DB entityDB = dbResolver.get(ds);
         DBCollection coll = entityDB.getCollection(ds.getCollectionName());
         DBCursor cursor = null;
-        if (query != null){
+        if (query != null) {
             MetadataResolver mdResolver = new MetadataResolver() {
                 @Override
                 public EntityMetadata getEntityMetadata(String entityName) {
@@ -825,18 +825,28 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         } else {
             cursor = coll.find();
         }
-        while (cursor.hasNext()) {
-            DBObject doc = cursor.next();
-            DBObject original = (DBObject) ((BasicDBObject) doc).copy();
-            Translator.populateDocHiddenFields(doc, fieldMap);
-            if (!doc.equals(original)) {
+        try {
+            while (cursor.hasNext()) {
+                DBObject doc = cursor.next();
+                DBObject original = (DBObject) ((BasicDBObject) doc).copy();
                 try {
-                    coll.save(doc);
+                    Translator.populateDocHiddenFields(doc, fieldMap);
+                    if (!doc.equals(original)) {
+                        coll.save(doc);
+                    }
                 } catch (Exception e) {
+                    // skip the doc if there's a problem, don't outright fail
                     LOGGER.error(e.getMessage());
-                    LOGGER.error("Error saving doc:\n{}", doc);
+                    LOGGER.debug("Original doc:\n{}", original);
+                    LOGGER.debug("Error saving doc:\n{}", doc);
                 }
             }
+        } catch (Exception e) {
+            LOGGER.error("Error during reindexing");
+            LOGGER.error(e.getMessage());
+            throw new RuntimeException(e);
+        } finally {
+            cursor.close();
         }
         LOGGER.info("Finished population of hidden fields.");
     }
