@@ -874,10 +874,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     }
 
     private boolean compareSortKeys(IndexSortKey sortKey, String fieldName, Object dir) {
-        String field = sortKey.getField().toString();
+        String field;
         if (sortKey.isCaseInsensitive()) {
             // if this is a case insensitive key, we need to change the field to how mongo actually stores the index
             field = Translator.translatePath(Translator.getHiddenForField(sortKey.getField()));
+        } else {
+            // strip out wild card.  
+            // this happens because we forget mongo fields != lightblue path 
+            // especially given case insensitive index requires lightblue path
+            field = Translator.translatePath(sortKey.getField());
         }
 
         if (field.equals(fieldName)) {

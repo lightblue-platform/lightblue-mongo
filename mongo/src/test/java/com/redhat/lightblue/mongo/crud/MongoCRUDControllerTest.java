@@ -2247,4 +2247,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         Assert.assertEquals(expected, maxQueryTimeMS);
     }
+    
+    @Test
+    public void indexFieldsMatch_with_lightblue_path() throws Exception {
+        Index index = new Index(new IndexSortKey(new Path("a.*.b"), false, false));
+        DBObject existingIndex = new BasicDBObject("key", new BasicDBObject("a.b", 1));
+        Assert.assertTrue(controller.indexFieldsMatch(index, existingIndex));
+    }
 }
