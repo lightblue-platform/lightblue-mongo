@@ -701,13 +701,13 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                             break;
                         }
                     if(!found&&!isIdIndex(index)) {
-                        LOGGER.info("Dropping {}",index.get("name"));
+                        LOGGER.warn("Dropping index {}",index.get("name"));
                         entityCollection.dropIndex(index.get("name").toString());
                     }
                 }
             }
             for(DBObject index:dropIndexes) {
-                LOGGER.info("Dropping {}",index.get("name"));
+                LOGGER.warn("Dropping index {}",index.get("name"));
                 entityCollection.dropIndex(index.get("name").toString());
             }
             // we want to run in the background if we're only creating indexes (no field generation)
@@ -715,7 +715,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             // fieldMap is <canonicalPath, hiddenPath>
             Map<String, String> fieldMap = new HashMap<>();
             for(Index index:createIndexes) {
-                LOGGER.info("Creating index {} with {}",index.getName(),index.getFields());
                 DBObject newIndex = new BasicDBObject();
                 for (IndexSortKey p : index.getFields()) {
                     Path field = p.getField();
@@ -738,6 +737,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 // if we have hidden fields to generate, we want index creation to be blocking so we can ensure that the indexes are created before we generate the fields
                 options.append("background", !hidden);
                 LOGGER.debug("Creating index {} with options {}", newIndex, options);
+                LOGGER.warn("Creating index {} with fields={}, options={}", index.getName(), index.getFields(), options);
                 entityCollection.createIndex(newIndex, options);
             }
             if (hidden) {
