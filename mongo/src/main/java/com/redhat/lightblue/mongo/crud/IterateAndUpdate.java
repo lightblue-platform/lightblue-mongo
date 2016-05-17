@@ -37,8 +37,6 @@ import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.PredefinedFields;
-import com.redhat.lightblue.mongo.hystrix.FindCommand;
-import com.redhat.lightblue.mongo.hystrix.SaveCommand;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.Path;
 
@@ -89,7 +87,7 @@ public class IterateAndUpdate implements DocUpdater {
         BsonMerge merge=new BsonMerge(md);
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
-            cursor = new FindCommand(collection, query, null).executeAndUnwrap();
+            cursor = collection.find(query, null);
             LOGGER.debug("Found {} documents", cursor.count());
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_RESULTSET, ctx);
             // read-update-write
@@ -137,7 +135,7 @@ public class IterateAndUpdate implements DocUpdater {
                             } catch (IOException e) {
                                 throw new RuntimeException("Error populating document: \n" + updatedObject);
                             }
-                            WriteResult result = new SaveCommand(collection, updatedObject).executeAndUnwrap();
+                            WriteResult result = collection.save(updatedObject);
                             numUpdated++;
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             LOGGER.debug("Number of rows affected : ", result.getN());

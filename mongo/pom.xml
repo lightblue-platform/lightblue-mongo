@@ -49,10 +49,6 @@
             <groupId>com.redhat.lightblue</groupId>
             <artifactId>lightblue-core-extensions</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.netflix.hystrix</groupId>
-            <artifactId>hystrix-core</artifactId>
-        </dependency>
          <dependency>
             <groupId>de.flapdoodle.embed</groupId>
             <artifactId>de.flapdoodle.embed.mongo</artifactId>

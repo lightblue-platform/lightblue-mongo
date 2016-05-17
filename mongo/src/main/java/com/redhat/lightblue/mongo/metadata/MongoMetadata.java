@@ -30,7 +30,6 @@ import com.redhat.lightblue.crud.Factory;
 import com.redhat.lightblue.metadata.*;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.parser.MetadataParser;
-import com.redhat.lightblue.mongo.hystrix.*;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.Path;
 import org.bson.BSONObject;
@@ -105,7 +104,7 @@ public class MongoMetadata extends AbstractMetadata {
             EntitySchema schema;
 
             BasicDBObject query = new BasicDBObject(LITERAL_ID, entityName + BSONParser.DELIMITER_ID + version);
-            DBObject es = new FindOneCommand(collection, query).executeAndUnwrap();
+            DBObject es = collection.findOne(query);
             if (es != null) {
                 schema = mdParser.parseEntitySchema(es);
             } else {
@@ -134,7 +133,7 @@ public class MongoMetadata extends AbstractMetadata {
         Error.push("getEntityInfo(" + entityName + ")");
         try {
             BasicDBObject query = new BasicDBObject(LITERAL_ID, entityName + BSONParser.DELIMITER_ID);
-            DBObject ei = new FindOneCommand(collection, query).executeAndUnwrap();
+            DBObject ei = collection.findOne(query);
             if (ei != null) {
                 return mdParser.parseEntityInfo(ei);
             } else {
@@ -166,7 +165,8 @@ public class MongoMetadata extends AbstractMetadata {
                     || (statusSet.contains(MetadataStatus.ACTIVE)
                     && statusSet.contains(MetadataStatus.DEPRECATED)
                     && statusSet.contains(MetadataStatus.DISABLED))) {
-                List l = new DistinctCommand(collection, LITERAL_NAME, new BasicDBObject(LITERAL_NAME,new BasicDBObject("$exists",1))).executeAndUnwrap();
+                List l = collection.distinct(LITERAL_NAME,new BasicDBObject(LITERAL_NAME,
+                                                                            new BasicDBObject("$exists",1)));
                 String[] arr = new String[l.size()];
                 int i = 0;
                 for (Object x : l) {
@@ -180,7 +180,7 @@ public class MongoMetadata extends AbstractMetadata {
                     list.add(MetadataParser.toString(x));
                 }
                 BasicDBObject query = new BasicDBObject(LITERAL_STATUS_VALUE, new BasicDBObject("$in", list));
-                List l = new DistinctCommand(collection, LITERAL_NAME, query).executeAndUnwrap();
+                List l = collection.distinct(LITERAL_NAME, query);
                 String[] arr = new String[l.size()];
                 int i = 0;
                 for (Object x : l) {
@@ -208,7 +208,7 @@ public class MongoMetadata extends AbstractMetadata {
         try {
             // Get the default version
             BasicDBObject query = new BasicDBObject(LITERAL_ID, entityName + BSONParser.DELIMITER_ID);
-            DBObject ei = new FindOneCommand(collection, query).executeAndUnwrap();
+            DBObject ei = collection.findOne(query);
             String defaultVersion = ei == null ? null : (String) ei.get("defaultVersion");
 
             // query by name but only return documents that have a version
@@ -217,7 +217,7 @@ public class MongoMetadata extends AbstractMetadata {
             DBObject project = new BasicDBObject(LITERAL_VERSION, 1).
                     append(LITERAL_STATUS, 1).
                     append(LITERAL_ID, 0);
-            cursor = new FindCommand(collection, query, project).executeAndUnwrap();
+            cursor = collection.find(query, project);
             int n = cursor.count();
             VersionInfo[] ret = new VersionInfo[n];
             int i = 0;
@@ -285,7 +285,7 @@ public class MongoMetadata extends AbstractMetadata {
             Error.push("writeEntity");
             try {
                 try {
-                    WriteResult result = new InsertCommand(collection, infoObj).executeAndUnwrap();
+                    WriteResult result = collection.insert(infoObj);
                     LOGGER.debug("Inserted entityInfo");
 
                 } catch (DuplicateKeyException dke) {
@@ -293,7 +293,7 @@ public class MongoMetadata extends AbstractMetadata {
                     throw Error.get(MongoMetadataConstants.ERR_DUPLICATE_METADATA, ver.getValue());
                 }
                 try {
-                    WriteResult result = new InsertCommand(collection, schemaObj).executeAndUnwrap();
+                    WriteResult result = collection.insert(schemaObj);
 
                     if (listener != null) {
                         listener.afterUpdateEntityInfo(this, md.getEntityInfo(), true);
@@ -302,7 +302,7 @@ public class MongoMetadata extends AbstractMetadata {
 
                 } catch (DuplicateKeyException dke) {
                     LOGGER.error("createNewMetadata: duplicateKey {}", dke);
-                    new RemoveCommand(collection, new BasicDBObject(LITERAL_ID, infoObj.get(LITERAL_ID))).executeAndUnwrap();
+                    collection.remove(new BasicDBObject(LITERAL_ID, infoObj.get(LITERAL_ID)));
                     throw Error.get(MongoMetadataConstants.ERR_DUPLICATE_METADATA, ver.getValue());
                 }
                 if(cache!=null)
@@ -385,11 +385,10 @@ public class MongoMetadata extends AbstractMetadata {
         String version = null;
         DBCursor cursor = null;
         try {
-            cursor = new FindCommand(collection,
-                    new BasicDBObject(LITERAL_NAME, ei.getName()).
-                            append(LITERAL_VERSION, new BasicDBObject("$exists", 1)).
-                            append(LITERAL_STATUS_VALUE, new BasicDBObject("$ne", MetadataParser.toString(MetadataStatus.DISABLED))),
-                    null).executeAndUnwrap();
+            cursor = collection.find(new BasicDBObject(LITERAL_NAME, ei.getName()).
+                                     append(LITERAL_VERSION, new BasicDBObject("$exists", 1)).
+                                     append(LITERAL_STATUS_VALUE, new BasicDBObject("$ne", MetadataParser.toString(MetadataStatus.DISABLED))),
+                    null);
             while (cursor.hasNext()) {
                 DBObject object = cursor.next();
                 EntitySchema schema = mdParser.parseEntitySchema(object);
@@ -444,11 +443,11 @@ public class MongoMetadata extends AbstractMetadata {
 
             WriteResult result;
             try {
-                result = new InsertCommand(collection, schemaObj).executeAndUnwrap();
+                result = collection.insert(schemaObj);
             } catch (DuplicateKeyException dke) {
                 if(isSnapshot(md.getEntitySchema().getVersion().getValue())) {
                     LOGGER.debug("Rewriting {}",md.getEntitySchema().getVersion().getValue());
-                    result = new SaveCommand(collection,schemaObj).executeAndUnwrap();
+                    result = collection.save(schemaObj);
                 } else
                     throw dke;
             }
@@ -503,7 +502,7 @@ public class MongoMetadata extends AbstractMetadata {
         BasicDBObject query = new BasicDBObject(LITERAL_ID, entityName + BSONParser.DELIMITER_ID + version);
         Error.push("setMetadataStatus(" + entityName + ":" + version + ")");
         try {
-            DBObject md = new FindOneCommand(collection, query).executeAndUnwrap();
+            DBObject md = collection.findOne(query);
             if (md == null) {
                 throw Error.get(MongoMetadataConstants.ERR_UNKNOWN_VERSION, entityName + ":" + version);
             }
@@ -524,7 +523,7 @@ public class MongoMetadata extends AbstractMetadata {
             schema.setStatus(newStatus);
 
             query = new BasicDBObject(LITERAL_ID, md.get(LITERAL_ID));
-            WriteResult result = new UpdateCommand(collection, query, (DBObject) mdParser.convert(schema), false, false).executeAndUnwrap();
+            WriteResult result = collection.update(query, (DBObject) mdParser.convert(schema), false, false);
             if(cache!=null)
                 cache.updateCollectionVersion(collection);
         } catch (Error e) {
@@ -548,7 +547,7 @@ public class MongoMetadata extends AbstractMetadata {
                 append(LITERAL_STATUS_VALUE, new BasicDBObject("$ne", MetadataParser.toString(MetadataStatus.DISABLED)));
         LOGGER.debug("Checking if there are entity versions that are not disabled: {}", query);
 
-        DBObject result = new FindOneCommand(collection, query).executeAndUnwrap();
+        DBObject result = collection.findOne(query);
         if (result != null) {
             LOGGER.debug("There is at least one enabled version {}", result);
             throw Error.get(MongoMetadataConstants.ERR_CANNOT_DELETE, entityName);
@@ -558,7 +557,7 @@ public class MongoMetadata extends AbstractMetadata {
         query = new BasicDBObject(LITERAL_ID, Pattern.compile(entityName + "\\" + BSONParser.DELIMITER_ID + ".*"));
         LOGGER.debug("Removal query:{}", query);
         try {
-            WriteResult r = new RemoveCommand(collection, query).executeAndUnwrap();
+            WriteResult r = collection.remove(query);
             LOGGER.debug("Removal result:{}", r);
             if(cache!=null)
                 cache.updateCollectionVersion(collection);
