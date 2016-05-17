@@ -32,7 +32,6 @@ import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.DocCtx;
-import com.redhat.lightblue.mongo.hystrix.FindCommand;
 
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Error;
@@ -80,7 +79,7 @@ public class BasicDocFinder implements DocFinder {
         DBCursor cursor = null;
         
         try {
-            cursor = new FindCommand(coll, mongoQuery, mongoProjection).executeAndUnwrap();
+            cursor = coll.find(mongoQuery, mongoProjection);
             if(readPreference!=null)
                 cursor.setReadPreference(readPreference);
         
