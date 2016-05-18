@@ -149,7 +149,7 @@ public class IterateAndUpdate implements DocUpdater {
                             } catch (IOException e) {
                                 throw new RuntimeException("Error populating document: \n" + updatedObject);
                             }
-                            bwo.find(new BasicDBObject("_id", document.get("_id"))).updateOne(new BasicDBObject("$set", updatedObject));
+                            bwo.find(new BasicDBObject("_id", document.get("_id"))).replaceOne(updatedObject);
                             numUpdating++;
                             // update in batches
                             if (numUpdating >= batchSize) {
