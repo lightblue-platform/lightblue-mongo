@@ -38,8 +38,8 @@ import com.redhat.lightblue.util.JsonUtils;
 
 /**
  *
- * The read preferences can be nearest, primary, primaryPreferred, secondary, and secondaryPreferred, with
- * optional tags. The tags are specified as:
+ * The read preferences can be nearest, primary, primaryPreferred, secondary,
+ * and secondaryPreferred, with optional tags. The tags are specified as:
  * <pre>
  *    readPreference ( tags1, tags2,... )
  * <pre>
@@ -61,91 +61,96 @@ public class MongoReadPreference {
             super(s);
         }
     }
-    
-    public static final String READ_PREFERENCE_NEAREST="nearest";
-    public static final String READ_PREFERENCE_PRIMARY="primary";
-    public static final String READ_PREFERENCE_PRIMARY_PREFERRED="primaryPreferred";
-    public static final String READ_PREFERENCE_SECONDARY="secondary";
-    public static final String READ_PREFERENCE_SECONDARY_PREFERRED="secondaryPreferred";
+
+    public static final String READ_PREFERENCE_NEAREST = "nearest";
+    public static final String READ_PREFERENCE_PRIMARY = "primary";
+    public static final String READ_PREFERENCE_PRIMARY_PREFERRED = "primaryPreferred";
+    public static final String READ_PREFERENCE_SECONDARY = "secondary";
+    public static final String READ_PREFERENCE_SECONDARY_PREFERRED = "secondaryPreferred";
 
     public static ReadPreference parse(String value) {
-        value=value.trim();
-        int paren=value.indexOf('(');
+        value = value.trim();
+        int paren = value.indexOf('(');
         String pref;
         List<TagSet> tags;
-        if(paren!=-1) {
-            pref=value.substring(0,paren).trim();
-            String argsStr=value.substring(paren+1).trim();
-            if(!argsStr.endsWith(")"))
+        if (paren != -1) {
+            pref = value.substring(0, paren).trim();
+            String argsStr = value.substring(paren + 1).trim();
+            if (!argsStr.endsWith(")")) {
                 throw new InvalidReadPreference(value);
-            tags=parseArgs(argsStr.substring(0,argsStr.length()-1));
+            }
+            tags = parseArgs(argsStr.substring(0, argsStr.length() - 1));
         } else {
-            pref=value;
-            tags=null;
+            pref = value;
+            tags = null;
         }
-        switch(pref) {
-        case READ_PREFERENCE_NEAREST:
-            if(tags==null)
-                return ReadPreference.nearest();
-            else
-                return ReadPreference.nearest(tags);
-        case READ_PREFERENCE_PRIMARY:
-            return ReadPreference.primary();
-        case READ_PREFERENCE_PRIMARY_PREFERRED:
-            if(tags==null)
-                return ReadPreference.primaryPreferred();
-            else
-                return ReadPreference.primaryPreferred(tags);
-        case READ_PREFERENCE_SECONDARY:
-            if(tags==null)
-                return ReadPreference.secondary();
-            else
-                return ReadPreference.secondary(tags);
-        case READ_PREFERENCE_SECONDARY_PREFERRED:
-            if(tags==null)
-                return ReadPreference.secondaryPreferred();
-            else
-                return ReadPreference.secondaryPreferred(tags);
-        default:
-            throw new InvalidReadPreference(value);
+        switch (pref) {
+            case READ_PREFERENCE_NEAREST:
+                if (tags == null) {
+                    return ReadPreference.nearest();
+                } else {
+                    return ReadPreference.nearest(tags);
+                }
+            case READ_PREFERENCE_PRIMARY:
+                return ReadPreference.primary();
+            case READ_PREFERENCE_PRIMARY_PREFERRED:
+                if (tags == null) {
+                    return ReadPreference.primaryPreferred();
+                } else {
+                    return ReadPreference.primaryPreferred(tags);
+                }
+            case READ_PREFERENCE_SECONDARY:
+                if (tags == null) {
+                    return ReadPreference.secondary();
+                } else {
+                    return ReadPreference.secondary(tags);
+                }
+            case READ_PREFERENCE_SECONDARY_PREFERRED:
+                if (tags == null) {
+                    return ReadPreference.secondaryPreferred();
+                } else {
+                    return ReadPreference.secondaryPreferred(tags);
+                }
+            default:
+                throw new InvalidReadPreference(value);
         }
     }
 
-    
     private static List<TagSet> parseArgs(String args) {
-        args=args.trim();
-        if(args.length()==0) {
+        args = args.trim();
+        if (args.length() == 0) {
             return null;
         } else {
             try {
                 return parseArgs(JsonUtils.json(args));
-            } catch(InvalidReadPreferenceArgs x) {
-                throw x;                    
-            } catch(Exception e) {
+            } catch (InvalidReadPreferenceArgs x) {
+                throw x;
+            } catch (Exception e) {
                 throw new InvalidReadPreferenceArgs(args);
             }
         }
     }
 
     private static List<TagSet> parseArgs(JsonNode args) {
-        List<TagSet> list=new ArrayList<>();
-        if(args instanceof ObjectNode) {
-            list.add(parseArg((ObjectNode)args));
-        } else if(args instanceof ArrayNode) {
-            ArrayNode array=(ArrayNode)args;
-            for(Iterator<JsonNode> itr=array.elements();itr.hasNext();) {
-                list.add(parseArg( (ObjectNode)itr.next() ));
+        List<TagSet> list = new ArrayList<>();
+        if (args instanceof ObjectNode) {
+            list.add(parseArg((ObjectNode) args));
+        } else if (args instanceof ArrayNode) {
+            ArrayNode array = (ArrayNode) args;
+            for (Iterator<JsonNode> itr = array.elements(); itr.hasNext();) {
+                list.add(parseArg((ObjectNode) itr.next()));
             }
-        } else
+        } else {
             throw new InvalidReadPreferenceArgs(args.toString());
+        }
         return list;
     }
-    
+
     private static TagSet parseArg(ObjectNode arg) {
-        List<Tag> tags=new ArrayList<>();
-        for(Iterator<Map.Entry<String,JsonNode>> itr=arg.fields();itr.hasNext();) {
-            Map.Entry<String,JsonNode> entry=itr.next();
-            tags.add(new Tag(entry.getKey(),entry.getValue().asText()));
+        List<Tag> tags = new ArrayList<>();
+        for (Iterator<Map.Entry<String, JsonNode>> itr = arg.fields(); itr.hasNext();) {
+            Map.Entry<String, JsonNode> entry = itr.next();
+            tags.add(new Tag(entry.getKey(), entry.getValue().asText()));
         }
         return new TagSet(tags);
     }

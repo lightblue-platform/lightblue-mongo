@@ -67,46 +67,46 @@ public class BSONParser extends MetadataParser<Object> {
     }
 
     @Override
-    public Object getMapProperty(Object map,String name) {
-        return ((BSONObject)map).get(name);
+    public Object getMapProperty(Object map, String name) {
+        return ((BSONObject) map).get(name);
     }
 
     @Override
     public Set<String> getMapPropertyNames(Object map) {
-        return ((BSONObject)map).keySet();
+        return ((BSONObject) map).keySet();
     }
 
     @Override
-    public void setMapProperty(Object map,String name,Object value) {
-        ((BSONObject)map).put(name,value);
+    public void setMapProperty(Object map, String name, Object value) {
+        ((BSONObject) map).put(name, value);
     }
 
-   @Override
-    public  Object newList() {
-       return new ArrayList<Object>();
+    @Override
+    public Object newList() {
+        return new ArrayList<Object>();
     }
 
     @Override
     public int getListSize(Object list) {
-        return ((List)list).size();
+        return ((List) list).size();
     }
 
     @Override
-    public Object getListElement(Object list,int n) {
-        return ((List)list).get(n);
+    public Object getListElement(Object list, int n) {
+        return ((List) list).get(n);
     }
 
     @Override
-    public void addListElement(Object list,Object element) {
-        ((List)list).add(element);
+    public void addListElement(Object list, Object element) {
+        ((List) list).add(element);
     }
 
     @Override
     public Object asValue(Object value) {
-        if(value==null) {
+        if (value == null) {
             return null;
-        } else if(value instanceof BSONObject ||
-                  value instanceof List) {
+        } else if (value instanceof BSONObject
+                || value instanceof List) {
             throw Error.get(MetadataConstants.ERR_ILL_FORMED_METADATA, value.toString());
         } else {
             return value;
@@ -118,15 +118,13 @@ public class BSONParser extends MetadataParser<Object> {
         return value;
     }
 
-    
-    
     @Override
     public MetadataParser.PropertyType getType(Object object) {
-        if(object instanceof List) {
+        if (object instanceof List) {
             return MetadataParser.PropertyType.LIST;
-        } else if(object instanceof BSONObject) {
+        } else if (object instanceof BSONObject) {
             return MetadataParser.PropertyType.MAP;
-        } else if(object==null) {
+        } else if (object == null) {
             return MetadataParser.PropertyType.NULL;
         } else {
             return MetadataParser.PropertyType.VALUE;
@@ -140,7 +138,7 @@ public class BSONParser extends MetadataParser<Object> {
     public BSONObject convert(EntityInfo info) {
         Error.push("convert[info|bson]");
         try {
-            BSONObject doc = (BSONObject)super.convert(info);
+            BSONObject doc = (BSONObject) super.convert(info);
 
             // entityInfo._id = {entityInfo.name}|
             putValue(doc, "_id", getStringProperty(doc, "name") + DELIMITER_ID);
@@ -165,7 +163,7 @@ public class BSONParser extends MetadataParser<Object> {
     public BSONObject convert(EntitySchema schema) {
         Error.push("convert[info|bson]");
         try {
-            BSONObject doc = (BSONObject)super.convert(schema);
+            BSONObject doc = (BSONObject) super.convert(schema);
             putValue(doc, "_id", getStringProperty(doc, "name") + DELIMITER_ID + getRequiredStringProperty(getRequiredObjectProperty(doc, "version"), "value"));
 
             return doc;
@@ -183,40 +181,40 @@ public class BSONParser extends MetadataParser<Object> {
 
     @Override
     public Projection getProjection(Object object, String name) {
-        String x = (String) ((BSONObject)object).get(name);
+        String x = (String) ((BSONObject) object).get(name);
         return x == null ? null : Projection.fromJson(toJson(x));
     }
 
     @Override
     public QueryExpression getQuery(Object object, String name) {
-        String x = (String) ((BSONObject)object).get(name);
+        String x = (String) ((BSONObject) object).get(name);
         return x == null ? null : QueryExpression.fromJson(toJson(x));
     }
 
     @Override
     public Sort getSort(Object object, String name) {
-        String x = (String) ((BSONObject)object).get(name);
+        String x = (String) ((BSONObject) object).get(name);
         return x == null ? null : Sort.fromJson(toJson(x));
     }
 
     @Override
     public void putProjection(Object object, String name, Projection p) {
         if (p != null) {
-            ((BSONObject)object).put(name, p.toJson().toString());
+            ((BSONObject) object).put(name, p.toJson().toString());
         }
     }
 
     @Override
     public void putQuery(Object object, String name, QueryExpression q) {
         if (q != null) {
-            ((BSONObject)object).put(name, q.toJson().toString());
+            ((BSONObject) object).put(name, q.toJson().toString());
         }
     }
 
     @Override
     public void putSort(Object object, String name, Sort s) {
         if (s != null) {
-            ((BSONObject)object).put(name, s.toJson().toString());
+            ((BSONObject) object).put(name, s.toJson().toString());
         }
     }
 

@@ -36,10 +36,10 @@ public class TestCRUDOperationContext extends CRUDOperationContext {
     private final Map<String, EntityMetadata> map = new HashMap<>();
 
     public TestCRUDOperationContext(CRUDOperation op) {
-        this("test",op);
+        this("test", op);
     }
 
-    public TestCRUDOperationContext(String name,CRUDOperation op) {
+    public TestCRUDOperationContext(String name, CRUDOperation op) {
         super(op, name, factory, null, null);
     }
 

@@ -29,59 +29,61 @@ public class MongoLockingTest extends AbstractMongoCrudTest {
     @Test
     public void acquireExclusionTest() throws Exception {
         // Make sure only one caller can lock
-        MongoLocking locking=new MongoLocking(coll);
-        Assert.assertTrue(locking.acquire("1","rsc1",null));
-        Assert.assertFalse(locking.acquire("2","rsc1",null));
-        Assert.assertTrue(locking.release("1","rsc1"));
-        Assert.assertTrue(locking.acquire("2","rsc1",null));
-        Assert.assertTrue(locking.release("2","rsc1"));
+        MongoLocking locking = new MongoLocking(coll);
+        Assert.assertTrue(locking.acquire("1", "rsc1", null));
+        Assert.assertFalse(locking.acquire("2", "rsc1", null));
+        Assert.assertTrue(locking.release("1", "rsc1"));
+        Assert.assertTrue(locking.acquire("2", "rsc1", null));
+        Assert.assertTrue(locking.release("2", "rsc1"));
     }
 
     @Test
     public void acquireLockCountingTest() throws Exception {
-        MongoLocking locking=new MongoLocking(coll);
-        Assert.assertTrue(locking.acquire("1","rsc1",null));
-        Assert.assertFalse(locking.acquire("2","rsc1",null));
-        Assert.assertEquals(1,locking.getLockCount("1","rsc1"));
-        Assert.assertTrue(locking.acquire("1","rsc1",null));
-        Assert.assertFalse(locking.acquire("2","rsc1",null));
-        Assert.assertEquals(2,locking.getLockCount("1","rsc1"));
-        Assert.assertFalse(locking.release("1","rsc1"));
-        Assert.assertFalse(locking.acquire("2","rsc1",null));
-        Assert.assertEquals(1,locking.getLockCount("1","rsc1"));
-        Assert.assertTrue(locking.release("1","rsc1"));
-        Assert.assertTrue(locking.acquire("2","rsc1",null));
+        MongoLocking locking = new MongoLocking(coll);
+        Assert.assertTrue(locking.acquire("1", "rsc1", null));
+        Assert.assertFalse(locking.acquire("2", "rsc1", null));
+        Assert.assertEquals(1, locking.getLockCount("1", "rsc1"));
+        Assert.assertTrue(locking.acquire("1", "rsc1", null));
+        Assert.assertFalse(locking.acquire("2", "rsc1", null));
+        Assert.assertEquals(2, locking.getLockCount("1", "rsc1"));
+        Assert.assertFalse(locking.release("1", "rsc1"));
+        Assert.assertFalse(locking.acquire("2", "rsc1", null));
+        Assert.assertEquals(1, locking.getLockCount("1", "rsc1"));
+        Assert.assertTrue(locking.release("1", "rsc1"));
+        Assert.assertTrue(locking.acquire("2", "rsc1", null));
         try {
-            locking.getLockCount("1","rsc1");
+            locking.getLockCount("1", "rsc1");
             Assert.fail();
-        } catch (Exception e) {}
-        locking.release("2","rsc1");
+        } catch (Exception e) {
+        }
+        locking.release("2", "rsc1");
     }
 
     @Test
     public void expireTest() throws Exception {
-        MongoLocking locking=new MongoLocking(coll);
-        Assert.assertTrue(locking.acquire("1","rsc1",100l));
+        MongoLocking locking = new MongoLocking(coll);
+        Assert.assertTrue(locking.acquire("1", "rsc1", 100l));
         Thread.sleep(110);
         try {
-            locking.ping("1","rsc1");
+            locking.ping("1", "rsc1");
             Assert.fail();
-        } catch (Exception e) {}
-        Assert.assertTrue(locking.acquire("2","rsc1",null));
-        Assert.assertTrue(locking.release("2","rsc1"));
+        } catch (Exception e) {
+        }
+        Assert.assertTrue(locking.acquire("2", "rsc1", null));
+        Assert.assertTrue(locking.release("2", "rsc1"));
     }
 
     @Test
     public void pingTest() throws Exception {
-        MongoLocking locking=new MongoLocking(coll);
-        Assert.assertTrue(locking.acquire("1","rsc1",100l));
-        locking.ping("1","rsc1");
+        MongoLocking locking = new MongoLocking(coll);
+        Assert.assertTrue(locking.acquire("1", "rsc1", 100l));
+        locking.ping("1", "rsc1");
         Thread.sleep(50);
-        locking.ping("1","rsc1");
+        locking.ping("1", "rsc1");
         Thread.sleep(50);
-        locking.ping("1","rsc1");
+        locking.ping("1", "rsc1");
         Thread.sleep(50);
-        locking.ping("1","rsc1");
+        locking.ping("1", "rsc1");
     }
 
 }

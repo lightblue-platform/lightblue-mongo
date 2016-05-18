@@ -29,20 +29,21 @@ import com.redhat.lightblue.mongo.config.MongoReadPreference;
  */
 public class MongoExecutionOptions {
 
-    public static final String OPT_READ_PREFERENCE="mongo:ReadPreference";
+    public static final String OPT_READ_PREFERENCE = "mongo:ReadPreference";
 
-    public static final String OPT_READ_PREFERENCE_NEAREST=MongoReadPreference.READ_PREFERENCE_NEAREST;
-    public static final String OPT_READ_PREFERENCE_PRIMARY=MongoReadPreference.READ_PREFERENCE_PRIMARY;
-    public static final String OPT_READ_PREFERENCE_PRIMARY_PREFERRED=MongoReadPreference.READ_PREFERENCE_PRIMARY_PREFERRED;
-    public static final String OPT_READ_PREFERENCE_SECONDARY=MongoReadPreference.READ_PREFERENCE_SECONDARY;
-    public static final String OPT_READ_PREFERENCE_SECONDARY_PREFERRED=MongoReadPreference.READ_PREFERENCE_SECONDARY_PREFERRED;
-    
+    public static final String OPT_READ_PREFERENCE_NEAREST = MongoReadPreference.READ_PREFERENCE_NEAREST;
+    public static final String OPT_READ_PREFERENCE_PRIMARY = MongoReadPreference.READ_PREFERENCE_PRIMARY;
+    public static final String OPT_READ_PREFERENCE_PRIMARY_PREFERRED = MongoReadPreference.READ_PREFERENCE_PRIMARY_PREFERRED;
+    public static final String OPT_READ_PREFERENCE_SECONDARY = MongoReadPreference.READ_PREFERENCE_SECONDARY;
+    public static final String OPT_READ_PREFERENCE_SECONDARY_PREFERRED = MongoReadPreference.READ_PREFERENCE_SECONDARY_PREFERRED;
+
     /**
-     * Returns a read preference based on the execution options. If the execution options don't specify a
-     * read preference, returns null
+     * Returns a read preference based on the execution options. If the
+     * execution options don't specify a read preference, returns null
      *
-     * The read preferences can be nearest, primary, primaryPreferred, secondary, and secondaryPreferred, with
-     * optional tags. The tags are specified as:
+     * The read preferences can be nearest, primary, primaryPreferred,
+     * secondary, and secondaryPreferred, with optional tags. The tags are
+     * specified as:
      * <pre>
      *    readPreference ( tags1, tags2,... )
      * <pre>
@@ -52,16 +53,16 @@ public class MongoExecutionOptions {
      * </pre>
      */
     public static ReadPreference getReadPreference(ExecutionOptions options) {
-        if(options!=null) {
-            String value=options.getOptions().get(OPT_READ_PREFERENCE);
-            if(value!=null) {
-                value=value.trim();
-                if(value.length()>0) {
+        if (options != null) {
+            String value = options.getOptions().get(OPT_READ_PREFERENCE);
+            if (value != null) {
+                value = value.trim();
+                if (value.length() > 0) {
                     return MongoReadPreference.parse(value);
                 }
             }
-        } 
+        }
         return null;
     }
-    
+
 }

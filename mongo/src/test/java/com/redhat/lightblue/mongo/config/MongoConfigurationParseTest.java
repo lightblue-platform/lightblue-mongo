@@ -41,7 +41,7 @@ public class MongoConfigurationParseTest {
             assertEquals(98765, dataConfig.getMaxQueryTimeMS());
         }
     }
-    
+
     @Test
     public void writeConcern_deprecated() throws IOException {
         try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("parse-test-datasources.json")) {
@@ -65,7 +65,7 @@ public class MongoConfigurationParseTest {
             assertEquals(12345, dataConfig.getMaxResultSetSize());
         }
     }
-    
+
     @Test
     public void writeConcern_deprecated_override() throws IOException {
         try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("parse-test-datasources.json")) {
@@ -89,7 +89,7 @@ public class MongoConfigurationParseTest {
             assertEquals(54321, dataConfig.getMaxResultSetSize());
         }
     }
-    
+
     @Test
     public void writeConcern() throws IOException {
         try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream("parse-test-datasources.json")) {

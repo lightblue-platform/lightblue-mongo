@@ -39,80 +39,86 @@ import com.redhat.lightblue.util.Error;
 
 public class MongoLockingSupport implements LockingSupport {
 
-    private static final Logger LOGGER=LoggerFactory.getLogger(MongoLockingSupport.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MongoLockingSupport.class);
 
     private final MongoCRUDController controller;
-    
+
     public MongoLockingSupport(MongoCRUDController controller) {
-        this.controller=controller;
+        this.controller = controller;
     }
 
     @Override
     public String[] getLockingDomains() {
-        List<String> list=new ArrayList<>();
+        List<String> list = new ArrayList<>();
         LOGGER.debug("Getting configured locking domains");
-        ControllerConfiguration cfg=controller.getControllerConfiguration();
-        if(cfg!=null) {
+        ControllerConfiguration cfg = controller.getControllerConfiguration();
+        if (cfg != null) {
             LOGGER.debug("Got controller configuration");
-            ObjectNode configNode=cfg.getExtensions();
-            if(configNode!=null) {
-                LOGGER.debug("Extensions: {}",configNode);
-                JsonNode x=configNode.get("locking");
-                if(x instanceof ArrayNode) {
-                    ArrayNode arr=(ArrayNode)x;
-                    LOGGER.debug("Locking:{}",arr);
-                    for(Iterator<JsonNode> domains=arr.elements();
-                        domains.hasNext();) {
-                        x=domains.next();
-                        if(x instanceof ObjectNode) {
-                            ObjectNode domain=(ObjectNode)x;
-                            JsonNode domainName=domain.get("domain");
-                            if(domainName!=null)
+            ObjectNode configNode = cfg.getExtensions();
+            if (configNode != null) {
+                LOGGER.debug("Extensions: {}", configNode);
+                JsonNode x = configNode.get("locking");
+                if (x instanceof ArrayNode) {
+                    ArrayNode arr = (ArrayNode) x;
+                    LOGGER.debug("Locking:{}", arr);
+                    for (Iterator<JsonNode> domains = arr.elements();
+                            domains.hasNext();) {
+                        x = domains.next();
+                        if (x instanceof ObjectNode) {
+                            ObjectNode domain = (ObjectNode) x;
+                            JsonNode domainName = domain.get("domain");
+                            if (domainName != null) {
                                 list.add(domainName.asText());
+                            }
                         }
                     }
                 }
             }
         }
-        LOGGER.debug("Domains:{}",list);
+        LOGGER.debug("Domains:{}", list);
         return list.toArray(new String[list.size()]);
     }
 
     @Override
     public Locking getLockingInstance(String domain) {
-        ObjectNode domainNode=findDomainNode(domain);
-        if(domainNode==null)
-            throw Error.get(MongoCrudConstants.ERR_INVALID_LOCKING_DOMAIN,domain);
-        JsonNode datasourceName=domainNode.get("datasource");
-        if(datasourceName==null)
-            throw Error.get(MongoCrudConstants.ERR_CONFIGURATION_ERROR,"locking."+domain+".datasource");
-        MongoDataStore store=new MongoDataStore();
+        ObjectNode domainNode = findDomainNode(domain);
+        if (domainNode == null) {
+            throw Error.get(MongoCrudConstants.ERR_INVALID_LOCKING_DOMAIN, domain);
+        }
+        JsonNode datasourceName = domainNode.get("datasource");
+        if (datasourceName == null) {
+            throw Error.get(MongoCrudConstants.ERR_CONFIGURATION_ERROR, "locking." + domain + ".datasource");
+        }
+        MongoDataStore store = new MongoDataStore();
         store.setDatasourceName(datasourceName.asText());
-        DB db=controller.getDbResolver().get(store);
-        if(db==null)
-            throw Error.get(MongoCrudConstants.ERR_CONFIGURATION_ERROR,"locking."+domain+".datasource");
-        JsonNode collection=domainNode.get("collection");
-        if(collection==null)
-            throw Error.get(MongoCrudConstants.ERR_CONFIGURATION_ERROR,"locking."+domain+".collection");
+        DB db = controller.getDbResolver().get(store);
+        if (db == null) {
+            throw Error.get(MongoCrudConstants.ERR_CONFIGURATION_ERROR, "locking." + domain + ".datasource");
+        }
+        JsonNode collection = domainNode.get("collection");
+        if (collection == null) {
+            throw Error.get(MongoCrudConstants.ERR_CONFIGURATION_ERROR, "locking." + domain + ".collection");
+        }
         return new MongoLocking(db.getCollection(collection.asText()));
     }
 
     private ObjectNode findDomainNode(String domain) {
-        ControllerConfiguration cfg=controller.getControllerConfiguration();
-        if(cfg!=null) {
-            ObjectNode configNode=cfg.getExtensions();
-            if(configNode!=null) {
-                JsonNode x=configNode.get("locking");
-                if(x instanceof ArrayNode) {
-                    ArrayNode arr=(ArrayNode)x;
-                    for(Iterator<JsonNode> domains=arr.elements();
-                        domains.hasNext();) {
-                        x=domains.next();
-                        if(x instanceof ObjectNode) {
-                            ObjectNode d=(ObjectNode)x;
-                            JsonNode domainName=d.get("domain");
-                            if(domainName!=null&&domainName.asText().equals(domain))
+        ControllerConfiguration cfg = controller.getControllerConfiguration();
+        if (cfg != null) {
+            ObjectNode configNode = cfg.getExtensions();
+            if (configNode != null) {
+                JsonNode x = configNode.get("locking");
+                if (x instanceof ArrayNode) {
+                    ArrayNode arr = (ArrayNode) x;
+                    for (Iterator<JsonNode> domains = arr.elements();
+                            domains.hasNext();) {
+                        x = domains.next();
+                        if (x instanceof ObjectNode) {
+                            ObjectNode d = (ObjectNode) x;
+                            JsonNode domainName = d.get("domain");
+                            if (domainName != null && domainName.asText().equals(domain)) {
                                 return d;
+                            }
                         }
                     }
                 }

@@ -96,23 +96,23 @@ public class BsonMergeTest extends AbstractJsonSchemaTest {
 
     @Test
     public void merge_simple() throws Exception {
-        Translator translator=new Translator(new Resolver(md),nodeFactory);
+        Translator translator = new Translator(new Resolver(md), nodeFactory);
         DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json")));
         DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json")));
         oldDoc.put("inv1", "val1");
-        ((DBObject)oldDoc.get("field6")).put("inv2", "val2");
+        ((DBObject) oldDoc.get("field6")).put("inv2", "val2");
         merge.merge(oldDoc, newDoc);
         Assert.assertEquals(oldDoc.get("inv1"), newDoc.get("inv1"));
-        Assert.assertEquals(((DBObject)oldDoc.get("field6")).get("inv2"), ((DBObject) newDoc.get("field6")).get("inv2"));
+        Assert.assertEquals(((DBObject) oldDoc.get("field6")).get("inv2"), ((DBObject) newDoc.get("field6")).get("inv2"));
     }
 
     @Test
     public void merge_elemremove() throws Exception {
-        Translator translator=new Translator(new Resolver(md),nodeFactory);
+        Translator translator = new Translator(new Resolver(md), nodeFactory);
         DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json")));
         DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json")));
         oldDoc.put("inv1", "val1");
-        ((DBObject)oldDoc.get("field6")).put("inv2", "val2");
+        ((DBObject) oldDoc.get("field6")).put("inv2", "val2");
         newDoc.removeField("field6");
         merge.merge(oldDoc, newDoc);
         Assert.assertEquals(oldDoc.get("inv1"), newDoc.get("inv1"));
@@ -121,31 +121,31 @@ public class BsonMergeTest extends AbstractJsonSchemaTest {
 
     @Test
     public void merge_arr_mod() throws Exception {
-        Translator translator=new Translator(new Resolver(md),nodeFactory);
+        Translator translator = new Translator(new Resolver(md), nodeFactory);
         DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json")));
         DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json")));
-        ((List<DBObject>)oldDoc.get("field7")).get(0).put("inv1", "val1");
+        ((List<DBObject>) oldDoc.get("field7")).get(0).put("inv1", "val1");
         merge.merge(oldDoc, newDoc);
-        Assert.assertEquals("val1",((List<DBObject>)newDoc.get("field7")).get(0).get("inv1"));
+        Assert.assertEquals("val1", ((List<DBObject>) newDoc.get("field7")).get(0).get("inv1"));
     }
 
-     @Test
-     public void merge_arr_mod_id() throws Exception {
-        Translator translator=new Translator(new Resolver(md2),nodeFactory);
+    @Test
+    public void merge_arr_mod_id() throws Exception {
+        Translator translator = new Translator(new Resolver(md2), nodeFactory);
         DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata2.json")));
         DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata2.json")));
-        ((List<DBObject>)oldDoc.get("field7")).get(0).put("inv1", "val1");
+        ((List<DBObject>) oldDoc.get("field7")).get(0).put("inv1", "val1");
         merge2.merge(oldDoc, newDoc);
-        Assert.assertEquals("val1",((List<DBObject>)newDoc.get("field7")).get(0).get("inv1"));
-     }
-    
+        Assert.assertEquals("val1", ((List<DBObject>) newDoc.get("field7")).get(0).get("inv1"));
+    }
+
     @Test
     public void merge_nested_objarr() throws Exception {
-        Translator translator=new Translator(new Resolver(md6),nodeFactory);
+        Translator translator = new Translator(new Resolver(md6), nodeFactory);
         DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata6.json")));
         DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata6.json")));
-        ((List<DBObject>)oldDoc.get("field7")).get(0).put("inv1","val1");
+        ((List<DBObject>) oldDoc.get("field7")).get(0).put("inv1", "val1");
         merge6.merge(oldDoc, newDoc);
-        Assert.assertEquals("val1",((List<DBObject>)newDoc.get("field7")).get(0).get("inv1"));
+        Assert.assertEquals("val1", ((List<DBObject>) newDoc.get("field7")).get(0).get("inv1"));
     }
 }

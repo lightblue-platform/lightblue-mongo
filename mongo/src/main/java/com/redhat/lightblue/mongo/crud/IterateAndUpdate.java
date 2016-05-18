@@ -84,7 +84,7 @@ public class IterateAndUpdate implements DocUpdater {
         int docIndex = 0;
         int numFailed = 0;
         int numUpdated = 0;
-        BsonMerge merge=new BsonMerge(md);
+        BsonMerge merge = new BsonMerge(md);
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
             cursor = collection.find(query, null);
@@ -129,7 +129,7 @@ public class IterateAndUpdate implements DocUpdater {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc);
                             DBObject updatedObject = translator.toBson(doc);
-                            merge.merge(document,updatedObject);
+                            merge.merge(document, updatedObject);
                             try {
                                 Translator.populateDocHiddenFields(updatedObject, md);
                             } catch (IOException e) {
@@ -154,11 +154,9 @@ public class IterateAndUpdate implements DocUpdater {
                     LOGGER.debug("Document {} has errors", docIndex);
                     numFailed++;
                     doc.setOutputDocument(errorProjector.project(doc, nodeFactory));
-                } else {
-                    if (projector != null) {
-                        LOGGER.debug("Projecting document {}", docIndex);
-                        doc.setOutputDocument(projector.project(doc, nodeFactory));
-                    }
+                } else if (projector != null) {
+                    LOGGER.debug("Projecting document {}", docIndex);
+                    doc.setOutputDocument(projector.project(doc, nodeFactory));
                 }
                 docIndex++;
             }

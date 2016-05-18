@@ -54,7 +54,7 @@ public class CacheTest {
     public static final MongoServerExternalResource mongo = new MongoServerExternalResource();
 
     private MongoMetadata md;
-    private final MetadataCache cache=new MetadataCache();
+    private final MetadataCache cache = new MetadataCache();
     private DB db;
 
     @Before
@@ -66,9 +66,9 @@ public class CacheTest {
         x.registerDataStoreParser("mongo", new MongoDataStoreParser<Object>());
         // 50 msecs version lookup
         // 100 msecs cache refresh
-        cache.setCacheParams(50l,100l);
-        db=mongo.getConnection().getDB("mongo");
-        md = new MongoMetadata(db, x, new DefaultTypes(), factory,cache);
+        cache.setCacheParams(50l, 100l);
+        db = mongo.getConnection().getDB("mongo");
+        md = new MongoMetadata(db, x, new DefaultTypes(), factory, cache);
         BasicDBObject index = new BasicDBObject("name", 1);
         index.put("version.value", 1);
         db.getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION).createIndex(index, "name", true);
@@ -140,12 +140,12 @@ public class CacheTest {
         e.getFields().put(o);
 
         // At this point, there should not be a collectionVersion doc
-        DBCollection coll=db.getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION);
-        Assert.assertNull(coll.findOne(new BasicDBObject("_id","collectionVersion")));
+        DBCollection coll = db.getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION);
+        Assert.assertNull(coll.findOne(new BasicDBObject("_id", "collectionVersion")));
 
         md.createNewMetadata(e);
 
-        Assert.assertNotNull(coll.findOne(new BasicDBObject("_id","collectionVersion")));
+        Assert.assertNotNull(coll.findOne(new BasicDBObject("_id", "collectionVersion")));
     }
 
     @Test
@@ -159,22 +159,21 @@ public class CacheTest {
         o.getFields().put(new SimpleField("x", IntegerType.TYPE));
         e.getFields().put(o);
         md.createNewMetadata(e);
-        DBCollection coll=db.getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION);
+        DBCollection coll = db.getCollection(MongoMetadata.DEFAULT_METADATA_COLLECTION);
 
         // Lookup should fail
-        Assert.assertNull(cache.lookup(coll,"testEntity","1.0.0"));
-        md.getEntityMetadata("testEntity","1.0.0");
+        Assert.assertNull(cache.lookup(coll, "testEntity", "1.0.0"));
+        md.getEntityMetadata("testEntity", "1.0.0");
         // Lookup should not fail
-        Assert.assertNotNull(cache.lookup(coll,"testEntity","1.0.0"));
+        Assert.assertNotNull(cache.lookup(coll, "testEntity", "1.0.0"));
         Thread.sleep(51);
         // Lookup shoult not fail
-        Assert.assertNotNull(cache.lookup(coll,"testEntity","1.0.0"));
+        Assert.assertNotNull(cache.lookup(coll, "testEntity", "1.0.0"));
         // Update the version in db
-        coll.update(new BasicDBObject("_id","collectionVersion"),new BasicDBObject("$inc",new BasicDBObject("collectionVersion",1)));
+        coll.update(new BasicDBObject("_id", "collectionVersion"), new BasicDBObject("$inc", new BasicDBObject("collectionVersion", 1)));
         Thread.sleep(51);
         // Lookup will fail,  detect change
-        Assert.assertNull(cache.lookup(coll,"testEntity","1.0.0"));
+        Assert.assertNull(cache.lookup(coll, "testEntity", "1.0.0"));
     }
-
 
 }

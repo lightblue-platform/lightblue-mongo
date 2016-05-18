@@ -35,18 +35,18 @@ import com.redhat.lightblue.extensions.synch.Locking;
 
 public class MongoLocking implements Locking {
 
-    public static final String CALLERID="own";
-    public static final String RESOURCEID="rsc";
-    public static final String TIMESTAMP="t";
-    public static final String TTL="ttl";
-    public static final String EXPIRATION="exp";
-    public static final String COUNT="n";
-    public static final String VERSION="ver";
+    public static final String CALLERID = "own";
+    public static final String RESOURCEID = "rsc";
+    public static final String TIMESTAMP = "t";
+    public static final String TTL = "ttl";
+    public static final String EXPIRATION = "exp";
+    public static final String COUNT = "n";
+    public static final String VERSION = "ver";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoLocking.class);
 
     private DBCollection coll;
-    private long defaultTTL=60l*60l*1000l;// 1 hr
+    private long defaultTTL = 60l * 60l * 1000l;// 1 hr
 
     public MongoLocking(DBCollection coll) {
         init(coll);
@@ -54,31 +54,32 @@ public class MongoLocking implements Locking {
 
     public void init(DBCollection coll) {
         // Make sure we have a unique index on resourceid
-        this.coll=coll;
-        BasicDBObject keys=new BasicDBObject(RESOURCEID,1);
-        BasicDBObject options=new BasicDBObject("unique",1);
+        this.coll = coll;
+        BasicDBObject keys = new BasicDBObject(RESOURCEID, 1);
+        BasicDBObject options = new BasicDBObject("unique", 1);
         // ensureIndex was deprecated, changed to an alias of createIndex, and removed in a more recent version
-        this.coll.createIndex(keys,options);
+        this.coll.createIndex(keys, options);
     }
 
     public void setDefaultTTL(long l) {
-        defaultTTL=l;
+        defaultTTL = l;
     }
 
     /**
      * Attempts to insert a lock record to the db
      *
-     * @returns true if successful, false if lock already exists. Any other case would be an exception.
+     * @returns true if successful, false if lock already exists. Any other case
+     * would be an exception.
      */
-    private boolean acquire(String callerId,String resourceId, Long ttl, Date now, Date expiration) {
-        BasicDBObject update=new BasicDBObject().
-            append(CALLERID,callerId).
-            append(RESOURCEID,resourceId).
-            append(TIMESTAMP,now).
-            append(TTL, ttl).
-            append(EXPIRATION,expiration).
-            append(COUNT,1).
-            append(VERSION,1);
+    private boolean acquire(String callerId, String resourceId, Long ttl, Date now, Date expiration) {
+        BasicDBObject update = new BasicDBObject().
+                append(CALLERID, callerId).
+                append(RESOURCEID, resourceId).
+                append(TIMESTAMP, now).
+                append(TTL, ttl).
+                append(EXPIRATION, expiration).
+                append(COUNT, 1).
+                append(VERSION, 1);
 
         try {
             LOGGER.debug("insert: {}", update);
@@ -90,9 +91,10 @@ public class MongoLocking implements Locking {
     }
 
     /**
-     * Attempt to acquire a lock. If successful, return true, otherwise return false.
+     * Attempt to acquire a lock. If successful, return true, otherwise return
+     * false.
      */
-    public boolean acquire(String callerId,String resourceId,Long ttl) {
+    public boolean acquire(String callerId, String resourceId, Long ttl) {
         /*
           Creating an atomic acquire() method in mongodb is not
           easy. The key is to use the uniqueness of a unique index, in
@@ -110,22 +112,23 @@ public class MongoLocking implements Locking {
           We will use a version number to make sure we are updating
           the correct doc.
          */
-        LOGGER.debug("acquire({}/{},ttl={})",callerId,resourceId,ttl);
+        LOGGER.debug("acquire({}/{},ttl={})", callerId, resourceId, ttl);
         // Try to insert doc
-        Date now=new Date();
+        Date now = new Date();
         Date expiration;
-        if(ttl==null)
-            ttl=defaultTTL;
-        expiration=new Date(now.getTime()+ttl);
-        LOGGER.debug("{}/{}: lock will expire on {}",callerId,resourceId,expiration);
+        if (ttl == null) {
+            ttl = defaultTTL;
+        }
+        expiration = new Date(now.getTime() + ttl);
+        LOGGER.debug("{}/{}: lock will expire on {}", callerId, resourceId, expiration);
         BasicDBObject query;
         BasicDBObject update;
         WriteResult wr;
-        int readVer=-1;
-        String readCallerId=null;
-        int readCount=-1;
-        boolean locked=acquire(callerId,resourceId,ttl,now,expiration);
-        if(!locked) {
+        int readVer = -1;
+        String readCallerId = null;
+        int readCount = -1;
+        boolean locked = acquire(callerId, resourceId, ttl, now, expiration);
+        if (!locked) {
             // At this point, we can add "if expired" predicate to the
             // queries to filter expired locks, but it is not safe to
             // rely on timestamps. Not all nodes have the same
@@ -134,19 +137,19 @@ public class MongoLocking implements Locking {
             // this point, and use the version number for all the
             // updates. if anybody updates the lock before we do, the
             // version number will change, and we will fail.
-            query=new BasicDBObject(RESOURCEID,resourceId);
-            LOGGER.debug("find: {}",query);
-            DBObject lockObject=coll.findOne(query);
-            if(lockObject==null) {
-                LOGGER.debug("{}/{}: lock cannot be read. Retrying to acquire",callerId,resourceId);
-                locked=acquire(callerId,resourceId,ttl,now,expiration);
-                LOGGER.debug("{}/{}: acquire result: {}",callerId,resourceId,locked);
+            query = new BasicDBObject(RESOURCEID, resourceId);
+            LOGGER.debug("find: {}", query);
+            DBObject lockObject = coll.findOne(query);
+            if (lockObject == null) {
+                LOGGER.debug("{}/{}: lock cannot be read. Retrying to acquire", callerId, resourceId);
+                locked = acquire(callerId, resourceId, ttl, now, expiration);
+                LOGGER.debug("{}/{}: acquire result: {}", callerId, resourceId, locked);
                 // No need to continue here. If insertion fails, that means someone else inserted a record
                 return locked;
             }
-            readVer=((Number)lockObject.get(VERSION)).intValue();
-            readCallerId=(String)lockObject.get(CALLERID);
-            readCount=((Number)lockObject.get(COUNT)).intValue();
+            readVer = ((Number) lockObject.get(VERSION)).intValue();
+            readCallerId = (String) lockObject.get(CALLERID);
+            readCount = ((Number) lockObject.get(COUNT)).intValue();
 
             // Lock already exists
             // Possibilities:
@@ -154,97 +157,96 @@ public class MongoLocking implements Locking {
             //  - lock is not expired, but someone else owns it : fail
             //  - lock is expired : attempt to acquire
             //  - lock count is less than 1 : attempt to acquire
-
             // lock is not expired and we own it: increment lock count
-            LOGGER.debug("{}/{} locked, assuming lock is ours, attempting to increment lock count",callerId,resourceId);
-            if(readCallerId.equals(callerId)) {
-                query=new BasicDBObject().
-                    append(CALLERID,callerId).
-                    append(RESOURCEID,resourceId).
-                    append(EXPIRATION,new BasicDBObject("$gt",now)).
-                    append(VERSION,readVer);
-                update=new BasicDBObject().
-                    append("$set",new BasicDBObject(TIMESTAMP,now).
-                           append(EXPIRATION,expiration).
-                           append(TTL,ttl)).
-                    append("$inc",new BasicDBObject(VERSION,1).
-                           append(COUNT,1));
-                LOGGER.debug("update: {} {}",query,update);
-                wr=coll.update(query,update,false,false,WriteConcern.ACKNOWLEDGED);
-                if(wr.getN()==1) {
-                    LOGGER.debug("{}/{} locked again",callerId,resourceId);
-                    locked=true;
+            LOGGER.debug("{}/{} locked, assuming lock is ours, attempting to increment lock count", callerId, resourceId);
+            if (readCallerId.equals(callerId)) {
+                query = new BasicDBObject().
+                        append(CALLERID, callerId).
+                        append(RESOURCEID, resourceId).
+                        append(EXPIRATION, new BasicDBObject("$gt", now)).
+                        append(VERSION, readVer);
+                update = new BasicDBObject().
+                        append("$set", new BasicDBObject(TIMESTAMP, now).
+                                append(EXPIRATION, expiration).
+                                append(TTL, ttl)).
+                        append("$inc", new BasicDBObject(VERSION, 1).
+                                append(COUNT, 1));
+                LOGGER.debug("update: {} {}", query, update);
+                wr = coll.update(query, update, false, false, WriteConcern.ACKNOWLEDGED);
+                if (wr.getN() == 1) {
+                    LOGGER.debug("{}/{} locked again", callerId, resourceId);
+                    locked = true;
                 }
             }
         }
-        if(!locked) {
+        if (!locked) {
             // assume lock is expired or count <=0, and try to acquire it
             LOGGER.debug("{}/{} lock is expired or count <= 0, attempting to reacquire expired lock", callerId, resourceId);
-            query=new BasicDBObject().
-                append(RESOURCEID,resourceId).
-                append("$or",Arrays.asList(new BasicDBObject(EXPIRATION,new BasicDBObject("$lte",now)),
-                                           new BasicDBObject(COUNT,new BasicDBObject("$lte",0)))).
-                append(VERSION,readVer);
-            update=new BasicDBObject().
-                append("$set",new BasicDBObject(CALLERID,callerId).
-                       append(TIMESTAMP,now).
-                       append(EXPIRATION,expiration).
-                       append(TTL,ttl).
-                       append(COUNT,1)).
-                append("$inc",new BasicDBObject(VERSION,1));
-            LOGGER.debug("update: {} {}",query,update);
-            wr=coll.update(query,update,false,false,WriteConcern.ACKNOWLEDGED);
-            if(wr.getN()==1) {
-                LOGGER.debug("{}/{} locked",callerId,resourceId);
-                locked=true;
+            query = new BasicDBObject().
+                    append(RESOURCEID, resourceId).
+                    append("$or", Arrays.asList(new BasicDBObject(EXPIRATION, new BasicDBObject("$lte", now)),
+                            new BasicDBObject(COUNT, new BasicDBObject("$lte", 0)))).
+                    append(VERSION, readVer);
+            update = new BasicDBObject().
+                    append("$set", new BasicDBObject(CALLERID, callerId).
+                            append(TIMESTAMP, now).
+                            append(EXPIRATION, expiration).
+                            append(TTL, ttl).
+                            append(COUNT, 1)).
+                    append("$inc", new BasicDBObject(VERSION, 1));
+            LOGGER.debug("update: {} {}", query, update);
+            wr = coll.update(query, update, false, false, WriteConcern.ACKNOWLEDGED);
+            if (wr.getN() == 1) {
+                LOGGER.debug("{}/{} locked", callerId, resourceId);
+                locked = true;
             }
         }
-        LOGGER.debug("{}/{}: {}",callerId,resourceId,locked?"locked":"not locked");
+        LOGGER.debug("{}/{}: {}", callerId, resourceId, locked ? "locked" : "not locked");
         return locked;
     }
 
     /**
      * Release the lock. Returns true if the lock is released by this call
      */
-    public boolean release(String callerId,String resourceId) {
-        LOGGER.debug("release({}/{})",callerId,resourceId);
-        Date now=new Date();
+    public boolean release(String callerId, String resourceId) {
+        LOGGER.debug("release({}/{})", callerId, resourceId);
+        Date now = new Date();
         // If lock count is only one, we can remove the lock
-        BasicDBObject query=new BasicDBObject().
-            append(CALLERID,callerId).
-            append(RESOURCEID,resourceId).
-            append(EXPIRATION,new BasicDBObject("$gt",now)).
-            append(COUNT,1);
-        LOGGER.debug("remove {}",query);
-        WriteResult wr=coll.remove(query,WriteConcern.ACKNOWLEDGED);
-        if(wr.getN()==1) {
-            LOGGER.debug("{}/{} released",callerId,resourceId);
+        BasicDBObject query = new BasicDBObject().
+                append(CALLERID, callerId).
+                append(RESOURCEID, resourceId).
+                append(EXPIRATION, new BasicDBObject("$gt", now)).
+                append(COUNT, 1);
+        LOGGER.debug("remove {}", query);
+        WriteResult wr = coll.remove(query, WriteConcern.ACKNOWLEDGED);
+        if (wr.getN() == 1) {
+            LOGGER.debug("{}/{} released", callerId, resourceId);
             return true;
         }
         // Retrieve the lock
-        query=new BasicDBObject(RESOURCEID,resourceId).
-            append(CALLERID,callerId);
-        DBObject lock=coll.findOne(query);
-        if(lock!=null) {
-            long ttl=((Number)lock.get(TTL)).longValue();
-            Date expiration=new Date(now.getTime()+ttl);
-            int ver=((Number)lock.get(VERSION)).intValue();
+        query = new BasicDBObject(RESOURCEID, resourceId).
+                append(CALLERID, callerId);
+        DBObject lock = coll.findOne(query);
+        if (lock != null) {
+            long ttl = ((Number) lock.get(TTL)).longValue();
+            Date expiration = new Date(now.getTime() + ttl);
+            int ver = ((Number) lock.get(VERSION)).intValue();
             // Try decrementing the lock count of our lock
-            query=new BasicDBObject().
-                append(CALLERID,callerId).
-                append(RESOURCEID,resourceId).
-                append(EXPIRATION,new BasicDBObject("$gt",now)).
-                append(COUNT,new BasicDBObject("$gt",0)).
-                append(VERSION,ver);
-            BasicDBObject update=new BasicDBObject().
-                append("$set",new BasicDBObject(EXPIRATION,expiration).
-                       append(TTL,ttl).
-                       append(TIMESTAMP,now)).
-                append("$inc",new BasicDBObject(COUNT,-1).
-                       append(VERSION,1));
-            wr=coll.update(query,update,false,false,WriteConcern.ACKNOWLEDGED);
-            if(wr.getN()==1) {
-                LOGGER.debug("{}/{} lock count decremented, still locked",callerId,resourceId);
+            query = new BasicDBObject().
+                    append(CALLERID, callerId).
+                    append(RESOURCEID, resourceId).
+                    append(EXPIRATION, new BasicDBObject("$gt", now)).
+                    append(COUNT, new BasicDBObject("$gt", 0)).
+                    append(VERSION, ver);
+            BasicDBObject update = new BasicDBObject().
+                    append("$set", new BasicDBObject(EXPIRATION, expiration).
+                            append(TTL, ttl).
+                            append(TIMESTAMP, now)).
+                    append("$inc", new BasicDBObject(COUNT, -1).
+                            append(VERSION, 1));
+            wr = coll.update(query, update, false, false, WriteConcern.ACKNOWLEDGED);
+            if (wr.getN() == 1) {
+                LOGGER.debug("{}/{} lock count decremented, still locked", callerId, resourceId);
                 return false;
             }
         }
@@ -252,45 +254,48 @@ public class MongoLocking implements Locking {
         throw new InvalidLockException(resourceId);
     }
 
-    public int getLockCount(String callerId,String resourceId) {
-        Date now=new Date();
-        BasicDBObject q=new BasicDBObject().
-            append(CALLERID,callerId).
-            append(RESOURCEID,resourceId).
-            append(EXPIRATION,new BasicDBObject("$gt",now)).
-            append(COUNT,new BasicDBObject("$gt",0));
-        BasicDBObject field=new BasicDBObject(COUNT,1);
-        DBObject lock=coll.findOne(q,field);
-        if(lock!=null) {
-            int cnt=((Number)lock.get(COUNT)).intValue();
-            LOGGER.debug("{}/{} lockCount={}",callerId,resourceId,cnt);
+    public int getLockCount(String callerId, String resourceId) {
+        Date now = new Date();
+        BasicDBObject q = new BasicDBObject().
+                append(CALLERID, callerId).
+                append(RESOURCEID, resourceId).
+                append(EXPIRATION, new BasicDBObject("$gt", now)).
+                append(COUNT, new BasicDBObject("$gt", 0));
+        BasicDBObject field = new BasicDBObject(COUNT, 1);
+        DBObject lock = coll.findOne(q, field);
+        if (lock != null) {
+            int cnt = ((Number) lock.get(COUNT)).intValue();
+            LOGGER.debug("{}/{} lockCount={}", callerId, resourceId, cnt);
             return cnt;
-        } else
+        } else {
             throw new InvalidLockException(resourceId);
+        }
     }
 
-    public void ping(String callerId,String resourceId) {
-        Date now=new Date();
-        BasicDBObject q=new BasicDBObject().
-            append(CALLERID,callerId).
-            append(RESOURCEID,resourceId).
-            append(EXPIRATION,new BasicDBObject("$gt",now)).
-            append(COUNT,new BasicDBObject("$gt",0));
-        DBObject lock=coll.findOne(q);
-        if(lock!=null) {
-            Date expiration=new Date(now.getTime()+((Number)lock.get(TTL)).longValue());
-            int ver=((Number)lock.get(VERSION)).intValue();
-            BasicDBObject update=new BasicDBObject().
-                append("$set",new BasicDBObject(TIMESTAMP,now).
-                       append(EXPIRATION,expiration)).
-                append("$inc",new BasicDBObject(VERSION,1));
-            q=q.append(VERSION,ver);
-            WriteResult wr=coll.update(q,update,false,false,WriteConcern.ACKNOWLEDGED);
-            if(wr.getN()!=1)
+    public void ping(String callerId, String resourceId) {
+        Date now = new Date();
+        BasicDBObject q = new BasicDBObject().
+                append(CALLERID, callerId).
+                append(RESOURCEID, resourceId).
+                append(EXPIRATION, new BasicDBObject("$gt", now)).
+                append(COUNT, new BasicDBObject("$gt", 0));
+        DBObject lock = coll.findOne(q);
+        if (lock != null) {
+            Date expiration = new Date(now.getTime() + ((Number) lock.get(TTL)).longValue());
+            int ver = ((Number) lock.get(VERSION)).intValue();
+            BasicDBObject update = new BasicDBObject().
+                    append("$set", new BasicDBObject(TIMESTAMP, now).
+                            append(EXPIRATION, expiration)).
+                    append("$inc", new BasicDBObject(VERSION, 1));
+            q = q.append(VERSION, ver);
+            WriteResult wr = coll.update(q, update, false, false, WriteConcern.ACKNOWLEDGED);
+            if (wr.getN() != 1) {
                 throw new InvalidLockException(resourceId);
-            LOGGER.debug("{}/{} pinged",callerId,resourceId);
-        } else
+            }
+            LOGGER.debug("{}/{} pinged", callerId, resourceId);
+        } else {
             throw new InvalidLockException(resourceId);
+        }
     }
 
 }

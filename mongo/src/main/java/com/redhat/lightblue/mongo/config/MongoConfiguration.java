@@ -68,7 +68,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
     public static final WriteConcern DEFAULT_WRITE_CONCERN = WriteConcern.W1;
     public static final int DEFAULT_MAX_RESULT_SET_SIZE = 10000;
     public static final long DEFAULT_MAX_QUERY_TIME_MS = 75000;
-    
+
     public static final String PROPERTY_NAME_MAX_QUERY_TIME_MS = "maxQueryTimeMS";
 
     private static final long serialVersionUID = 1L;
@@ -84,7 +84,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
     private boolean ssl = Boolean.FALSE;
     private boolean noCertValidation = Boolean.FALSE;
     private Class metadataDataStoreParser = MongoDataStoreParser.class;
-    
+
     private ReadPreference readPreference = DEFAULT_READ_PREFERENCE;
     private WriteConcern writeConcern = DEFAULT_WRITE_CONCERN;
     private int maxResultSetSize = DEFAULT_MAX_RESULT_SET_SIZE;
@@ -126,13 +126,13 @@ public class MongoConfiguration implements DataSourceConfiguration {
     }
 
     public void setMaxResultSetSize(int size) {
-        maxResultSetSize=size;
+        maxResultSetSize = size;
     }
-    
+
     public long getMaxQueryTimeMS() {
         return maxQueryTimeMS;
     }
-    
+
     public void setMaxQueryTimeMS(long maxQueryTimeMS) {
         this.maxQueryTimeMS = maxQueryTimeMS;
     }
@@ -257,8 +257,9 @@ public class MongoConfiguration implements DataSourceConfiguration {
             builder.connectionsPerHost(connectionsPerHost);
         }
 
-        if (this.readPreference != null)
+        if (this.readPreference != null) {
             builder.readPreference(readPreference);
+        }
 
         if (ssl) {
             // taken from MongoClientURI, written this way so we don't have to
@@ -293,13 +294,13 @@ public class MongoConfiguration implements DataSourceConfiguration {
             bld.append("servers:").append(servers).append('\n');
         }
         bld.append("connectionsPerHost:").append(connectionsPerHost).append('\n').
-            append("database:").append(database).append('\n').
-            append("ssl:").append(ssl).append('\n').
-            append("writeConcern:").append(writeConcern).append('\n').
-            append("maxQueryTimeMS:").append(maxQueryTimeMS).append('\n').
-            append("readPreference:").append(readPreference).append('\n').
-            append("noCertValidation:").append(noCertValidation).append('\n').
-            append("maxResultSetSize:").append(maxResultSetSize);
+                append("database:").append(database).append('\n').
+                append("ssl:").append(ssl).append('\n').
+                append("writeConcern:").append(writeConcern).append('\n').
+                append("maxQueryTimeMS:").append(maxQueryTimeMS).append('\n').
+                append("readPreference:").append(readPreference).append('\n').
+                append("noCertValidation:").append(noCertValidation).append('\n').
+                append("maxResultSetSize:").append(maxResultSetSize);
         bld.append("credentials:");
         boolean first = true;
         for (MongoCredential c : credentials) {
@@ -423,17 +424,17 @@ public class MongoConfiguration implements DataSourceConfiguration {
             if (x != null) {
                 database = x.asText();
             }
-            
+
             // DEPRECATED see driverOptions
             x = node.get("writeConcern");
-            if(x != null){
+            if (x != null) {
                 writeConcern = WriteConcern.valueOf(x.asText());
             }
-            
+
             // DEPRECATED see driverOptions
             x = node.get("maxResultSetSize");
-            if(x!=null) {
-                maxResultSetSize=x.asInt();
+            if (x != null) {
+                maxResultSetSize = x.asInt();
             }
             JsonNode jsonNodeServers = node.get("servers");
             if (jsonNodeServers != null && jsonNodeServers.isArray()) {
@@ -485,21 +486,24 @@ public class MongoConfiguration implements DataSourceConfiguration {
             JsonNode jsonNodeOptions = node.get("driverOptions");
             if (jsonNodeOptions != null) {
                 JsonNode readPreferenceOption = jsonNodeOptions.get("readPreference");
-                if (readPreferenceOption != null)
+                if (readPreferenceOption != null) {
                     this.readPreference = ReadPreference.valueOf(readPreferenceOption.asText());
-                
+                }
+
                 JsonNode maxQueryTimeMSOption = jsonNodeOptions.get(PROPERTY_NAME_MAX_QUERY_TIME_MS);
                 if (maxQueryTimeMSOption != null) {
                     this.maxQueryTimeMS = maxQueryTimeMSOption.asLong();
                 }
 
                 JsonNode writeConcernOption = jsonNodeOptions.get("writeConcern");
-                if (writeConcernOption != null)
+                if (writeConcernOption != null) {
                     this.writeConcern = WriteConcern.valueOf(writeConcernOption.asText());
+                }
 
                 JsonNode maxResultSetSizeOption = jsonNodeOptions.get("maxResultSetSize");
-                if (maxResultSetSizeOption != null)
+                if (maxResultSetSizeOption != null) {
                     this.maxResultSetSize = maxResultSetSizeOption.asInt();
+                }
             }
         }
     }

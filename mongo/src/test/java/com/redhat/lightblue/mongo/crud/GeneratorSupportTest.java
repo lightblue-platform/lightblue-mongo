@@ -36,7 +36,7 @@ import com.redhat.lightblue.mongo.crud.MongoCRUDController;
 import com.redhat.lightblue.mongo.crud.MongoSequenceSupport;
 import com.redhat.lightblue.extensions.valuegenerator.ValueGeneratorSupport;
 
-public class GeneratorSupportTest extends AbstractMongoCrudTest  {
+public class GeneratorSupportTest extends AbstractMongoCrudTest {
 
     private MongoCRUDController controller;
 
@@ -47,26 +47,29 @@ public class GeneratorSupportTest extends AbstractMongoCrudTest  {
         final DB dbx = db;
         dbx.createCollection(COLL_NAME, null);
 
-        controller = new MongoCRUDController(null,new DBResolver() {
-                @Override
-                public DB get(MongoDataStore store) {
-                    return dbx;
-                }
-                @Override
-                public MongoConfiguration getConfiguration(MongoDataStore store) {return null;}
-       });
+        controller = new MongoCRUDController(null, new DBResolver() {
+            @Override
+            public DB get(MongoDataStore store) {
+                return dbx;
+            }
+
+            @Override
+            public MongoConfiguration getConfiguration(MongoDataStore store) {
+                return null;
+            }
+        });
     }
 
     @Test
     public void testSeq() throws Exception {
-        ValueGeneratorSupport ss=controller.getExtensionInstance(ValueGeneratorSupport.class);
+        ValueGeneratorSupport ss = controller.getExtensionInstance(ValueGeneratorSupport.class);
         Assert.assertTrue(ss instanceof MongoSequenceSupport);
         EntityMetadata md = getMd("./testMetadata.json");
-        ValueGenerator vg=new ValueGenerator(ValueGenerator.ValueGeneratorType.IntSequence);
-        vg.getProperties().setProperty("name","test");
-        Object value=ss.generateValue(md,vg);
-        Assert.assertEquals("1",value.toString());
-        value=ss.generateValue(md,vg);
-        Assert.assertEquals("2",value.toString());
+        ValueGenerator vg = new ValueGenerator(ValueGenerator.ValueGeneratorType.IntSequence);
+        vg.getProperties().setProperty("name", "test");
+        Object value = ss.generateValue(md, vg);
+        Assert.assertEquals("1", value.toString());
+        value = ss.generateValue(md, vg);
+        Assert.assertEquals("2", value.toString());
     }
 }

@@ -132,14 +132,14 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoCRUDController.class);
 
     private static final Projection ID_PROJECTION = new FieldProjection(new Path(ID_STR), true, false);
-    private static final Projection EMPTY_PROJECTION = new FieldProjection(new Path("*"), false,false);
+    private static final Projection EMPTY_PROJECTION = new FieldProjection(new Path("*"), false, false);
 
     private final DBResolver dbResolver;
     private final ControllerConfiguration controllerCfg;
 
-    public MongoCRUDController(ControllerConfiguration controllerCfg,DBResolver dbResolver) {
+    public MongoCRUDController(ControllerConfiguration controllerCfg, DBResolver dbResolver) {
         this.dbResolver = dbResolver;
-        this.controllerCfg=controllerCfg;
+        this.controllerCfg = controllerCfg;
     }
 
     public DBResolver getDbResolver() {
@@ -205,7 +205,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
                 MongoDataStore store = (MongoDataStore) md.getDataStore();
                 DB db = dbResolver.get(store);
-                MongoConfiguration cfg=dbResolver.getConfiguration(store);
+                MongoConfiguration cfg = dbResolver.getConfiguration(store);
                 DBCollection collection = db.getCollection(store.getCollectionName());
 
                 Projection combinedProjection = Projection.add(projection, roleEval.getExcludedFields(FieldAccessRoleEvaluator.Operation.find));
@@ -220,15 +220,14 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 ctx.setProperty(PROP_SAVER, saver);
 
                 saver.saveDocs(ctx,
-                               operation.equals(OP_INSERT) ? DocSaver.Op.insert : DocSaver.Op.save,
-                               upsert,
-                               collection,
-                               dbObjects,
-                               documents.toArray(new DocCtx[documents.size()]));
-
+                        operation.equals(OP_INSERT) ? DocSaver.Op.insert : DocSaver.Op.save,
+                        upsert,
+                        collection,
+                        dbObjects,
+                        documents.toArray(new DocCtx[documents.size()]));
 
                 for (int docIndex = 0; docIndex < dbObjects.length; docIndex++) {
-                    DocCtx inputDoc=documents.get(docIndex);
+                    DocCtx inputDoc = documents.get(docIndex);
                     JsonDoc jsonDoc = translator.toJson(dbObjects[docIndex]);
                     LOGGER.debug("Translated doc: {}", jsonDoc);
                     inputDoc.setUpdatedDocument(jsonDoc);
@@ -267,7 +266,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
         try {
             if (query == null) {
-                throw Error.get("update",MongoCrudConstants.ERR_NULL_QUERY,"");
+                throw Error.get("update", MongoCrudConstants.ERR_NULL_QUERY, "");
             }
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE, ctx);
             EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
@@ -327,7 +326,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
         try {
             if (query == null) {
-                throw Error.get("delete",MongoCrudConstants.ERR_NULL_QUERY,"");
+                throw Error.get("delete", MongoCrudConstants.ERR_NULL_QUERY, "");
             }
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_DELETE, ctx);
             EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
@@ -401,7 +400,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             if (md.getAccess().getFind().hasAccess(ctx.getCallerRoles())) {
                 FieldAccessRoleEvaluator roleEval = new FieldAccessRoleEvaluator(md, ctx.getCallerRoles());
                 LOGGER.debug("Translating query {}", query);
-                DBObject mongoQuery = query==null?null:translator.translate(md, query);
+                DBObject mongoQuery = query == null ? null : translator.translate(md, query);
                 LOGGER.debug("Translated query {}", mongoQuery);
                 DBObject mongoSort;
                 if (sort != null) {
@@ -416,17 +415,18 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 DB db = dbResolver.get((MongoDataStore) md.getDataStore());
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
                 LOGGER.debug("Retrieve db collection:" + coll);
-                DocFinder finder = new BasicDocFinder(translator,MongoExecutionOptions.
-                                                      getReadPreference(ctx.getExecutionOptions()));
-                MongoConfiguration cfg=dbResolver.getConfiguration( (MongoDataStore)md.getDataStore());
-                if(cfg!=null)
+                DocFinder finder = new BasicDocFinder(translator, MongoExecutionOptions.
+                        getReadPreference(ctx.getExecutionOptions()));
+                MongoConfiguration cfg = dbResolver.getConfiguration((MongoDataStore) md.getDataStore());
+                if (cfg != null) {
                     finder.setMaxResultSetSize(cfg.getMaxResultSetSize());
+                }
                 finder.setMaxQueryTimeMS(getMaxQueryTimeMS(cfg, ctx));
                 ctx.setProperty(PROP_FINDER, finder);
                 response.setSize(finder.find(ctx, coll, mongoQuery, mongoProjection, mongoSort, from, to));
                 // Project results
-                Projector projector = Projector.getInstance(projection==null?EMPTY_PROJECTION:
-                                                            Projection.add(projection, roleEval.getExcludedFields(FieldAccessRoleEvaluator.Operation.find)), md);
+                Projector projector = Projector.getInstance(projection == null ? EMPTY_PROJECTION
+                        : Projection.add(projection, roleEval.getExcludedFields(FieldAccessRoleEvaluator.Operation.find)), md);
                 for (DocCtx document : ctx.getDocuments()) {
                     document.setOutputDocument(projector.project(document, ctx.getFactory().getNodeFactory()));
                 }
@@ -437,7 +437,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         } catch (Error e) {
             ctx.addError(e);
         } catch (Exception e) {
-            LOGGER.error("Error during find:",e);
+            LOGGER.error("Error during find:", e);
             ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
@@ -451,22 +451,23 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     public void updatePredefinedFields(CRUDOperationContext ctx, JsonDoc doc) {
         // If it is a save operation, we rely on _id being passed by client, so we don't auto-generate that
         // If not, it needs to be auto-generated
-        if(ctx.getCRUDOperation()!=CRUDOperation.SAVE) {
+        if (ctx.getCRUDOperation() != CRUDOperation.SAVE) {
             JsonNode idNode = doc.get(Translator.ID_PATH);
             if (idNode == null || idNode instanceof NullNode) {
                 doc.modify(Translator.ID_PATH,
-                           ctx.getFactory().getNodeFactory().textNode(ObjectId.get().toString()),
-                           false);
+                        ctx.getFactory().getNodeFactory().textNode(ObjectId.get().toString()),
+                        false);
             }
         }
     }
 
     @Override
     public <E extends Extension> E getExtensionInstance(Class<? extends Extension> extensionClass) {
-        if(extensionClass.equals(LockingSupport.class))
-            return (E)new MongoLockingSupport(this);
-        else if(extensionClass.equals(ValueGeneratorSupport.class))
-            return (E)new MongoSequenceSupport(this);
+        if (extensionClass.equals(LockingSupport.class)) {
+            return (E) new MongoLockingSupport(this);
+        } else if (extensionClass.equals(ValueGeneratorSupport.class)) {
+            return (E) new MongoSequenceSupport(this);
+        }
         return null;
     }
 
@@ -514,7 +515,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private void validateNoHiddenInMetaData(EntityMetadata emd) {
         FieldCursor cursor = emd.getFieldCursor();
         while (cursor.next()) {
-            if(cursor.getCurrentPath().getLast().equals(Translator.HIDDEN_SUB_PATH.getLast())) {
+            if (cursor.getCurrentPath().getLast().equals(Translator.HIDDEN_SUB_PATH.getLast())) {
                 throw Error.get(MongoCrudConstants.ERR_RESERVED_FIELD);
             }
         }
@@ -524,23 +525,23 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
      * No two index should have the same field signature
      */
     private void validateSaneIndexSet(List<Index> indexes) {
-        int n=indexes.size();
-        for(int i=0;i<n;i++) {
-            List<IndexSortKey> keys1=indexes.get(i).getFields();
-            for(int j=i+1;j<n;j++) {
-                List<IndexSortKey> keys2=indexes.get(j).getFields();
-                if(sameSortKeys(keys1,keys2)) {
+        int n = indexes.size();
+        for (int i = 0; i < n; i++) {
+            List<IndexSortKey> keys1 = indexes.get(i).getFields();
+            for (int j = i + 1; j < n; j++) {
+                List<IndexSortKey> keys2 = indexes.get(j).getFields();
+                if (sameSortKeys(keys1, keys2)) {
                     throw Error.get(MongoCrudConstants.ERR_DUPLICATE_INDEX);
                 }
             }
         }
     }
 
-    private  boolean sameSortKeys(List<IndexSortKey> keys1,List<IndexSortKey> keys2) {
-        if(keys1.size()==keys2.size()) {
-            for(int i=0;i<keys1.size();i++) {
-                IndexSortKey k1=keys1.get(i);
-                IndexSortKey k2=keys2.get(i);
+    private boolean sameSortKeys(List<IndexSortKey> keys1, List<IndexSortKey> keys2) {
+        if (keys1.size() == keys2.size()) {
+            for (int i = 0; i < keys1.size(); i++) {
+                IndexSortKey k1 = keys1.get(i);
+                IndexSortKey k2 = keys2.get(i);
                 if (!k1.getField().equals(k2.getField()) || k1.isDesc() != k2.isDesc() || k1.isCaseInsensitive() != k2.isCaseInsensitive()) {
                     return false;
                 }
@@ -626,53 +627,52 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             //
             //  - If there is an index with null name in metadata, see if there is an index with same
             //    fields and flags. If so, no change. Otherwise, create index. Drop all indexes with the same field signature.
-
-            List<Index> createIndexes=new ArrayList<>();
-            List<DBObject> dropIndexes=new ArrayList<>();
-            List<DBObject> foundIndexes=new ArrayList<>();
-            for(Index index:indexes.getIndexes()) {
-                if(!isIdIndex(index)) {
-                    if(index.getName()!=null&&index.getName().trim().length()>0) {
-                        LOGGER.debug("Processing index {}",index.getName());
-                        DBObject found=null;
-                        for(DBObject existingIndex:existingIndexes) {
-                            if(index.getName().equals(existingIndex.get("name"))) {
-                                found=existingIndex;
+            List<Index> createIndexes = new ArrayList<>();
+            List<DBObject> dropIndexes = new ArrayList<>();
+            List<DBObject> foundIndexes = new ArrayList<>();
+            for (Index index : indexes.getIndexes()) {
+                if (!isIdIndex(index)) {
+                    if (index.getName() != null && index.getName().trim().length() > 0) {
+                        LOGGER.debug("Processing index {}", index.getName());
+                        DBObject found = null;
+                        for (DBObject existingIndex : existingIndexes) {
+                            if (index.getName().equals(existingIndex.get("name"))) {
+                                found = existingIndex;
                                 break;
                             }
                         }
-                        if(found!=null) {
+                        if (found != null) {
                             foundIndexes.add(found);
                             // indexFieldsMatch will handle checking for hidden versions of the index
-                            if(indexFieldsMatch(index,found) &&
-                               indexOptionsMatch(index,found) ) {
-                                LOGGER.debug("{} already exists",index.getName());
+                            if (indexFieldsMatch(index, found)
+                                    && indexOptionsMatch(index, found)) {
+                                LOGGER.debug("{} already exists", index.getName());
                             } else {
-                                LOGGER.debug("{} modified, dropping and recreating index",index.getName());
+                                LOGGER.debug("{} modified, dropping and recreating index", index.getName());
                                 existingIndexes.remove(found);
                                 dropIndexes.add(found);
                                 createIndexes.add(index);
                             }
                         } else {
-                            LOGGER.debug("{} not found, checking if there is an index with same field signature",index.getName());
-                            found=findIndexWithSignature(existingIndexes,index);
-                            if(found==null) {
-                                LOGGER.debug("{} not found, creating",index.getName());
+                            LOGGER.debug("{} not found, checking if there is an index with same field signature", index.getName());
+                            found = findIndexWithSignature(existingIndexes, index);
+                            if (found == null) {
+                                LOGGER.debug("{} not found, creating", index.getName());
                                 createIndexes.add(index);
                             } else {
-                                LOGGER.debug("There is an index with same field signature as {}, drop and recreate",index.getName());
+                                LOGGER.debug("There is an index with same field signature as {}, drop and recreate", index.getName());
                                 foundIndexes.add(found);
                                 dropIndexes.add(found);
                                 createIndexes.add(index);
                             }
                         }
                     } else {
-                        LOGGER.debug("Processing index with fields {}",index.getFields());
-                        DBObject found=findIndexWithSignature(existingIndexes,index);
-                        if(found!=null) {
+                        LOGGER.debug("Processing index with fields {}", index.getFields());
+                        DBObject found = findIndexWithSignature(existingIndexes, index);
+                        if (found != null) {
                             foundIndexes.add(found);
-                            LOGGER.debug("An index with same keys found: {}",found);
-                            if(indexOptionsMatch(index,found)) {
+                            LOGGER.debug("An index with same keys found: {}", found);
+                            if (indexOptionsMatch(index, found)) {
                                 LOGGER.debug("Same options as well, not changing");
                             } else {
                                 LOGGER.debug("Index with different options, drop/recreate");
@@ -680,41 +680,43 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                                 createIndexes.add(index);
                             }
                         } else {
-                            LOGGER.debug("Creating index with fields {}",index.getFields());
+                            LOGGER.debug("Creating index with fields {}", index.getFields());
                             createIndexes.add(index);
                         }
                     }
                 }
             }
             // Any index in existingIndexes but not in foundIndexes should be deleted as well
-            for(DBObject index:existingIndexes) {
-                boolean found=false;
-                for(DBObject x:foundIndexes)
-                    if(x==index) {
-                        found=true;
+            for (DBObject index : existingIndexes) {
+                boolean found = false;
+                for (DBObject x : foundIndexes) {
+                    if (x == index) {
+                        found = true;
                         break;
                     }
-                if(!found) {
-                    for(DBObject x:dropIndexes)
-                        if(x==index) {
-                            found=true;
+                }
+                if (!found) {
+                    for (DBObject x : dropIndexes) {
+                        if (x == index) {
+                            found = true;
                             break;
                         }
-                    if(!found&&!isIdIndex(index)) {
-                        LOGGER.warn("Dropping index {}",index.get("name"));
+                    }
+                    if (!found && !isIdIndex(index)) {
+                        LOGGER.warn("Dropping index {}", index.get("name"));
                         entityCollection.dropIndex(index.get("name").toString());
                     }
                 }
             }
-            for(DBObject index:dropIndexes) {
-                LOGGER.warn("Dropping index {}",index.get("name"));
+            for (DBObject index : dropIndexes) {
+                LOGGER.warn("Dropping index {}", index.get("name"));
                 entityCollection.dropIndex(index.get("name").toString());
             }
             // we want to run in the background if we're only creating indexes (no field generation)
             boolean hidden = false;
             // fieldMap is <canonicalPath, hiddenPath>
             Map<String, String> fieldMap = new HashMap<>();
-            for(Index index:createIndexes) {
+            for (Index index : createIndexes) {
                 DBObject newIndex = new BasicDBObject();
                 for (IndexSortKey p : index.getFields()) {
                     Path field = p.getField();
@@ -770,7 +772,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     /**
      * Reindexes all lightblue managed, hidden, indexes.
      *
-     * This operation is blocking and is therefore suggested to be ran in a separate thread
+     * This operation is blocking and is therefore suggested to be ran in a
+     * separate thread
      *
      * @param md
      * @throws IOException
@@ -791,13 +794,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     /**
      *
-     * Populates all hidden fields from their initial index values in the collection in this context
+     * Populates all hidden fields from their initial index values in the
+     * collection in this context
      *
-     * This method has the potential to be extremely heavy and nonperformant. Recommended to run in a background thread.
+     * This method has the potential to be extremely heavy and nonperformant.
+     * Recommended to run in a background thread.
      *
      * @param ei
      * @param fieldMap
-     *            <index, hiddenPath>
+     * <index, hiddenPath>
      * @throws IOException
      * @throws URISyntaxException
      */
@@ -851,12 +856,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.info("Finished population of hidden fields.");
     }
 
-
-
-    private DBObject findIndexWithSignature(List<DBObject> existingIndexes,Index index) {
-        for(DBObject existingIndex:existingIndexes) {
-            if(indexFieldsMatch(index,existingIndex))
+    private DBObject findIndexWithSignature(List<DBObject> existingIndexes, Index index) {
+        for (DBObject existingIndex : existingIndexes) {
+            if (indexFieldsMatch(index, existingIndex)) {
                 return existingIndex;
+            }
         }
         return null;
     }
@@ -867,10 +871,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 && fields.get(0).getField().equals(Translator.ID_PATH);
     }
 
-
-      private boolean isIdIndex(DBObject index) {
-        BasicDBObject keys=(BasicDBObject)index.get("key");
-        return (keys!=null&&keys.size()==1&&keys.containsField("_id"));
+    private boolean isIdIndex(DBObject index) {
+        BasicDBObject keys = (BasicDBObject) index.get("key");
+        return (keys != null && keys.size() == 1 && keys.containsField("_id"));
     }
 
     private boolean compareSortKeys(IndexSortKey sortKey, String fieldName, Object dir) {
@@ -917,10 +920,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     || (!unique && !index.isUnique())) {
                 return true;
             }
-        } else {
-            if (!index.isUnique()) {
-                return true;
-            }
+        } else if (!index.isUnique()) {
+            return true;
         }
         return false;
     }
@@ -953,38 +954,33 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     }
 
     private Error analyzeException(Exception e, final String otherwise, final String msg, boolean specialHandling) {
-        if(e instanceof Error)
-            return (Error)e;
+        if (e instanceof Error) {
+            return (Error) e;
+        }
 
-        if(e instanceof MongoException) {
-            MongoException me=(MongoException)e;
-            if(me.getCode()==18) {
+        if (e instanceof MongoException) {
+            MongoException me = (MongoException) e;
+            if (me.getCode() == 18) {
                 return Error.get(CrudConstants.ERR_AUTH_FAILED, e.getMessage());
+            } else if (me instanceof MongoTimeoutException
+                    || me instanceof MongoExecutionTimeoutException) {
+                LOGGER.error(CrudConstants.ERR_DATASOURCE_TIMEOUT, e);
+                return Error.get(CrudConstants.ERR_DATASOURCE_TIMEOUT, e.getMessage());
+            } else if (me instanceof DuplicateKeyException) {
+                return Error.get(MongoCrudConstants.ERR_DUPLICATE, e.getMessage());
+            } else if (me instanceof MongoSocketException) {
+                LOGGER.error(MongoCrudConstants.ERR_CONNECTION_ERROR, e);
+                return Error.get(MongoCrudConstants.ERR_CONNECTION_ERROR, e.getMessage());
             } else {
-                if(me instanceof MongoTimeoutException||
-                   me instanceof MongoExecutionTimeoutException) {
-                    LOGGER.error(CrudConstants.ERR_DATASOURCE_TIMEOUT, e);
-                    return Error.get(CrudConstants.ERR_DATASOURCE_TIMEOUT, e.getMessage());
-                } else if(me instanceof DuplicateKeyException) {
-                    return Error.get(MongoCrudConstants.ERR_DUPLICATE,e.getMessage());
-                } else if(me instanceof MongoSocketException) {
-                    LOGGER.error(MongoCrudConstants.ERR_CONNECTION_ERROR, e);
-                    return Error.get(MongoCrudConstants.ERR_CONNECTION_ERROR,e.getMessage());
-                } else {
-                    LOGGER.error(MongoCrudConstants.ERR_MONGO_ERROR, e);
-                    return Error.get(MongoCrudConstants.ERR_MONGO_ERROR,e.getMessage());
-                }
+                LOGGER.error(MongoCrudConstants.ERR_MONGO_ERROR, e);
+                return Error.get(MongoCrudConstants.ERR_MONGO_ERROR, e.getMessage());
             }
+        } else if (msg == null) {
+            return Error.get(otherwise, e.getMessage());
+        } else if (specialHandling) {
+            return Error.get(otherwise, msg, e);
         } else {
-            if(msg==null) {
-                return Error.get(otherwise,e.getMessage());
-            } else {
-                if(specialHandling) {
-                    return Error.get(otherwise,msg,e);
-                } else {
-                    return Error.get(otherwise,msg);
-                }
-            }
+            return Error.get(otherwise, msg);
         }
     }
 }

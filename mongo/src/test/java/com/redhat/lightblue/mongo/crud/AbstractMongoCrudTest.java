@@ -51,7 +51,7 @@ import java.io.IOException;
 /**
  * @author nmalik
  */
-@MongoServerExternalResource.InMemoryMongoServer(port=27777)
+@MongoServerExternalResource.InMemoryMongoServer(port = 27777)
 public abstract class AbstractMongoCrudTest extends AbstractJsonSchemaTest {
     protected static final JsonNodeFactory nodeFactory = JsonNodeFactory.withExactBigDecimals(true);
 
@@ -80,8 +80,9 @@ public abstract class AbstractMongoCrudTest extends AbstractJsonSchemaTest {
 
     @After
     public void teardown() throws Exception {
-        if(coll!=null)
+        if (coll != null) {
             coll.remove(new BasicDBObject());
+        }
     }
 
     protected Projection projection(String s) throws Exception {

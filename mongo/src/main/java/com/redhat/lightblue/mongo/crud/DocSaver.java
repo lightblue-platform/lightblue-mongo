@@ -46,14 +46,13 @@ public interface DocSaver {
      * @param dbObjects Documents to insert/save
      * @param inputDocs The input documents
      *
-     * The implementation should insert or save the documents to the
-     * collection.  The elements of the dbObjects and inputDocs must
-     * match.  If operation is insert, the document is inserted, and
-     * the _id is returned in the output document of inputDoc. If the
-     * operation is save, and the document to be saved has _id, the
-     * document is attempted to be updated in the db. If the db does
-     * not have the document but upsert=true, document is
-     * inserted. Otherwise, update fails.
+     * The implementation should insert or save the documents to the collection.
+     * The elements of the dbObjects and inputDocs must match. If operation is
+     * insert, the document is inserted, and the _id is returned in the output
+     * document of inputDoc. If the operation is save, and the document to be
+     * saved has _id, the document is attempted to be updated in the db. If the
+     * db does not have the document but upsert=true, document is inserted.
+     * Otherwise, update fails.
      */
     void saveDocs(CRUDOperationContext ctx,
                   Op op,
@@ -61,5 +60,5 @@ public interface DocSaver {
                   DBCollection collection,
                   DBObject[] dbObjects,
                   DocCtx[] inputDocs);
-        
+
 }

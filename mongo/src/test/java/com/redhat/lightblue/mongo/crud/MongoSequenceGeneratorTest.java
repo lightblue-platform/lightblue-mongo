@@ -28,14 +28,14 @@ public class MongoSequenceGeneratorTest extends AbstractMongoCrudTest {
 
     @Test
     public void theTest() throws Exception {
-        MongoSequenceGenerator g=new MongoSequenceGenerator(coll);
+        MongoSequenceGenerator g = new MongoSequenceGenerator(coll);
 
-        Assert.assertEquals(1,g.getNextSequenceValue("s1",1,1));
-        Assert.assertEquals(100,g.getNextSequenceValue("s2",100,1));
-        Assert.assertEquals(-1000,g.getNextSequenceValue("s3",-1000,10));
-        Assert.assertEquals(2,g.getNextSequenceValue("s1",123,123));
-        Assert.assertEquals(3,g.getNextSequenceValue("s1",213,123));
-        Assert.assertEquals(101,g.getNextSequenceValue("s2",1234,123));
-        Assert.assertEquals(-990,g.getNextSequenceValue("s3",123,123));
+        Assert.assertEquals(1, g.getNextSequenceValue("s1", 1, 1));
+        Assert.assertEquals(100, g.getNextSequenceValue("s2", 100, 1));
+        Assert.assertEquals(-1000, g.getNextSequenceValue("s3", -1000, 10));
+        Assert.assertEquals(2, g.getNextSequenceValue("s1", 123, 123));
+        Assert.assertEquals(3, g.getNextSequenceValue("s1", 213, 123));
+        Assert.assertEquals(101, g.getNextSequenceValue("s2", 1234, 123));
+        Assert.assertEquals(-990, g.getNextSequenceValue("s3", 123, 123));
     }
 }
