@@ -811,21 +811,21 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         DB entityDB = dbResolver.get(ds);
         DBCollection coll = entityDB.getCollection(ds.getCollectionName());
         DBCursor cursor = null;
-        if (query != null) {
-            MetadataResolver mdResolver = new MetadataResolver() {
-                @Override
-                public EntityMetadata getEntityMetadata(String entityName) {
-                    String v = version == null ? ei.getDefaultVersion() : version;
-                    return md.getEntityMetadata(entityName, v);
-                }
-            };
-            Translator trans = new Translator(mdResolver, JsonNodeFactory.instance);
-            DBObject mongoQuery = trans.translate(mdResolver.getEntityMetadata(ei.getName()), query);
-            cursor = coll.find(mongoQuery);
-        } else {
-            cursor = coll.find();
-        }
         try {
+            if (query != null) {
+                MetadataResolver mdResolver = new MetadataResolver() {
+                    @Override
+                    public EntityMetadata getEntityMetadata(String entityName) {
+                        String v = version == null ? ei.getDefaultVersion() : version;
+                        return md.getEntityMetadata(entityName, v);
+                    }
+                };
+                Translator trans = new Translator(mdResolver, JsonNodeFactory.instance);
+                DBObject mongoQuery = trans.translate(mdResolver.getEntityMetadata(ei.getName()), query);
+                cursor = coll.find(mongoQuery);
+            } else {
+                cursor = coll.find();
+            }
             while (cursor.hasNext()) {
                 DBObject doc = cursor.next();
                 DBObject original = (DBObject) ((BasicDBObject) doc).copy();
