@@ -46,8 +46,8 @@ public class MongoMetadataConfiguration extends AbstractMetadataConfiguration {
     private String collection;
     private Long cachePeekInterval;
     private Long cacheTTL;
-    
-    private static final MetadataCache metadataCache=new MetadataCache();
+
+    private static final MetadataCache metadataCache = new MetadataCache();
 
     @Override
     public Metadata createMetadata(DataSourcesConfiguration datasources,
@@ -77,14 +77,14 @@ public class MongoMetadataConfiguration extends AbstractMetadataConfiguration {
             MongoDataStore mdstore = new MongoDataStore();
             mdstore.setDatasourceName(datasource);
 
-            metadataCache.setCacheParams(cachePeekInterval,cacheTTL);
+            metadataCache.setCacheParams(cachePeekInterval, cacheTTL);
 
             try {
                 MongoMetadata mongoMetadata = null;
                 if (collection == null) {
-                    mongoMetadata = new MongoMetadata(dbresolver.get(mdstore), parserExtensions, typeResolver, factory.getFactory(),metadataCache);
+                    mongoMetadata = new MongoMetadata(dbresolver.get(mdstore), parserExtensions, typeResolver, factory.getFactory(), metadataCache);
                 } else {
-                    mongoMetadata = new MongoMetadata(dbresolver.get(mdstore), collection, parserExtensions, typeResolver, factory.getFactory(),metadataCache);
+                    mongoMetadata = new MongoMetadata(dbresolver.get(mdstore), collection, parserExtensions, typeResolver, factory.getFactory(), metadataCache);
                 }
 
                 mongoMetadata.setRoleMap(getMappedRoles());
@@ -147,12 +147,14 @@ public class MongoMetadataConfiguration extends AbstractMetadataConfiguration {
             if (x != null) {
                 collection = x.asText();
             }
-            x=node.get("cachePeekIntervalMsec");
-            if(x!=null)
-                cachePeekInterval=x.asLong();
-            x=node.get("cacheTTLMsec");
-            if(x!=null)
-                cacheTTL=x.asLong();
+            x = node.get("cachePeekIntervalMsec");
+            if (x != null) {
+                cachePeekInterval = x.asLong();
+            }
+            x = node.get("cacheTTLMsec");
+            if (x != null) {
+                cacheTTL = x.asLong();
+            }
         }
     }
 }

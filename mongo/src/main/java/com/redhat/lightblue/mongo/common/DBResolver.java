@@ -30,5 +30,6 @@ public interface DBResolver {
      * Returns a DB object based on the backend definition
      */
     DB get(MongoDataStore store);
+
     MongoConfiguration getConfiguration(MongoDataStore store);
 }

@@ -44,7 +44,7 @@ public class BSONParserTest {
     }
 
     @Test
-    public void testConvertEnums() throws IOException{
+    public void testConvertEnums() throws IOException {
         String enumName = "FakeEnum";
         String enumValue1 = "FakeEnumValue1";
         String enumValue2 = "FakeEnumValue2";
@@ -57,7 +57,7 @@ public class BSONParserTest {
         Enums enums = new Enums();
         enums.addEnum(e);
 
-        BSONObject enumsNode = (BSONObject)parser.newNode();
+        BSONObject enumsNode = (BSONObject) parser.newNode();
         parser.convertEnums(enumsNode, enums);
 
         String bsonString = enumsNode.toString();
@@ -72,7 +72,7 @@ public class BSONParserTest {
     }
 
     @Test
-    public void testConvertEnums_WithDescription() throws IOException{
+    public void testConvertEnums_WithDescription() throws IOException {
         String enumName = "FakeEnum";
         String enumValue1 = "FakeEnumValue1";
         String enumDescription1 = "this is a fake description of enum value 1";
@@ -89,7 +89,7 @@ public class BSONParserTest {
         Enums enums = new Enums();
         enums.addEnum(e);
 
-        BSONObject enumsNode = (BSONObject)parser.newNode();
+        BSONObject enumsNode = (BSONObject) parser.newNode();
         parser.convertEnums(enumsNode, enums);
 
         String bsonString = enumsNode.toString();
@@ -102,12 +102,12 @@ public class BSONParserTest {
     }
 
     @Test
-    public void testParseEnum() throws IOException{
+    public void testParseEnum() throws IOException {
         String enumName = "FakeEnum";
         String enumValue1 = "FakeEnumValue1";
         String enumValue2 = "FakeEnumValue2";
 
-        BSONObject enumsNode = (BSONObject)parser.newNode();
+        BSONObject enumsNode = (BSONObject) parser.newNode();
         enumsNode.put("name", enumName);
         enumsNode.put("values", Arrays.asList(enumValue1, enumValue2));
 
@@ -121,21 +121,21 @@ public class BSONParserTest {
     }
 
     @Test
-    public void testParseEnum_WithDescriptions() throws IOException{
+    public void testParseEnum_WithDescriptions() throws IOException {
         String enumName = "FakeEnum";
         String enumValue1 = "FakeEnumValue1";
         String enumDescription1 = "this is a fake description of enum value 1";
         String enumValue2 = "FakeEnumValue2";
         String enumDescription2 = "this is a fake description of enum value 2";
 
-        BSONObject enum1Node = (BSONObject)parser.newNode();
+        BSONObject enum1Node = (BSONObject) parser.newNode();
         enum1Node.put("name", enumValue1);
         enum1Node.put("description", enumDescription1);
-        BSONObject enum2Node = (BSONObject)parser.newNode();
+        BSONObject enum2Node = (BSONObject) parser.newNode();
         enum2Node.put("name", enumValue2);
         enum2Node.put("description", enumDescription2);
 
-        BSONObject enumsNode = (BSONObject)parser.newNode();
+        BSONObject enumsNode = (BSONObject) parser.newNode();
         enumsNode.put("name", enumName);
         enumsNode.put("annotatedValues", Arrays.asList(enum1Node, enum2Node));
 

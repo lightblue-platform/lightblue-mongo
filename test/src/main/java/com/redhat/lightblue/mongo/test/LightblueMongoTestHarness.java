@@ -32,9 +32,13 @@ import com.redhat.lightblue.mongo.test.MongoServerExternalResource.InMemoryMongo
 import com.redhat.lightblue.test.LightblueTestHarness;
 
 /**
- * <p>Extension of {@link LightblueTestHarness} that adds built in mongo support.</p>
- * <p><b>NOTE:</b> At this time only restarting mongo before/after the suite is supported.
- * That said, if you need to clean the mongo database between tests then see {@link #cleanupMongoCollections(String...)}. </p>
+ * <p>
+ * Extension of {@link LightblueTestHarness} that adds built in mongo
+ * support.</p>
+ * <p>
+ * <b>NOTE:</b> At this time only restarting mongo before/after the suite is
+ * supported. That said, if you need to clean the mongo database between tests
+ * then see {@link #cleanupMongoCollections(String...)}. </p>
  *
  * @author dcrissman
  */
@@ -80,8 +84,9 @@ public abstract class LightblueMongoTestHarness extends LightblueTestHarness {
     }
 
     /**
-     * Drop specified collections from the mongo database with the dbName from <code>System.getProperty("mongo.database")</code>.
-     * Useful for cleaning up between tests.
+     * Drop specified collections from the mongo database with the dbName from
+     * <code>System.getProperty("mongo.database")</code>. Useful for cleaning up
+     * between tests.
      *
      * @param collectionName
      * @throws UnknownHostException

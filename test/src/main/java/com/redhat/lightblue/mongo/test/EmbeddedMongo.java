@@ -25,34 +25,36 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Test class that encapsulates the in memory mongo DB used for unit tests.
  *
  * Created by nmalik on 12/16/14.
- * 
- * Should be using {@link AbstractMongoCRUDTestController} and/or {@link MongoServerExternalResource}.
+ *
+ * Should be using {@link AbstractMongoCRUDTestController} and/or
+ * {@link MongoServerExternalResource}.
  */
 @Deprecated
 public final class EmbeddedMongo {
 
     /**
-     * This field is used only once during the bootstrap of the singleton instance of this class
+     * This field is used only once during the bootstrap of the singleton
+     * instance of this class
      */
     public static final List<MongoCredential> MONGO_CREDENTIALS = new CopyOnWriteArrayList<>();
 
     /**
-     * This field is used only once during the bootstrap of the singleton instance of this class
+     * This field is used only once during the bootstrap of the singleton
+     * instance of this class
      */
     public static final String HOSTNAME = "localhost";
 
     /**
-     * This field is used only once during the bootstrap of the singleton instance of this class
+     * This field is used only once during the bootstrap of the singleton
+     * instance of this class
      */
     public static int PORT = 27777;
 
     /**
-     * This field is used only once during the bootstrap of the singleton instance of this class
+     * This field is used only once during the bootstrap of the singleton
+     * instance of this class
      */
     public static final String DATABASE_NAME = "mongo";
-
-
-
 
     private static EmbeddedMongo instance;
 
@@ -136,9 +138,9 @@ public final class EmbeddedMongo {
             MongodStarter runtime = MongodStarter.getInstance(runtimeConfig);
             mongodExe = runtime.prepare(
                     new MongodConfigBuilder()
-                            .version(de.flapdoodle.embed.mongo.distribution.Version.V2_6_8)
-                            .net(new Net(mongoPort, Network.localhostIsIPv6()))
-                            .build()
+                    .version(de.flapdoodle.embed.mongo.distribution.Version.V2_6_8)
+                    .net(new Net(mongoPort, Network.localhostIsIPv6()))
+                    .build()
             );
             try {
                 mongod = mongodExe.start();
@@ -147,11 +149,11 @@ public final class EmbeddedMongo {
                 mongod = mongodExe.start();
             }
 
-            if(MONGO_CREDENTIALS.isEmpty()) {
+            if (MONGO_CREDENTIALS.isEmpty()) {
                 client = new MongoClient(mongoHostname + ":" + mongoPort);
             } else {
                 client = new MongoClient(new ServerAddress(mongoHostname + ":" + mongoPort), MONGO_CREDENTIALS);
-                client.getDB("admin").command("{ user: \"siteUserAdmin\", pwd: \"password\", roles: [ { role: \"userAdminAnyDatabase\", db: \"admin\" } , { role: \"userAdminAnyDatabase\", db: \""+dbName+"\" } ] }");
+                client.getDB("admin").command("{ user: \"siteUserAdmin\", pwd: \"password\", roles: [ { role: \"userAdminAnyDatabase\", db: \"admin\" } , { role: \"userAdminAnyDatabase\", db: \"" + dbName + "\" } ] }");
             }
 
             Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -176,7 +178,7 @@ public final class EmbeddedMongo {
     }
 
     /**
-     * Drops the database.  Use between test executions.
+     * Drops the database. Use between test executions.
      */
     public void reset() {
         if (client != null) {

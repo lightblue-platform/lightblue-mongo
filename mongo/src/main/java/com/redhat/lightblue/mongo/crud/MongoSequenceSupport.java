@@ -34,47 +34,46 @@ import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.extensions.valuegenerator.ValueGeneratorSupport;
 
 /**
- * This class performs the interface adaptation between MongoSequence
- * and ValueGeneratorSupport. When a value generator is called from
- * the mediator, this translates that call to MongoSequence APIs.
+ * This class performs the interface adaptation between MongoSequence and
+ * ValueGeneratorSupport. When a value generator is called from the mediator,
+ * this translates that call to MongoSequence APIs.
  *
  * The mongo sequence support recognizes these properties in the value
  * generator:
  *
  * <ul>
  *
- * <li>name: Name of the sequence. Required parameter. Each unique
- * name corresponds to a document in the sequences collection.</li>
- * 
- * <li>collection: Optional parameter, if ommitted, "sequences" is
- * assumed. Gives the collection name to store the document for this
- * sequence.</li>
+ * <li>name: Name of the sequence. Required parameter. Each unique name
+ * corresponds to a document in the sequences collection.</li>
  *
- * <li>initialValue: Optional parameter, if ommitted, 1 is
- * assumed. Gives the initial value of the sequence.</li>
- * 
- * <li>increment: Optional parameter, if ommitted, 1 is assumed. Gives
- * the increment value of the sequence.<li>
+ * <li>collection: Optional parameter, if ommitted, "sequences" is assumed.
+ * Gives the collection name to store the document for this sequence.</li>
+ *
+ * <li>initialValue: Optional parameter, if ommitted, 1 is assumed. Gives the
+ * initial value of the sequence.</li>
+ *
+ * <li>increment: Optional parameter, if ommitted, 1 is assumed. Gives the
+ * increment value of the sequence.<li>
  *
  * </ul>
  */
 public class MongoSequenceSupport implements ValueGeneratorSupport {
 
-    private static final Logger LOGGER=LoggerFactory.getLogger(MongoSequenceSupport.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(MongoSequenceSupport.class);
 
     private final MongoCRUDController controller;
 
-    public static final String DEFAULT_COLLECTION_NAME="sequences";
+    public static final String DEFAULT_COLLECTION_NAME = "sequences";
 
-    public static final String PROP_NAME="name";
-    public static final String PROP_COLLECTION="collection";
-    public static final String PROP_INITIAL_VALUE="initialValue";
-    public static final String PROP_INCREMENT="increment";
+    public static final String PROP_NAME = "name";
+    public static final String PROP_COLLECTION = "collection";
+    public static final String PROP_INITIAL_VALUE = "initialValue";
+    public static final String PROP_INCREMENT = "increment";
 
-    private static final ValueGenerator.ValueGeneratorType[] TYPES={ValueGenerator.ValueGeneratorType.IntSequence};
-    
+    private static final ValueGenerator.ValueGeneratorType[] TYPES = {ValueGenerator.ValueGeneratorType.IntSequence};
+
     public MongoSequenceSupport(MongoCRUDController controller) {
-        this.controller=controller;
+        this.controller = controller;
     }
 
     @Override
@@ -83,30 +82,34 @@ public class MongoSequenceSupport implements ValueGeneratorSupport {
     }
 
     @Override
-    public Object generateValue(EntityMetadata md,ValueGenerator generator) {
-        Properties p=generator.getProperties();
+    public Object generateValue(EntityMetadata md, ValueGenerator generator) {
+        Properties p = generator.getProperties();
         // We expect to see at least a name for the generator
-        String name=p.getProperty(PROP_NAME);
-        if(name==null)
+        String name = p.getProperty(PROP_NAME);
+        if (name == null) {
             throw Error.get(MongoCrudConstants.ERR_NO_SEQUENCE_NAME);
-        String collection=p.getProperty(PROP_COLLECTION);
-        if(collection==null)
-            collection=DEFAULT_COLLECTION_NAME;
-        String initialValueStr=p.getProperty(PROP_INITIAL_VALUE);
+        }
+        String collection = p.getProperty(PROP_COLLECTION);
+        if (collection == null) {
+            collection = DEFAULT_COLLECTION_NAME;
+        }
+        String initialValueStr = p.getProperty(PROP_INITIAL_VALUE);
         long initialValue;
-        if(initialValueStr==null)
-            initialValue=1;
-        else
-            initialValue=Long.valueOf(initialValueStr).longValue();
-        String incrementStr=p.getProperty(PROP_INCREMENT);
+        if (initialValueStr == null) {
+            initialValue = 1;
+        } else {
+            initialValue = Long.valueOf(initialValueStr).longValue();
+        }
+        String incrementStr = p.getProperty(PROP_INCREMENT);
         long increment;
-        if(incrementStr==null)
-            increment=1;
-        else
-            increment=Long.valueOf(incrementStr).longValue();
-        DB db=controller.getDbResolver().get((MongoDataStore)md.getDataStore());
-        DBCollection coll=db.getCollection(collection);
-        MongoSequenceGenerator gen=new MongoSequenceGenerator(coll);
-        return gen.getNextSequenceValue(name,initialValue,increment);
+        if (incrementStr == null) {
+            increment = 1;
+        } else {
+            increment = Long.valueOf(incrementStr).longValue();
+        }
+        DB db = controller.getDbResolver().get((MongoDataStore) md.getDataStore());
+        DBCollection coll = db.getCollection(collection);
+        MongoSequenceGenerator gen = new MongoSequenceGenerator(coll);
+        return gen.getNextSequenceValue(name, initialValue, increment);
     }
 }

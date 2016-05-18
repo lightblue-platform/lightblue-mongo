@@ -33,51 +33,51 @@ public class MongoReadPreferenceTest {
 
     @Test
     public void testNearest() {
-        ReadPreference pref=MongoReadPreference.parse("nearest");
+        ReadPreference pref = MongoReadPreference.parse("nearest");
         Assert.assertTrue(pref.equals(ReadPreference.nearest()));
     }
 
     @Test
     public void testNearestArgs() {
-        TaggableReadPreference pref=(TaggableReadPreference)MongoReadPreference.parse("nearest ( {\"x\":1} )");
-        Assert.assertTrue(pref.equals(ReadPreference.nearest(new TagSet(Arrays.asList(new Tag("x","1"))))));
+        TaggableReadPreference pref = (TaggableReadPreference) MongoReadPreference.parse("nearest ( {\"x\":1} )");
+        Assert.assertTrue(pref.equals(ReadPreference.nearest(new TagSet(Arrays.asList(new Tag("x", "1"))))));
     }
 
     @Test
     public void testNearestArgs2() {
-        TaggableReadPreference pref=(TaggableReadPreference)MongoReadPreference.parse("nearest ( [ {\"x\":1}, {\"y\":\"a\"}] )");
-        Assert.assertTrue(pref.equals(ReadPreference.nearest(Arrays.asList(new TagSet(Arrays.asList(new Tag("x","1"))),
-                                                                           new TagSet(Arrays.asList(new Tag("y","a")))))));
+        TaggableReadPreference pref = (TaggableReadPreference) MongoReadPreference.parse("nearest ( [ {\"x\":1}, {\"y\":\"a\"}] )");
+        Assert.assertTrue(pref.equals(ReadPreference.nearest(Arrays.asList(new TagSet(Arrays.asList(new Tag("x", "1"))),
+                new TagSet(Arrays.asList(new Tag("y", "a")))))));
     }
 
     @Test
     public void testNearestArgs3() {
-        TaggableReadPreference pref=(TaggableReadPreference)MongoReadPreference.parse("nearest([ {\"x\":1}, {\"y\":\"a\"}])");
-        Assert.assertTrue(pref.equals(ReadPreference.nearest(Arrays.asList(new TagSet(Arrays.asList(new Tag("x","1"))),
-                                                                           new TagSet(Arrays.asList(new Tag("y","a")))))));
+        TaggableReadPreference pref = (TaggableReadPreference) MongoReadPreference.parse("nearest([ {\"x\":1}, {\"y\":\"a\"}])");
+        Assert.assertTrue(pref.equals(ReadPreference.nearest(Arrays.asList(new TagSet(Arrays.asList(new Tag("x", "1"))),
+                new TagSet(Arrays.asList(new Tag("y", "a")))))));
     }
 
     @Test
     public void testPrimary() {
-        ReadPreference pref=MongoReadPreference.parse("primary");
+        ReadPreference pref = MongoReadPreference.parse("primary");
         Assert.assertTrue(pref.equals(ReadPreference.primary()));
     }
 
     @Test
     public void testPrimaryPreferred() {
-        ReadPreference pref=MongoReadPreference.parse("primaryPreferred");
+        ReadPreference pref = MongoReadPreference.parse("primaryPreferred");
         Assert.assertTrue(pref.equals(ReadPreference.primaryPreferred()));
     }
 
     @Test
     public void testSecondary() {
-        ReadPreference pref=MongoReadPreference.parse("secondary");
+        ReadPreference pref = MongoReadPreference.parse("secondary");
         Assert.assertTrue(pref.equals(ReadPreference.secondary()));
     }
 
     @Test
     public void testSecondaryPreferred() {
-        ReadPreference pref=MongoReadPreference.parse("secondaryPreferred");
+        ReadPreference pref = MongoReadPreference.parse("secondaryPreferred");
         Assert.assertTrue(pref.equals(ReadPreference.secondaryPreferred()));
     }
 
@@ -86,6 +86,7 @@ public class MongoReadPreferenceTest {
         try {
             MongoReadPreference.parse("secondaryPreferredd");
             Assert.fail();
-        } catch (Exception e) {}
+        } catch (Exception e) {
+        }
     }
 }

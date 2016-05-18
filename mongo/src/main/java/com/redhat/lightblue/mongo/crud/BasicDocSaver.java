@@ -54,7 +54,7 @@ public class BasicDocSaver implements DocSaver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BasicDocSaver.class);
 
-    private int batchSize=64;
+    private int batchSize = 64;
 
     private final FieldAccessRoleEvaluator roleEval;
     private final Translator translator;
@@ -64,7 +64,6 @@ public class BasicDocSaver implements DocSaver {
     private final Path[] idPaths;
     private final String[] mongoIdFields;
 
-
     /**
      * Creates a doc saver with the given translator and role evaluator
      */
@@ -73,20 +72,20 @@ public class BasicDocSaver implements DocSaver {
                          EntityMetadata md) {
         this.translator = translator;
         this.roleEval = roleEval;
-        this.md=md;
-        
-        Field[] idf=md.getEntitySchema().getIdentityFields();
-        if(idf==null||idf.length==0) {
+        this.md = md;
+
+        Field[] idf = md.getEntitySchema().getIdentityFields();
+        if (idf == null || idf.length == 0) {
             // Assume _id is the id
-            idFields=new Field[] {(Field)md.resolve(Translator.ID_PATH)};
+            idFields = new Field[]{(Field) md.resolve(Translator.ID_PATH)};
         } else {
-            idFields=idf;
+            idFields = idf;
         }
-        idPaths=new Path[idFields.length];
-        mongoIdFields=new String[idFields.length];
-        for(int i=0;i<mongoIdFields.length;i++) {
-            idPaths[i]=md.getEntitySchema().getEntityRelativeFieldName(idFields[i]);
-            mongoIdFields[i]=Translator.translatePath(idPaths[i]);
+        idPaths = new Path[idFields.length];
+        mongoIdFields = new String[idFields.length];
+        for (int i = 0; i < mongoIdFields.length; i++) {
+            idPaths[i] = md.getEntitySchema().getEntityRelativeFieldName(idFields[i]);
+            mongoIdFields[i] = Translator.translatePath(idPaths[i]);
         }
     }
 
@@ -96,20 +95,20 @@ public class BasicDocSaver implements DocSaver {
         DBObject oldDoc; // The doc in the db
         Object[] id;
 
-        public DocInfo(DBObject newDoc,DocCtx inputDoc) {
-            this.newDoc=newDoc;
-            this.inputDoc=inputDoc;
+        public DocInfo(DBObject newDoc, DocCtx inputDoc) {
+            this.newDoc = newDoc;
+            this.inputDoc = inputDoc;
         }
 
         public BasicDBObject getIdQuery() {
-            BasicDBObject q=new BasicDBObject();
-            for(int i=0;i<id.length;i++) {
-                q.append(mongoIdFields[i],id[i]);
+            BasicDBObject q = new BasicDBObject();
+            for (int i = 0; i < id.length; i++) {
+                q.append(mongoIdFields[i], id[i]);
             }
             return q;
         }
     }
-    
+
     @Override
     public void saveDocs(CRUDOperationContext ctx,
                          Op op,
@@ -118,17 +117,17 @@ public class BasicDocSaver implements DocSaver {
                          DBObject[] dbObjects,
                          DocCtx[] inputDocs) {
         // Operate in batches
-        List<DocInfo> batch=new ArrayList<>(batchSize);
-        for(int i=0;i<dbObjects.length;i++) {
-            DocInfo item=new DocInfo(dbObjects[i],inputDocs[i]);
+        List<DocInfo> batch = new ArrayList<>(batchSize);
+        for (int i = 0; i < dbObjects.length; i++) {
+            DocInfo item = new DocInfo(dbObjects[i], inputDocs[i]);
             batch.add(item);
-            if(batch.size()>=batchSize) {
-                saveDocs(ctx,op,upsert,collection,batch);
+            if (batch.size() >= batchSize) {
+                saveDocs(ctx, op, upsert, collection, batch);
                 batch.clear();
             }
         }
-        if(!batch.isEmpty()) {
-            saveDocs(ctx,op,upsert,collection,batch);
+        if (!batch.isEmpty()) {
+            saveDocs(ctx, op, upsert, collection, batch);
         }
     }
 
@@ -136,34 +135,34 @@ public class BasicDocSaver implements DocSaver {
                           Op op,
                           boolean upsert,
                           DBCollection collection,
-                          List<DocInfo> batch) {       
+                          List<DocInfo> batch) {
         // If this is a save operation, we have to load the existing DB objects
-        if(op==DocSaver.Op.save) {
-            LOGGER.debug("Retrieving existing {} documents for save operation",batch.size());
-            List<BasicDBObject> idQueries=new ArrayList<>(batch.size());
-            for(DocInfo doc:batch) {
-                doc.id=getFieldValues(doc.newDoc,idPaths);
-                if(!isNull(doc.id)) {
+        if (op == DocSaver.Op.save) {
+            LOGGER.debug("Retrieving existing {} documents for save operation", batch.size());
+            List<BasicDBObject> idQueries = new ArrayList<>(batch.size());
+            for (DocInfo doc : batch) {
+                doc.id = getFieldValues(doc.newDoc, idPaths);
+                if (!isNull(doc.id)) {
                     idQueries.add(doc.getIdQuery());
                 }
             }
-            if(!idQueries.isEmpty()) {
-                BasicDBObject retrievalq=new BasicDBObject("$or",idQueries);
-                LOGGER.debug("Existing document retrieval query={}",retrievalq);
-                try (DBCursor cursor=collection.find(retrievalq,null)) {
-                    List<DBObject> results=cursor.toArray();
-                    LOGGER.debug("Retrieved {} docs",results.size());
-                    
+            if (!idQueries.isEmpty()) {
+                BasicDBObject retrievalq = new BasicDBObject("$or", idQueries);
+                LOGGER.debug("Existing document retrieval query={}", retrievalq);
+                try (DBCursor cursor = collection.find(retrievalq, null)) {
+                    List<DBObject> results = cursor.toArray();
+                    LOGGER.debug("Retrieved {} docs", results.size());
+
                     // Now associate the docs in the retrieved results with the docs in the batch
-                    for(DBObject dbDoc:results) {
+                    for (DBObject dbDoc : results) {
                         // Get the id from the doc
-                        Object[] id=getFieldValues(dbDoc,idPaths);
+                        Object[] id = getFieldValues(dbDoc, idPaths);
                         // Find this doc in the batch
-                        DocInfo doc=findDoc(batch,id);
-                        if(doc!=null) {
-                            doc.oldDoc=dbDoc;
+                        DocInfo doc = findDoc(batch, id);
+                        if (doc != null) {
+                            doc.oldDoc = dbDoc;
                         } else {
-                            LOGGER.warn("Cannot find doc with id={}",id);
+                            LOGGER.warn("Cannot find doc with id={}", id);
                         }
                     }
                 }
@@ -172,17 +171,17 @@ public class BasicDocSaver implements DocSaver {
         // Some docs in the batch will be inserted, some saved, based on the operation. Lets decide that now
         List<DocInfo> saveList;
         List<DocInfo> insertList;
-        if(op==DocSaver.Op.insert) {
-            saveList=new ArrayList<>();
-            insertList=batch;
+        if (op == DocSaver.Op.insert) {
+            saveList = new ArrayList<>();
+            insertList = batch;
         } else {
             // This is a save operation
-            saveList=new ArrayList<>();
-            insertList=new ArrayList<>();
-            for(DocInfo doc:batch) {
-                if(doc.oldDoc==null) {
+            saveList = new ArrayList<>();
+            insertList = new ArrayList<>();
+            for (DocInfo doc : batch) {
+                if (doc.oldDoc == null) {
                     // there is no doc in the db
-                    if(upsert) {
+                    if (upsert) {
                         // This is an insertion
                         insertList.add(doc);
                     } else {
@@ -196,60 +195,60 @@ public class BasicDocSaver implements DocSaver {
                 }
             }
         }
-        LOGGER.debug("Save docs={}, insert docs={}, error docs={}",saveList.size(),insertList.size(),batch.size()-saveList.size()-insertList.size());
-        insertDocs(ctx,collection,insertList);
-        updateDocs(ctx,collection,saveList);
+        LOGGER.debug("Save docs={}, insert docs={}, error docs={}", saveList.size(), insertList.size(), batch.size() - saveList.size() - insertList.size());
+        insertDocs(ctx, collection, insertList);
+        updateDocs(ctx, collection, saveList);
     }
 
     private void insertDocs(CRUDOperationContext ctx,
                             DBCollection collection,
                             List<DocInfo> list) {
-        if(!list.isEmpty()) {
-            LOGGER.debug("Inserting {} docs",list.size());
+        if (!list.isEmpty()) {
+            LOGGER.debug("Inserting {} docs", list.size());
             if (!md.getAccess().getInsert().hasAccess(ctx.getCallerRoles())) {
-                for(DocInfo doc:list) {
+                for (DocInfo doc : list) {
                     doc.inputDoc.addError(Error.get("insert",
-                                                    MongoCrudConstants.ERR_NO_ACCESS,
-                                                    "insert:" + md.getName()));
+                            MongoCrudConstants.ERR_NO_ACCESS,
+                            "insert:" + md.getName()));
                 }
             } else {
-                List<DocInfo> insertionAttemptList=new ArrayList<>(list.size());
-                for(DocInfo doc:list) {
+                List<DocInfo> insertionAttemptList = new ArrayList<>(list.size());
+                for (DocInfo doc : list) {
                     Set<Path> paths = roleEval.getInaccessibleFields_Insert(doc.inputDoc);
                     LOGGER.debug("Inaccessible fields:{}", paths);
                     if (paths == null || paths.isEmpty()) {
                         try {
-                            Translator.populateDocHiddenFields(doc.newDoc,md);
-                            insertionAttemptList.add(doc);                        
-                        } catch(IOException e) {
+                            Translator.populateDocHiddenFields(doc.newDoc, md);
+                            insertionAttemptList.add(doc);
+                        } catch (IOException e) {
                             doc.inputDoc.addError(Error.get("insert", MongoCrudConstants.ERR_TRANSLATION_ERROR, e));
                         }
                     } else {
-                        for(Path path : paths){
+                        for (Path path : paths) {
                             doc.inputDoc.addError(Error.get("insert", CrudConstants.ERR_NO_FIELD_INSERT_ACCESS, path.toString()));
                         }
                     }
                 }
-                LOGGER.debug("After access checks, inserting {} docs",insertionAttemptList.size());
-                if(!insertionAttemptList.isEmpty()) {
-                    BulkWriteOperation bw=collection.initializeUnorderedBulkOperation();
-                    for(DocInfo doc:insertionAttemptList) {
+                LOGGER.debug("After access checks, inserting {} docs", insertionAttemptList.size());
+                if (!insertionAttemptList.isEmpty()) {
+                    BulkWriteOperation bw = collection.initializeUnorderedBulkOperation();
+                    for (DocInfo doc : insertionAttemptList) {
                         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_INSERT_DOC, ctx, doc.inputDoc);
                         bw.insert(doc.newDoc);
                         doc.inputDoc.setCRUDOperationPerformed(CRUDOperation.INSERT);
-                   }
+                    }
                     try {
                         LOGGER.debug("Bulk inserting docs");
                         bw.execute();
                     } catch (BulkWriteException bwe) {
-                        LOGGER.error("Bulk write exception",bwe);
-                        handleBulkWriteError(bwe.getWriteErrors(),"insert",insertionAttemptList);
-                    } catch(RuntimeException e) {
-                        LOGGER.error("Exception",e);
+                        LOGGER.error("Bulk write exception", bwe);
+                        handleBulkWriteError(bwe.getWriteErrors(), "insert", insertionAttemptList);
+                    } catch (RuntimeException e) {
+                        LOGGER.error("Exception", e);
                         throw e;
                     } finally {
-                        for(DocInfo doc:insertionAttemptList) {
-                            if(!doc.inputDoc.hasErrors()) {
+                        for (DocInfo doc : insertionAttemptList) {
+                            if (!doc.inputDoc.hasErrors()) {
                                 ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_INSERT_DOC, ctx, doc.inputDoc);
                             }
                         }
@@ -262,24 +261,24 @@ public class BasicDocSaver implements DocSaver {
     private void updateDocs(CRUDOperationContext ctx,
                             DBCollection collection,
                             List<DocInfo> list) {
-        if(!list.isEmpty()) {
-            LOGGER.debug("Updating {} docs",list.size());            
+        if (!list.isEmpty()) {
+            LOGGER.debug("Updating {} docs", list.size());
             if (!md.getAccess().getUpdate().hasAccess(ctx.getCallerRoles())) {
-                for(DocInfo doc:list) {
+                for (DocInfo doc : list) {
                     doc.inputDoc.addError(Error.get("update",
-                                                    CrudConstants.ERR_NO_ACCESS, "update:" + md.getName()));
+                            CrudConstants.ERR_NO_ACCESS, "update:" + md.getName()));
                 }
             } else {
-                List<DocInfo> updateAttemptList=new ArrayList<>(list.size());
-                BsonMerge merge=new BsonMerge(md);
-                for(DocInfo doc:list) {
+                List<DocInfo> updateAttemptList = new ArrayList<>(list.size());
+                BsonMerge merge = new BsonMerge(md);
+                for (DocInfo doc : list) {
                     JsonDoc oldDoc = translator.toJson(doc.oldDoc);
                     doc.inputDoc.setOriginalDocument(oldDoc);
                     Set<Path> paths = roleEval.getInaccessibleFields_Update(doc.inputDoc, oldDoc);
                     if (paths == null || paths.isEmpty()) {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc.inputDoc);
-                            merge.merge(doc.oldDoc,doc.newDoc);
+                            merge.merge(doc.oldDoc, doc.newDoc);
                             Translator.populateDocHiddenFields(doc.newDoc, md);
                             updateAttemptList.add(doc);
                         } catch (Exception e) {
@@ -287,70 +286,72 @@ public class BasicDocSaver implements DocSaver {
                         }
                     } else {
                         doc.inputDoc.addError(Error.get("update",
-                                                        CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
+                                CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
                     }
                 }
-                LOGGER.debug("After checks and merge, updating {} docs",updateAttemptList.size());
-                if(!updateAttemptList.isEmpty()) {
-                     BulkWriteOperation bw=collection.initializeUnorderedBulkOperation();
-                     for(DocInfo doc:updateAttemptList) {
-                         bw.find(new BasicDBObject("_id",doc.oldDoc.get("_id"))).replaceOne(doc.newDoc);
-                         doc.inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
-                     }
-                     try {
-                         LOGGER.debug("Bulk updating docs");
-                         bw.execute();
-                     } catch(BulkWriteException bwe) {
-                        LOGGER.error("Bulk write exception",bwe);
-                        handleBulkWriteError(bwe.getWriteErrors(),"update",updateAttemptList);
-                    } catch(RuntimeException e) {
-                     } finally {
-                         for(DocInfo doc:updateAttemptList) {
-                             if(!doc.inputDoc.hasErrors()) {
-                                 ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc.inputDoc);
-                             }
-                         }
-                     }
+                LOGGER.debug("After checks and merge, updating {} docs", updateAttemptList.size());
+                if (!updateAttemptList.isEmpty()) {
+                    BulkWriteOperation bw = collection.initializeUnorderedBulkOperation();
+                    for (DocInfo doc : updateAttemptList) {
+                        bw.find(new BasicDBObject("_id", doc.oldDoc.get("_id"))).replaceOne(doc.newDoc);
+                        doc.inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
+                    }
+                    try {
+                        LOGGER.debug("Bulk updating docs");
+                        bw.execute();
+                    } catch (BulkWriteException bwe) {
+                        LOGGER.error("Bulk write exception", bwe);
+                        handleBulkWriteError(bwe.getWriteErrors(), "update", updateAttemptList);
+                    } catch (RuntimeException e) {
+                    } finally {
+                        for (DocInfo doc : updateAttemptList) {
+                            if (!doc.inputDoc.hasErrors()) {
+                                ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc.inputDoc);
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
-    private void handleBulkWriteError(List<BulkWriteError> errors,String operation,List<DocInfo> docs) {
-        for(BulkWriteError e:errors) {
-            DocInfo doc=docs.get(e.getIndex());
-            if(e.getCode()==11000||e.getCode()==11001) {
-                doc.inputDoc.addError(Error.get("update",MongoCrudConstants.ERR_DUPLICATE,e.getMessage()));
+    private void handleBulkWriteError(List<BulkWriteError> errors, String operation, List<DocInfo> docs) {
+        for (BulkWriteError e : errors) {
+            DocInfo doc = docs.get(e.getIndex());
+            if (e.getCode() == 11000 || e.getCode() == 11001) {
+                doc.inputDoc.addError(Error.get("update", MongoCrudConstants.ERR_DUPLICATE, e.getMessage()));
             } else {
-                doc.inputDoc.addError(Error.get("update",MongoCrudConstants.ERR_SAVE_ERROR,e.getMessage()));
+                doc.inputDoc.addError(Error.get("update", MongoCrudConstants.ERR_SAVE_ERROR, e.getMessage()));
             }
         }
     }
 
-    private DocInfo findDoc(List<DocInfo> list,Object[] id) {
-        for(DocInfo doc:list) {
-            if(idEquals(doc.id,id)) {
+    private DocInfo findDoc(List<DocInfo> list, Object[] id) {
+        for (DocInfo doc : list) {
+            if (idEquals(doc.id, id)) {
                 return doc;
             }
         }
         return null;
     }
 
-    private boolean valueEquals(Object v1,Object v2) {
-        LOGGER.debug("v1={}, v2={}",v1,v2);
-        if(!v1.equals(v2)) {
-            if(v1.toString().equals(v2.toString()))
+    private boolean valueEquals(Object v1, Object v2) {
+        LOGGER.debug("v1={}, v2={}", v1, v2);
+        if (!v1.equals(v2)) {
+            if (v1.toString().equals(v2.toString())) {
                 return true;
-        } else
+            }
+        } else {
             return true;
+        }
         return false;
     }
-    
-    private boolean idEquals(Object[] id1,Object[] id2) {
-        if(id1!=null&&id2!=null) {
-            for(int i=0;i<id1.length;i++) {
-                if( (id1[i]==null&&id2[i]==null) ||
-                    (id1[i]!=null&&id2[i]!=null&&valueEquals(id1[i],id2[i]))) {
+
+    private boolean idEquals(Object[] id1, Object[] id2) {
+        if (id1 != null && id2 != null) {
+            for (int i = 0; i < id1.length; i++) {
+                if ((id1[i] == null && id2[i] == null)
+                        || (id1[i] != null && id2[i] != null && valueEquals(id1[i], id2[i]))) {
                     ;
                 } else {
                     return false;
@@ -364,21 +365,21 @@ public class BasicDocSaver implements DocSaver {
     /**
      * Return the values for the fields
      */
-    private Object[] getFieldValues(DBObject object,Path[] fields) {
-        Object[] ret=new Object[fields.length];
-        for(int i=0;i<ret.length;i++) {
-            ret[i]=Translator.getDBObject(object,fields[i]);
+    private Object[] getFieldValues(DBObject object, Path[] fields) {
+        Object[] ret = new Object[fields.length];
+        for (int i = 0; i < ret.length; i++) {
+            ret[i] = Translator.getDBObject(object, fields[i]);
         }
         return ret;
     }
-        
+
     /**
      * Return if all values are null
      */
     private boolean isNull(Object[] values) {
-        if(values!=null) {
-            for(int i=0;i<values.length;i++) {
-                if(values[i]!=null) {
+        if (values != null) {
+            for (int i = 0; i < values.length; i++) {
+                if (values[i] != null) {
                     return false;
                 }
             }

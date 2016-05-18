@@ -82,7 +82,7 @@ public class MongoMetadataTest {
         Extensions<Object> x = new Extensions<>();
         x.addDefaultExtensions();
         x.registerDataStoreParser("mongo", new MongoDataStoreParser<Object>());
-        db=mongo.getConnection().getDB("mongo");
+        db = mongo.getConnection().getDB("mongo");
         md = new MongoMetadata(db, x, new DefaultTypes(), factory, null);
         BasicDBObject index = new BasicDBObject("name", 1);
         index.put("version.value", 1);
@@ -360,7 +360,6 @@ public class MongoMetadataTest {
         ObjectField o = new ObjectField("field2");
         o.getFields().put(new SimpleField("x", IntegerType.TYPE));
         e.getFields().put(o);
-
 
         md.createNewMetadata(e);
 

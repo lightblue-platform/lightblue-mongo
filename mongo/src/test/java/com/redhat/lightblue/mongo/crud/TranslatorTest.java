@@ -76,8 +76,8 @@ public class TranslatorTest extends AbstractMongoCrudTest {
 
         ObjectNode obj = JsonNodeFactory.instance.objectNode();
         obj.put(Translator.OBJECT_TYPE_STR, "test")
-            .put("field1", "testField1")
-            .put("field2", "testField2");
+                .put("field1", "testField1")
+                .put("field2", "testField2");
 
         DBObject bson = translator.toBson(new JsonDoc(obj));
         Translator.populateDocHiddenFields(bson, md);
@@ -120,30 +120,31 @@ public class TranslatorTest extends AbstractMongoCrudTest {
 
     @Test
     public void translateNullArray() throws Exception {
-        JsonDoc doc=new JsonDoc(json(loadResource("./testdata1.json")));
-        doc.modify(new Path("field7"),nodeFactory.nullNode(),true);
-        DBObject bdoc=translator.toBson(doc);
+        JsonDoc doc = new JsonDoc(json(loadResource("./testdata1.json")));
+        doc.modify(new Path("field7"), nodeFactory.nullNode(), true);
+        DBObject bdoc = translator.toBson(doc);
         Assert.assertNull(bdoc.get("field7"));
     }
 
     @Test
     public void translateNullObject() throws Exception {
-        JsonDoc doc=new JsonDoc(json(loadResource("./testdata1.json")));
-        doc.modify(new Path("field6"),nodeFactory.nullNode(),true);
-        DBObject bdoc=translator.toBson(doc);
+        JsonDoc doc = new JsonDoc(json(loadResource("./testdata1.json")));
+        doc.modify(new Path("field6"), nodeFactory.nullNode(), true);
+        DBObject bdoc = translator.toBson(doc);
         Assert.assertNull(bdoc.get("field6"));
     }
 
     @Test
     public void translateNullBsonObject() throws Exception {
-        BasicDBObject obj=new BasicDBObject("field6",null).append("objectType","test");
-        JsonDoc doc=translator.toJson(obj);
+        BasicDBObject obj = new BasicDBObject("field6", null).append("objectType", "test");
+        JsonDoc doc = translator.toJson(obj);
         Assert.assertNull(doc.get(new Path("field6")));
     }
+
     @Test
     public void translateNullBsonArray() throws Exception {
-        BasicDBObject obj=new BasicDBObject("field7",null).append("objectType","test");
-        JsonDoc doc=translator.toJson(obj);
+        BasicDBObject obj = new BasicDBObject("field7", null).append("objectType", "test");
+        JsonDoc doc = translator.toJson(obj);
         Assert.assertNull(doc.get(new Path("field7")));
     }
 
@@ -189,6 +190,7 @@ public class TranslatorTest extends AbstractMongoCrudTest {
 
         Assert.assertNotNull(mongoUpdateExpr);
     }
+
     /*
      array_update_expression := { $append : { path : rvalue_expression } } |
      { $append : { path : [ rvalue_expression, ... ] }} |
@@ -197,7 +199,6 @@ public class TranslatorTest extends AbstractMongoCrudTest {
      { $foreach : { path : update_query_expression,
      $update : foreach_update_expression } }
      */
-
     @Test(expected = CannotTranslateException.class)
     public void translateUpdateAppendValue() throws Exception {
         String updateQueryJson = loadResource(getClass().getSimpleName() + "-update-append-value.json");
@@ -245,30 +246,31 @@ public class TranslatorTest extends AbstractMongoCrudTest {
     @Test
     public void translateReference_fail() throws Exception {
         String docStr = loadResource(getClass().getSimpleName() + "-data-with-ref.json");
-        JsonNode jdoc=JsonUtils.json(docStr);
-        JsonDoc doc=new JsonDoc(jdoc);
+        JsonNode jdoc = JsonUtils.json(docStr);
+        JsonDoc doc = new JsonDoc(jdoc);
         try {
             translator.toBson(doc);
             Assert.fail();
-        } catch(Exception e) {}
+        } catch (Exception e) {
+        }
 
     }
 
     @Test
     public void translateEmptyReference() throws Exception {
         String docStr = loadResource(getClass().getSimpleName() + "-data-without-ref.json");
-        JsonNode jdoc=JsonUtils.json(docStr);
-        JsonDoc doc=new JsonDoc(jdoc);
-        DBObject obj=translator.toBson(doc);
+        JsonNode jdoc = JsonUtils.json(docStr);
+        JsonDoc doc = new JsonDoc(jdoc);
+        DBObject obj = translator.toBson(doc);
         Assert.assertNull(obj.get("ref"));
     }
 
     @Test
     public void translateNullReference() throws Exception {
         String docStr = loadResource(getClass().getSimpleName() + "-data-with-null-ref.json");
-        JsonNode jdoc=JsonUtils.json(docStr);
-        JsonDoc doc=new JsonDoc(jdoc);
-        DBObject obj=translator.toBson(doc);
+        JsonNode jdoc = JsonUtils.json(docStr);
+        JsonDoc doc = new JsonDoc(jdoc);
+        DBObject obj = translator.toBson(doc);
         Assert.assertNull(obj.get("ref"));
     }
 
@@ -276,19 +278,19 @@ public class TranslatorTest extends AbstractMongoCrudTest {
     public void transalteJS() throws Exception {
         DBObject obj = translator.translate(md, query("{'field':'field7.*.elemf1','op':'=','rfield':'field7.*.elemf2'}"));
         Assert.assertEquals("function() {for(var r0=0;r0<this.field7.length;r0++) {"
-                            + "for(var l0=0;l0<this.field7.length;l0++) {if(this.field7[l0].elemf1 == this.field7[r0].elemf2) { return true;}}}return false;}",
-                            obj.get("$where").toString().trim());
+                + "for(var l0=0;l0<this.field7.length;l0++) {if(this.field7[l0].elemf1 == this.field7[r0].elemf2) { return true;}}}return false;}",
+                obj.get("$where").toString().trim());
 
         obj = translator.translate(md, query("{'field':'field7.0.elemf1','op':'=','rfield':'field7.*.elemf2'}"));
         Assert.assertEquals("function() {for(var i0=0;i0<this.field7.length;i0++) {"
-                            + "if(this.field7[0].elemf1 == this.field7[i0].elemf2) { return true;}}return false;}",
-                            obj.get("$where").toString().trim());
+                + "if(this.field7[0].elemf1 == this.field7[i0].elemf2) { return true;}}return false;}",
+                obj.get("$where").toString().trim());
     }
 
     @Test
     public void translateNullCmp() throws Exception {
-        DBObject obj=translator.translate(md,query("{'field':'field6','op':'=','rvalue':null}"));
-        Assert.assertEquals("{ \"field6\" :  null }",obj.toString());
+        DBObject obj = translator.translate(md, query("{'field':'field6','op':'=','rvalue':null}"));
+        Assert.assertEquals("{ \"field6\" :  null }", obj.toString());
     }
 
     @Test
@@ -323,7 +325,7 @@ public class TranslatorTest extends AbstractMongoCrudTest {
 
     @Test
     public void projectionFields() throws Exception {
-        Set<Path> fields=Translator.getRequiredFields(md,projection("{'field':'*','recursive':1}"),null,null);
+        Set<Path> fields = Translator.getRequiredFields(md, projection("{'field':'*','recursive':1}"), null, null);
         System.out.println(fields);
         Assert.assertTrue(fields.contains(new Path("objectType")));
         Assert.assertTrue(fields.contains(new Path("_id")));
@@ -344,17 +346,18 @@ public class TranslatorTest extends AbstractMongoCrudTest {
         Assert.assertTrue(fields.contains(new Path("field7.*.elemf2")));
         Assert.assertTrue(fields.contains(new Path("field7.*.elemf3")));
     }
+
     @Test
     public void projectionFieldsWithRef() throws Exception {
         md = getMd("./testMetadataRef.json");
-        CompositeMetadata cmd=CompositeMetadata.buildCompositeMetadata(md,new CompositeMetadata.GetMetadata() {
-                public EntityMetadata getMetadata(Path injectionField,
-                                                  String entityName,
-                                                  String version) {
-                    return null;
-                }
-            });
-        Set<Path> fields=Translator.getRequiredFields(cmd,projection("{'field':'*','recursive':1}"),null,null);
+        CompositeMetadata cmd = CompositeMetadata.buildCompositeMetadata(md, new CompositeMetadata.GetMetadata() {
+            public EntityMetadata getMetadata(Path injectionField,
+                                              String entityName,
+                                              String version) {
+                return null;
+            }
+        });
+        Set<Path> fields = Translator.getRequiredFields(cmd, projection("{'field':'*','recursive':1}"), null, null);
         System.out.println(fields);
         Assert.assertTrue(fields.contains(new Path("objectType")));
         Assert.assertTrue(fields.contains(new Path("_id")));

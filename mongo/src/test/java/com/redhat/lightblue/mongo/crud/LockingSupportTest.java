@@ -31,18 +31,18 @@ import com.redhat.lightblue.config.DataSourcesConfiguration;
 import com.redhat.lightblue.extensions.synch.Locking;
 import com.redhat.lightblue.mongo.crud.MongoLocking;
 
-public class LockingSupportTest extends AbstractMongoCrudTest  {
+public class LockingSupportTest extends AbstractMongoCrudTest {
 
     private LightblueFactory lbfactory;
-    
+
     @Before
     public void setup() throws Exception {
         super.setup();
         JsonNode datasources = loadJsonNode("./datasources.json");
-        DataSourcesConfiguration dscfg=new DataSourcesConfiguration(datasources);
-        JsonNode crudnode=loadJsonNode("./lightblue-crud.json");
-        JsonNode mdnode=loadJsonNode("./lightblue-metadata.json");
-        lbfactory=new LightblueFactory(dscfg,crudnode,mdnode);
+        DataSourcesConfiguration dscfg = new DataSourcesConfiguration(datasources);
+        JsonNode crudnode = loadJsonNode("./lightblue-crud.json");
+        JsonNode mdnode = loadJsonNode("./lightblue-metadata.json");
+        lbfactory = new LightblueFactory(dscfg, crudnode, mdnode);
     }
 
     @Test
@@ -50,8 +50,9 @@ public class LockingSupportTest extends AbstractMongoCrudTest  {
         try {
             lbfactory.getLocking("blah");
             Assert.fail();
-        } catch (Exception e) {}
-        Locking locking=lbfactory.getLocking("test");
+        } catch (Exception e) {
+        }
+        Locking locking = lbfactory.getLocking("test");
         Assert.assertTrue(locking instanceof MongoLocking);
     }
 }
