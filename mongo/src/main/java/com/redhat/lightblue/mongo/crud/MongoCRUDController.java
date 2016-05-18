@@ -475,7 +475,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             try (DBCursor cursor=coll.find(mongoQuery,mongoProjection)) {
                 DBObject plan=cursor.explain();
                 JsonNode jsonPlan=Translator.rawObjectToJson(plan);
-                destDoc.modify(new Path("mongo"),jsonPlan,true);
+                if(mongoQuery!=null)
+                    destDoc.modify(new Path("mongo.query"),Translator.rawObjectToJson(mongoQuery),true);
+                if(mongoProjection!=null)
+                    destDoc.modify(new Path("mongo.projection"),Translator.rawObjectToJson(mongoProjection),true);
+                destDoc.modify(new Path("mongo.plan"),jsonPlan,true);
             }
             
         } catch (Error e) {
