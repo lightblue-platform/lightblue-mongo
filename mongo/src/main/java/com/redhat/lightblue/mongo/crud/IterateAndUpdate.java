@@ -22,19 +22,28 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 
-import com.redhat.lightblue.crud.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.mongodb.BasicDBObject;
+import com.mongodb.BulkWriteError;
+import com.mongodb.BulkWriteException;
+import com.mongodb.BulkWriteOperation;
+import com.mongodb.BulkWriteResult;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
-import com.mongodb.WriteResult;
-import com.redhat.lightblue.interceptor.InterceptPoint;
+import com.redhat.lightblue.crud.CRUDOperation;
+import com.redhat.lightblue.crud.CRUDOperationContext;
+import com.redhat.lightblue.crud.CRUDUpdateResponse;
+import com.redhat.lightblue.crud.ConstraintValidator;
+import com.redhat.lightblue.crud.CrudConstants;
+import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
+import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.PredefinedFields;
 import com.redhat.lightblue.util.Error;
@@ -47,6 +56,8 @@ import com.redhat.lightblue.util.Path;
 public class IterateAndUpdate implements DocUpdater {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(IterateAndUpdate.class);
+
+    private final int batchSize = 64;
 
     private final JsonNodeFactory nodeFactory;
     private final ConstraintValidator validator;
@@ -82,8 +93,10 @@ public class IterateAndUpdate implements DocUpdater {
         LOGGER.debug("Computing the result set for {}", query);
         DBCursor cursor = null;
         int docIndex = 0;
+        int numMatched = 0;
         int numFailed = 0;
         int numUpdated = 0;
+        int numUpdating = 0;
         BsonMerge merge = new BsonMerge(md);
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
@@ -91,6 +104,7 @@ public class IterateAndUpdate implements DocUpdater {
             LOGGER.debug("Found {} documents", cursor.count());
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_RESULTSET, ctx);
             // read-update-write
+            BulkWriteOperation bwo = collection.initializeUnorderedBulkOperation();
             while (cursor.hasNext()) {
                 DBObject document = cursor.next();
                 boolean hasErrors = false;
@@ -135,10 +149,15 @@ public class IterateAndUpdate implements DocUpdater {
                             } catch (IOException e) {
                                 throw new RuntimeException("Error populating document: \n" + updatedObject);
                             }
-                            WriteResult result = collection.save(updatedObject);
-                            numUpdated++;
+                            bwo.find(new BasicDBObject("_id", document.get("_id"))).updateOne(updatedObject);
+                            numUpdating++;
+                            // update in batches
+                            if (numUpdating >= batchSize) {
+                                BulkWriteResult result = executeAndHandleBulkErrors(bwo);
+                                numUpdated += result.getModifiedCount();
+                                numMatched += result.getMatchedCount();
+                            }
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
-                            LOGGER.debug("Number of rows affected : ", result.getN());
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
                             doc.setUpdatedDocument(doc);
                         } catch (Exception e) {
@@ -158,6 +177,18 @@ public class IterateAndUpdate implements DocUpdater {
                     LOGGER.debug("Projecting document {}", docIndex);
                     doc.setOutputDocument(projector.project(doc, nodeFactory));
                 }
+                // if we have any remaining items to update
+                if (numUpdating > 0) {
+                    try {
+                        BulkWriteResult result = executeAndHandleBulkErrors(bwo);
+                        numUpdated += result.getModifiedCount();
+                        numMatched += result.getMatchedCount();
+                    } catch (Exception e) {
+                        LOGGER.warn("Update exception for documents for query: {}", query.toString());
+                        doc.addError(Error.get(MongoCrudConstants.ERR_UPDATE_ERROR, e.toString()));
+                        hasErrors = true;
+                    }
+                }
                 docIndex++;
             }
         } finally {
@@ -167,7 +198,22 @@ public class IterateAndUpdate implements DocUpdater {
         }
         response.setNumUpdated(numUpdated);
         response.setNumFailed(numFailed);
-        response.setNumMatched(docIndex);
+        response.setNumMatched(numMatched);
     }
 
+    private BulkWriteResult executeAndHandleBulkErrors(BulkWriteOperation bwo) {
+        BulkWriteResult result = null;
+        try {
+            result = bwo.execute();
+        } catch (BulkWriteException e) {
+            BulkWriteException bwe = e;
+            LOGGER.warn("Bulk update operation contains errors");
+            for (BulkWriteError bwError : bwe.getWriteErrors()) {
+                LOGGER.warn("Error for update operation {}:\n{}", bwError.getIndex(), bwError.getDetails().toString());
+            }
+        } catch (Exception e) {
+            throw e;
+        }
+        return result;
+    }
 }

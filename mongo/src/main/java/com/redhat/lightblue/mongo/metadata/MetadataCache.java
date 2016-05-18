@@ -18,21 +18,18 @@
  */
 package com.redhat.lightblue.mongo.metadata;
 
-import java.util.Map;
-import java.util.HashMap;
-
 import java.lang.ref.WeakReference;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.mongodb.DBCollection;
 import com.mongodb.BasicDBObject;
+import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.WriteResult;
-
 import com.redhat.lightblue.EntityVersion;
-
 import com.redhat.lightblue.metadata.EntityMetadata;
 
 public class MetadataCache {
