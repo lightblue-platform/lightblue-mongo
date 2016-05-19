@@ -24,8 +24,10 @@ import com.mongodb.DBObject;
 import com.mongodb.WriteResult;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDOperationContext;
+import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.crud.CRUDOperation;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -33,12 +35,31 @@ import org.junit.Test;
  * @author nmalik
  */
 public class BasicDocDeleterTest extends AbstractMongoCrudTest {
+
+    private TestCRUDOperationContext ctx;
+    private Translator translator;
+
+    @Before
+    @Override
+    public void setup() throws Exception {
+        super.setup();
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.DELETE);
+        // load metadata
+        EntityMetadata md = getMd("./testMetadata.json");
+        // and add it to metadata resolver (the context)
+        ctx.add(md);
+        // create translator with the context
+        translator = new Translator(ctx, nodeFactory);
+    }
+
     @Test
     public void delete() {
         // setup data to delete
         String id = "deleteTest1";
         DBObject obj = new BasicDBObject();
         obj.put("_id", id);
+        obj.put("objectType", "test");
         WriteResult wr = coll.insert(obj);
 
         try (DBCursor c = coll.find(null)) {
@@ -46,14 +67,14 @@ public class BasicDocDeleterTest extends AbstractMongoCrudTest {
         }
 
         // execute delete
-        BasicDocDeleter deleter = new BasicDocDeleter();
+        BasicDocDeleter deleter = new BasicDocDeleter(translator);
         CRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.DELETE);
         DBObject mongoQuery = new BasicDBObject();
         mongoQuery.put("_id", id);
         CRUDDeleteResponse response = new CRUDDeleteResponse();
         deleter.delete(ctx, coll, mongoQuery, response);
 
-        Assert.assertTrue(response.getNumDeleted() == 1);
+        Assert.assertEquals("num deleted", 1, response.getNumDeleted());
 
         // verify nothing left in collection
         Assert.assertEquals("count on collection", 0, coll.find(null).count());
