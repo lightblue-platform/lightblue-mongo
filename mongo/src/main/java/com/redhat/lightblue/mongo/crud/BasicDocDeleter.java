@@ -57,11 +57,6 @@ public class BasicDocDeleter implements DocDeleter {
     }
 
     private final class DocInfo {
-        public DocInfo(DocCtx docCtx, Object _id) {
-            super();
-            this.docCtx = docCtx;
-            this._id = _id;
-        }
 
         public DocInfo(DBObject doc, CRUDOperationContext ctx) {
             DocCtx docCtx = ctx.addDocument(translator.toJson(doc));
@@ -147,8 +142,7 @@ public class BasicDocDeleter implements DocDeleter {
     private void handleBulkWriteError(List<BulkWriteError> errors, List<DocInfo> docs) {
         for (BulkWriteError e : errors) {
             DocInfo doc = docs.get(e.getIndex());
-            // TODO: what error should we use here?
-            doc.docCtx.addError(Error.get("remove", MongoCrudConstants.ERR_SAVE_ERROR, e.getMessage()));
+            doc.docCtx.addError(Error.get("remove", MongoCrudConstants.ERR_DELETE_ERROR, e.getMessage()));
         }
     }
 }
