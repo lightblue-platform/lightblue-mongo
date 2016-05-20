@@ -58,6 +58,7 @@ import com.redhat.lightblue.crud.ConstraintValidator;
 import com.redhat.lightblue.crud.CrudConstants;
 import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.crud.MetadataResolver;
+import com.redhat.lightblue.crud.ExplainQuerySupport;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
@@ -95,7 +96,7 @@ import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.MutablePath;
 import com.redhat.lightblue.util.Path;
 
-public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport {
+public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport, ExplainQuerySupport {
 
     public static final String ID_STR = "_id";
 
@@ -446,6 +447,52 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("find end: query: {} results: {}", response.getSize());
         return response;
     }
+
+    @Override
+    public void explain(CRUDOperationContext ctx,
+                        QueryExpression query,
+                        Projection projection,
+                        Sort sort,
+                        Long from,
+                        Long to,
+                        JsonDoc destDoc) {
+        
+        LOGGER.debug("explain start: q:{} p:{} sort:{} from:{} to:{}", query, projection, sort, from, to);
+        Error.push("explain");
+        Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
+        try {
+            EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
+            FieldAccessRoleEvaluator roleEval = new FieldAccessRoleEvaluator(md, ctx.getCallerRoles());
+            LOGGER.debug("Translating query {}", query);
+            DBObject mongoQuery = query == null ? null : translator.translate(md, query);
+            LOGGER.debug("Translated query {}", mongoQuery);
+            DBObject mongoProjection = translator.translateProjection(md, getProjectionFields(projection, md), query, sort);
+            LOGGER.debug("Translated projection {}", mongoProjection);
+            DB db = dbResolver.get((MongoDataStore) md.getDataStore());
+            DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
+            LOGGER.debug("Retrieve db collection:" + coll);
+
+            try (DBCursor cursor=coll.find(mongoQuery,mongoProjection)) {
+                DBObject plan=cursor.explain();
+                JsonNode jsonPlan=Translator.rawObjectToJson(plan);
+                if(mongoQuery!=null)
+                    destDoc.modify(new Path("mongo.query"),Translator.rawObjectToJson(mongoQuery),true);
+                if(mongoProjection!=null)
+                    destDoc.modify(new Path("mongo.projection"),Translator.rawObjectToJson(mongoProjection),true);
+                destDoc.modify(new Path("mongo.plan"),jsonPlan,true);
+            }
+            
+        } catch (Error e) {
+            ctx.addError(e);
+        } catch (Exception e) {
+            LOGGER.error("Error during explain:", e);
+            ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
+        } finally {
+            Error.pop();
+        }
+        LOGGER.debug("explain end: query: {} ", query);
+    }
+
 
     @Override
     public void updatePredefinedFields(CRUDOperationContext ctx, JsonDoc doc) {

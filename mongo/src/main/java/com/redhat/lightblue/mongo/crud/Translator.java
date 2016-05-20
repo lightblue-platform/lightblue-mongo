@@ -30,6 +30,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Date;
 import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
@@ -62,6 +63,7 @@ import com.redhat.lightblue.metadata.ResolvedReferenceField;
 import com.redhat.lightblue.metadata.SimpleArrayElement;
 import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.Type;
+import com.redhat.lightblue.metadata.types.*;
 import com.redhat.lightblue.query.ArrayContainsExpression;
 import com.redhat.lightblue.query.ArrayMatchExpression;
 import com.redhat.lightblue.query.ArrayUpdateExpression;
@@ -1417,4 +1419,50 @@ public class Translator {
         return size;
     }
 
+    private static JsonNode rawValueToJson(Object value) {
+        if(value instanceof Number) {
+            if(value instanceof Float || value instanceof Double) {
+                return DoubleType.TYPE.toJson(JsonNodeFactory.instance,value);
+            } else {
+                return IntegerType.TYPE.toJson(JsonNodeFactory.instance,value);
+            }
+        } else if(value instanceof Date) {
+            return DateType.TYPE.toJson(JsonNodeFactory.instance,value);
+        } else if(value instanceof Boolean) {
+            return BooleanType.TYPE.toJson(JsonNodeFactory.instance,value);
+        } else if(value==null) {
+            return JsonNodeFactory.instance.nullNode();
+        } else {
+            return JsonNodeFactory.instance.textNode(value.toString());
+        }
+    }
+
+    private static ArrayNode rawArrayToJson(List list) {
+        ArrayNode node=JsonNodeFactory.instance.arrayNode();
+        for(Object value:list) {
+            if(value instanceof DBObject) {
+                node.add(rawObjectToJson((DBObject)value));
+            } else if(value instanceof List) {
+                node.add(rawArrayToJson((List)value));
+            } else {
+                node.add(rawValueToJson(value));
+            }
+        }
+        return node;
+    }
+    
+    public static ObjectNode rawObjectToJson(DBObject obj) {
+        ObjectNode ret=JsonNodeFactory.instance.objectNode();
+        for(String key:obj.keySet()) {
+            Object value=obj.get(key);
+            if(value instanceof DBObject) {
+                ret.set(key,rawObjectToJson( (DBObject)value ));
+            } else if(value instanceof List) {
+                ret.set(key,rawArrayToJson( (List)value ) );
+            } else {
+                ret.set(key,rawValueToJson(value));
+            }
+        }
+        return ret;
+    }
 }

@@ -1118,6 +1118,35 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void explainTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+
+        ctx.add(md);
+        // Generate some docs
+        List<JsonDoc> docs = new ArrayList<>();
+        int numDocs = 20;
+        for (int i = 0; i < numDocs; i++) {
+            JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+            doc.modify(new Path("field1"), nodeFactory.textNode("doc" + i), false);
+            doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
+            doc.modify(new Path("field4"), nodeFactory.numberNode(new BigDecimal(100)), false);
+            docs.add(doc);
+        }
+        ctx.addDocuments(docs);
+        controller.insert(ctx, projection("{'field':'_id'}"));
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        JsonDoc doc=new JsonDoc(JsonNodeFactory.instance.objectNode());
+        controller.explain(ctx, query("{'field':'field4','op':'$in','values':[100]}"),
+                           projection("{'field':'*','recursive':1}"), null, null, null,
+                           doc);
+        Assert.assertNotNull(doc.get(new Path("mongo")));
+        System.out.println(doc);
+    }
+
+    @Test
     public void findInqStr() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
