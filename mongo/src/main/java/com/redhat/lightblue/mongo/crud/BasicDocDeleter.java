@@ -20,7 +20,6 @@ package com.redhat.lightblue.mongo.crud;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,7 +47,7 @@ public class BasicDocDeleter implements DocDeleter {
     private static final Logger LOGGER = LoggerFactory.getLogger(BasicDocDeleter.class);
 
     // TODO: move this to a better place
-    private final int batchSize = 64;
+    public static final int batchSize = 64;
 
     private Translator translator;
 
@@ -102,30 +101,36 @@ public class BasicDocDeleter implements DocDeleter {
                 if (docsToDelete.size() == batchSize || !cursor.hasNext()) {
                     // batch built or run out of documents
 
-                    // TODO: write concern
                     BulkWriteOperation bw = collection.initializeUnorderedBulkOperation();
 
-                    List<Object> _ids = docsToDelete.stream().map(d -> d._id).collect(Collectors.toList());
-                    bw.find(new BasicDBObject("_id", new BasicDBObject("$in", _ids))).remove();
+                    for(DocInfo doc: docsToDelete) {
+                        // doing a bulk of single operations instead of removing by initial query
+                        // that way we know which documents were not removed
+                        bw.find(new BasicDBObject("_id", doc._id)).remove();
+                        doc.docCtx.setCRUDOperationPerformed(CRUDOperation.DELETE);
+                    }
 
-                    docsToDelete.forEach(d -> d.docCtx.setCRUDOperationPerformed(CRUDOperation.DELETE));
-
+                    BulkWriteResult result = null;
                     try {
                         LOGGER.debug("Bulk deleting docs");
-                        BulkWriteResult result = bw.execute();
-                        LOGGER.debug("Bulk deleted docs - attempted {}, deleted {}", _ids.size(), result.getRemovedCount());
-                        numDeleted+=result.getRemovedCount();
+                        // TODO: write concern override from execution
+                        result = bw.execute();
+                        LOGGER.debug("Bulk deleted docs - attempted {}, deleted {}", docsToDelete.size(), result.getRemovedCount());
                     } catch (BulkWriteException bwe) {
                         LOGGER.error("Bulk write exception", bwe);
-                        // TODO: will partially successful deletes work? Seems there is no BulkWriteResult if exception happens.
                         handleBulkWriteError(bwe.getWriteErrors(), docsToDelete);
+                        result = bwe.getWriteResult();
                     } catch (RuntimeException e) {
                         LOGGER.error("Exception", e);
                         throw e;
                     } finally {
+
+                        numDeleted+=result.getRemovedCount();
+
                         for (DocInfo doc : docsToDelete) {
+                            // fire post delete interceptor only for successfully removed docs
                             if (!doc.docCtx.hasErrors()) {
-                                ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_INSERT_DOC, ctx, doc.docCtx);
+                                ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_DELETE_DOC, ctx, doc.docCtx);
                             }
                         }
                     }
