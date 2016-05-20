@@ -217,7 +217,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 } else {
                     projector = null;
                 }
-                DocSaver saver = new BasicDocSaver(translator, roleEval, md);
+                DocSaver saver = new BasicDocSaver(translator, roleEval, md, MongoExecutionOptions.
+                        getWriteConcern(ctx.getExecutionOptions()));
                 ctx.setProperty(PROP_SAVER, saver);
 
                 saver.saveDocs(ctx,
@@ -337,7 +338,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 LOGGER.debug("Translated query {}", mongoQuery);
                 DB db = dbResolver.get((MongoDataStore) md.getDataStore());
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
-                DocDeleter deleter = new BasicDocDeleter(translator);
+                DocDeleter deleter = new BasicDocDeleter(translator, MongoExecutionOptions.
+                        getWriteConcern(ctx.getExecutionOptions()));
                 ctx.setProperty(PROP_DELETER, deleter);
                 deleter.delete(ctx, coll, mongoQuery, response);
                 ctx.getHookManager().queueHooks(ctx);

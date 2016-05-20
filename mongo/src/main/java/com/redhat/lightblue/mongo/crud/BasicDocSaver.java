@@ -19,22 +19,21 @@
 package com.redhat.lightblue.mongo.crud;
 
 import java.io.IOException;
-
-import java.util.Set;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.mongodb.BasicDBObject;
-import com.mongodb.DBCollection;
-import com.mongodb.DBObject;
-import com.mongodb.DBCursor;
-import com.mongodb.WriteResult;
 import com.mongodb.BulkWriteError;
 import com.mongodb.BulkWriteException;
 import com.mongodb.BulkWriteOperation;
+import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
+import com.mongodb.DBObject;
+import com.mongodb.WriteConcern;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CrudConstants;
@@ -59,6 +58,7 @@ public class BasicDocSaver implements DocSaver {
     private final FieldAccessRoleEvaluator roleEval;
     private final Translator translator;
     private final EntityMetadata md;
+    private final WriteConcern writeConcern;
 
     private final Field[] idFields;
     private final Path[] idPaths;
@@ -69,10 +69,12 @@ public class BasicDocSaver implements DocSaver {
      */
     public BasicDocSaver(Translator translator,
                          FieldAccessRoleEvaluator roleEval,
-                         EntityMetadata md) {
+                         EntityMetadata md,
+                         WriteConcern writeConcern) {
         this.translator = translator;
         this.roleEval = roleEval;
         this.md = md;
+        this.writeConcern = writeConcern;
 
         Field[] idf = md.getEntitySchema().getIdentityFields();
         if (idf == null || idf.length == 0) {
@@ -238,8 +240,13 @@ public class BasicDocSaver implements DocSaver {
                         doc.inputDoc.setCRUDOperationPerformed(CRUDOperation.INSERT);
                     }
                     try {
-                        LOGGER.debug("Bulk inserting docs");
-                        bw.execute();
+                        if (writeConcern == null) {
+                            LOGGER.debug("Bulk inserting docs");
+                            bw.execute();
+                        } else {
+                            LOGGER.debug("Bulk inserting docs with writeConcern={} from execution", writeConcern);
+                            bw.execute(writeConcern);
+                        }
                     } catch (BulkWriteException bwe) {
                         LOGGER.error("Bulk write exception", bwe);
                         handleBulkWriteError(bwe.getWriteErrors(), "insert", insertionAttemptList);
@@ -297,8 +304,14 @@ public class BasicDocSaver implements DocSaver {
                         doc.inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                     }
                     try {
-                        LOGGER.debug("Bulk updating docs");
-                        bw.execute();
+                        if (writeConcern == null) {
+                            LOGGER.debug("Bulk updating docs");
+                            bw.execute();
+                        }
+                        else {
+                            LOGGER.debug("Bulk updating docs with writeConcern={} from execution", writeConcern);
+                            bw.execute(writeConcern);
+                        }
                     } catch (BulkWriteException bwe) {
                         LOGGER.error("Bulk write exception", bwe);
                         handleBulkWriteError(bwe.getWriteErrors(), "update", updateAttemptList);
