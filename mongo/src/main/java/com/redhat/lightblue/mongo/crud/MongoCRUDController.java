@@ -300,7 +300,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 Updater updater = Updater.getInstance(ctx.getFactory().getNodeFactory(), md, update);
 
                 DocUpdater docUpdater = new IterateAndUpdate(ctx.getFactory().getNodeFactory(), validator, roleEval, translator, updater,
-                        projector, errorProjector);
+                        projector, errorProjector, MongoExecutionOptions.getWriteConcern(ctx.getExecutionOptions()));
                 ctx.setProperty(PROP_UPDATER, docUpdater);
                 docUpdater.update(ctx, coll, md, response, mongoQuery);
                 ctx.getHookManager().queueHooks(ctx);

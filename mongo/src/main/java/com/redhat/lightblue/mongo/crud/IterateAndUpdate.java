@@ -30,6 +30,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
+import com.mongodb.WriteConcern;
 import com.mongodb.WriteResult;
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
@@ -55,6 +56,7 @@ public class IterateAndUpdate implements DocUpdater {
     private final Updater updater;
     private final Projector projector;
     private final Projector errorProjector;
+    private final WriteConcern writeConcern;
 
     public IterateAndUpdate(JsonNodeFactory nodeFactory,
                             ConstraintValidator validator,
@@ -62,7 +64,8 @@ public class IterateAndUpdate implements DocUpdater {
                             Translator translator,
                             Updater updater,
                             Projector projector,
-                            Projector errorProjector) {
+                            Projector errorProjector,
+                            WriteConcern writeConcern) {
         this.nodeFactory = nodeFactory;
         this.validator = validator;
         this.roleEval = roleEval;
@@ -70,6 +73,7 @@ public class IterateAndUpdate implements DocUpdater {
         this.updater = updater;
         this.projector = projector;
         this.errorProjector = errorProjector;
+        this.writeConcern = writeConcern;
     }
 
     @Override
@@ -135,7 +139,15 @@ public class IterateAndUpdate implements DocUpdater {
                             } catch (IOException e) {
                                 throw new RuntimeException("Error populating document: \n" + updatedObject);
                             }
-                            WriteResult result = collection.save(updatedObject);
+
+                            WriteResult result;
+                            if (writeConcern == null) {
+                                LOGGER.debug("Saving updated doc");
+                                result = collection.save(updatedObject);
+                            } else {
+                                LOGGER.debug("Saving updated doc with writeConcern={} from execution", writeConcern);
+                                result = collection.save(updatedObject, writeConcern);
+                            }
                             numUpdated++;
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             LOGGER.debug("Number of rows affected : ", result.getN());
