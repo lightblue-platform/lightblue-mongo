@@ -72,7 +72,7 @@ public class BasicDocDeleterTest extends AbstractMongoCrudTest {
         }
 
         // execute delete
-        BasicDocDeleter deleter = new BasicDocDeleter(translator);
+        BasicDocDeleter deleter = new BasicDocDeleter(translator, null);
         CRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.DELETE);
         DBObject mongoQuery = new BasicDBObject();
         mongoQuery.put("_id", id);
@@ -105,7 +105,7 @@ public class BasicDocDeleterTest extends AbstractMongoCrudTest {
         }
 
         // execute delete
-        BasicDocDeleter deleter = new BasicDocDeleter(translator);
+        BasicDocDeleter deleter = new BasicDocDeleter(translator, null);
         CRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.DELETE);
         DBObject mongoQuery = new BasicDBObject();
         mongoQuery.put("objectType", "test");

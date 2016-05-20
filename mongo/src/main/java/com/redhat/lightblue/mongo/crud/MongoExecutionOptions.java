@@ -19,9 +19,8 @@
 package com.redhat.lightblue.mongo.crud;
 
 import com.mongodb.ReadPreference;
-
+import com.mongodb.WriteConcern;
 import com.redhat.lightblue.ExecutionOptions;
-
 import com.redhat.lightblue.mongo.config.MongoReadPreference;
 
 /**
@@ -29,7 +28,9 @@ import com.redhat.lightblue.mongo.config.MongoReadPreference;
  */
 public class MongoExecutionOptions {
 
-    public static final String OPT_READ_PREFERENCE = "mongo:ReadPreference";
+    // see https://jewzaam.gitbooks.io/lightblue-specifications/content/language_specification/execution.html
+    public static final String OPT_READ_PREFERENCE = "readPreference";
+    public static final String OPT_WRITE_CONCERN = "writeConcern";
 
     public static final String OPT_READ_PREFERENCE_NEAREST = MongoReadPreference.READ_PREFERENCE_NEAREST;
     public static final String OPT_READ_PREFERENCE_PRIMARY = MongoReadPreference.READ_PREFERENCE_PRIMARY;
@@ -59,6 +60,19 @@ public class MongoExecutionOptions {
                 value = value.trim();
                 if (value.length() > 0) {
                     return MongoReadPreference.parse(value);
+                }
+            }
+        }
+        return null;
+    }
+
+    public static WriteConcern getWriteConcern(ExecutionOptions options) {
+        if (options != null) {
+            String value = options.getOptions().get(OPT_WRITE_CONCERN);
+            if (value != null) {
+                value = value.trim();
+                if (value.length() > 0) {
+                    return WriteConcern.valueOf(value);
                 }
             }
         }

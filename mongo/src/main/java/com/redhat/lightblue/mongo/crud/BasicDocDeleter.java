@@ -32,6 +32,7 @@ import com.mongodb.BulkWriteResult;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
+import com.mongodb.WriteConcern;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
@@ -49,11 +50,13 @@ public class BasicDocDeleter implements DocDeleter {
     // TODO: move this to a better place
     public static final int batchSize = 64;
 
-    private Translator translator;
+    private final Translator translator;
+    private final WriteConcern writeConcern;
 
-    public BasicDocDeleter(Translator translator) {
+    public BasicDocDeleter(Translator translator, WriteConcern writeConcern) {
         super();
         this.translator = translator;
+        this.writeConcern = writeConcern;
     }
 
     private final class DocInfo {
@@ -107,9 +110,13 @@ public class BasicDocDeleter implements DocDeleter {
 
                     BulkWriteResult result = null;
                     try {
-                        LOGGER.debug("Bulk deleting docs");
-                        // TODO: write concern override from execution
-                        result = bw.execute();
+                        if (writeConcern == null) {
+                            LOGGER.debug("Bulk deleting docs");
+                            result = bw.execute();
+                        } else {
+                            LOGGER.debug("Bulk deleting docs with writeConcern={} from execution", writeConcern);
+                            result = bw.execute(writeConcern);
+                        }
                         LOGGER.debug("Bulk deleted docs - attempted {}, deleted {}", docsToDelete.size(), result.getRemovedCount());
                     } catch (BulkWriteException bwe) {
                         LOGGER.error("Bulk write exception", bwe);
