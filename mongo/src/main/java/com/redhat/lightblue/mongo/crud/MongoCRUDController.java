@@ -337,7 +337,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 LOGGER.debug("Translated query {}", mongoQuery);
                 DB db = dbResolver.get((MongoDataStore) md.getDataStore());
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
-                DocDeleter deleter = new IterateDeleter(translator);
+                DocDeleter deleter = new BasicDocDeleter(translator);
                 ctx.setProperty(PROP_DELETER, deleter);
                 deleter.delete(ctx, coll, mongoQuery, response);
                 ctx.getHookManager().queueHooks(ctx);
