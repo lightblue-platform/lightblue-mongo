@@ -35,6 +35,7 @@ import com.mongodb.BulkWriteResult;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
+import com.mongodb.WriteConcern;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
@@ -67,9 +68,12 @@ public class IterateAndUpdate implements DocUpdater {
     private final Updater updater;
     private final Projector projector;
     private final Projector errorProjector;
+    private final WriteConcern writeConcern;
+
 
     private final List<DocCtx> docUpdateAttempts = new ArrayList<>();
     private final List<BulkWriteError> docUpdateErrors = new ArrayList<>();
+    private final List<DocCtx> docUpdateActual = new ArrayList<>();
 
 
     public IterateAndUpdate(JsonNodeFactory nodeFactory,
@@ -78,7 +82,8 @@ public class IterateAndUpdate implements DocUpdater {
                             Translator translator,
                             Updater updater,
                             Projector projector,
-                            Projector errorProjector) {
+                            Projector errorProjector,
+                            WriteConcern writeConcern) {
         this.nodeFactory = nodeFactory;
         this.validator = validator;
         this.roleEval = roleEval;
@@ -86,6 +91,7 @@ public class IterateAndUpdate implements DocUpdater {
         this.updater = updater;
         this.projector = projector;
         this.errorProjector = errorProjector;
+        this.writeConcern = writeConcern;
     }
 
     @Override
@@ -154,17 +160,17 @@ public class IterateAndUpdate implements DocUpdater {
                             } catch (IOException e) {
                                 throw new RuntimeException("Error populating document: \n" + updatedObject);
                             }
+
                             bwo.find(new BasicDBObject("_id", document.get("_id"))).replaceOne(updatedObject);
                             docUpdateAttempts.add(doc);
                             numUpdating++;
                             // update in batches
                             if (numUpdating >= batchSize) {
-                                BulkWriteResult result = executeAndHandleBulkErrors(bwo);
+                                BulkWriteResult result = executeAndLogBulkErrors(bwo);
                                 numUpdated += result.getModifiedCount();
                                 numMatched += result.getMatchedCount();
                             }
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
-                            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
                             doc.setUpdatedDocument(doc);
                         } catch (Exception e) {
                             LOGGER.warn("Update exception for document {}: {}", docIndex, e);
@@ -188,13 +194,11 @@ public class IterateAndUpdate implements DocUpdater {
             // if we have any remaining items to update
             if (numUpdating > 0) {
                 try {
-                    BulkWriteResult result = executeAndHandleBulkErrors(bwo);
+                    BulkWriteResult result = executeAndLogBulkErrors(bwo);
                     numUpdated += result.getModifiedCount();
                     numMatched += result.getMatchedCount();
                 } catch (Exception e) {
                     LOGGER.warn("Update exception for documents for query: {}", query.toString());
-                    // doc.addError(Error.get(MongoCrudConstants.ERR_UPDATE_ERROR, e.toString()));
-                    // what's the best way to add an error here for bulk ops?
                 }
             }
         } finally {
@@ -204,14 +208,21 @@ public class IterateAndUpdate implements DocUpdater {
         }
         handleBulkWriteError(docUpdateErrors, docUpdateAttempts);
 
+        docUpdateActual.stream().filter(doc -> doc != null).forEach(doc -> {
+            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
+        });
+
         response.setNumUpdated(numUpdated);
         response.setNumFailed(numFailed);
         response.setNumMatched(numMatched);
     }
 
     private void handleBulkWriteError(List<BulkWriteError> errors, List<DocCtx> docs) {
+        docUpdateActual.addAll(docs);
         for (BulkWriteError e : errors) {
             DocCtx doc = docs.get(e.getIndex());
+            // remove any docs from the updated list if they had an error
+            docUpdateActual.set(e.getIndex(), null);
             if (e.getCode() == 11000 || e.getCode() == 11001) {
                 doc.addError(Error.get("update", MongoCrudConstants.ERR_DUPLICATE, e.getMessage()));
             } else {
@@ -220,13 +231,19 @@ public class IterateAndUpdate implements DocUpdater {
         }
     }
 
-    private BulkWriteResult executeAndHandleBulkErrors(BulkWriteOperation bwo) {
+    private BulkWriteResult executeAndLogBulkErrors(BulkWriteOperation bwo) {
         BulkWriteResult result = null;
         try {
-            result = bwo.execute();
+            if (writeConcern == null) {
+                LOGGER.debug("Bulk updating docs");
+                result = bwo.execute();
+            } else {
+                LOGGER.debug("Bulk deleting docs with writeConcern={} from execution", writeConcern);
+                result = bwo.execute(writeConcern);
+            }
         } catch (BulkWriteException e) {
             BulkWriteException bwe = e;
-            LOGGER.warn("Bulk update operation contains errors");
+            LOGGER.warn("Bulk update operation contains errors", bwe);
             docUpdateErrors.addAll(bwe.getWriteErrors());
         } catch (Exception e) {
             throw e;

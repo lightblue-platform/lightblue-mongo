@@ -300,7 +300,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 Updater updater = Updater.getInstance(ctx.getFactory().getNodeFactory(), md, update);
 
                 DocUpdater docUpdater = new IterateAndUpdate(ctx.getFactory().getNodeFactory(), validator, roleEval, translator, updater,
-                        projector, errorProjector);
+                        projector, errorProjector, MongoExecutionOptions.getWriteConcern(ctx.getExecutionOptions()));
                 ctx.setProperty(PROP_UPDATER, docUpdater);
                 docUpdater.update(ctx, coll, md, response, mongoQuery);
                 ctx.getHookManager().queueHooks(ctx);
@@ -458,7 +458,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                         Long from,
                         Long to,
                         JsonDoc destDoc) {
-        
+
         LOGGER.debug("explain start: q:{} p:{} sort:{} from:{} to:{}", query, projection, sort, from, to);
         Error.push("explain");
         Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
@@ -483,7 +483,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     destDoc.modify(new Path("mongo.projection"),Translator.rawObjectToJson(mongoProjection),true);
                 destDoc.modify(new Path("mongo.plan"),jsonPlan,true);
             }
-            
+
         } catch (Error e) {
             ctx.addError(e);
         } catch (Exception e) {
@@ -931,8 +931,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             // if this is a case insensitive key, we need to change the field to how mongo actually stores the index
             field = Translator.translatePath(Translator.getHiddenForField(sortKey.getField()));
         } else {
-            // strip out wild card.  
-            // this happens because we forget mongo fields != lightblue path 
+            // strip out wild card.
+            // this happens because we forget mongo fields != lightblue path
             // especially given case insensitive index requires lightblue path
             field = Translator.translatePath(sortKey.getField());
         }
