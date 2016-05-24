@@ -19,6 +19,7 @@
 package com.redhat.lightblue.mongo.crud;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -66,6 +67,10 @@ public class IterateAndUpdate implements DocUpdater {
     private final Updater updater;
     private final Projector projector;
     private final Projector errorProjector;
+
+    private final List<DocCtx> docUpdateAttempts = new ArrayList<>();
+    private final List<BulkWriteError> docUpdateErrors = new ArrayList<>();
+
 
     public IterateAndUpdate(JsonNodeFactory nodeFactory,
                             ConstraintValidator validator,
@@ -150,6 +155,7 @@ public class IterateAndUpdate implements DocUpdater {
                                 throw new RuntimeException("Error populating document: \n" + updatedObject);
                             }
                             bwo.find(new BasicDBObject("_id", document.get("_id"))).replaceOne(updatedObject);
+                            docUpdateAttempts.add(doc);
                             numUpdating++;
                             // update in batches
                             if (numUpdating >= batchSize) {
@@ -196,9 +202,22 @@ public class IterateAndUpdate implements DocUpdater {
                 cursor.close();
             }
         }
+        handleBulkWriteError(docUpdateErrors, docUpdateAttempts);
+
         response.setNumUpdated(numUpdated);
         response.setNumFailed(numFailed);
         response.setNumMatched(numMatched);
+    }
+
+    private void handleBulkWriteError(List<BulkWriteError> errors, List<DocCtx> docs) {
+        for (BulkWriteError e : errors) {
+            DocCtx doc = docs.get(e.getIndex());
+            if (e.getCode() == 11000 || e.getCode() == 11001) {
+                doc.addError(Error.get("update", MongoCrudConstants.ERR_DUPLICATE, e.getMessage()));
+            } else {
+                doc.addError(Error.get("update", MongoCrudConstants.ERR_SAVE_ERROR, e.getMessage()));
+            }
+        }
     }
 
     private BulkWriteResult executeAndHandleBulkErrors(BulkWriteOperation bwo) {
@@ -208,9 +227,7 @@ public class IterateAndUpdate implements DocUpdater {
         } catch (BulkWriteException e) {
             BulkWriteException bwe = e;
             LOGGER.warn("Bulk update operation contains errors");
-            for (BulkWriteError bwError : bwe.getWriteErrors()) {
-                LOGGER.warn("Error for update operation {}:\n{}", bwError.getIndex(), bwError.getDetails().toString());
-            }
+            docUpdateErrors.addAll(bwe.getWriteErrors());
         } catch (Exception e) {
             throw e;
         }
