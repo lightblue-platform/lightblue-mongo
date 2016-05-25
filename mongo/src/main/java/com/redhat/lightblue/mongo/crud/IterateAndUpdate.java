@@ -168,6 +168,7 @@ public class IterateAndUpdate implements DocUpdater {
                             // update in batches
                             if (numUpdating >= batchSize) {
                                 BulkWriteResult result = executeAndLogBulkErrors(bwo);
+                                numUpdating = 0;
                                 numUpdated += result.getModifiedCount();
                                 numMatched += result.getMatchedCount();
                             }
@@ -222,8 +223,6 @@ public class IterateAndUpdate implements DocUpdater {
         docUpdateActual.addAll(docs);
         for (BulkWriteError e : errors) {
             DocCtx doc = docs.get(e.getIndex());
-            // remove any docs from the updated list if they had an error
-            docUpdateActual.set(e.getIndex(), null);
             if (e.getCode() == 11000 || e.getCode() == 11001) {
                 doc.addError(Error.get("update", MongoCrudConstants.ERR_DUPLICATE, e.getMessage()));
             } else {
@@ -249,6 +248,7 @@ public class IterateAndUpdate implements DocUpdater {
         } catch (Exception e) {
             throw e;
         }
+
         return result;
     }
 }

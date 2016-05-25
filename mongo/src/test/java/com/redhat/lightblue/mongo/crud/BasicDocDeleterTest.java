@@ -38,6 +38,7 @@ import com.redhat.lightblue.metadata.EntityMetadata;
  */
 public class BasicDocDeleterTest extends AbstractMongoCrudTest {
 
+    private static final int batchSize = 64;
     private TestCRUDOperationContext ctx;
     private Translator translator;
     private DBCollection spiedCollection;
@@ -72,7 +73,7 @@ public class BasicDocDeleterTest extends AbstractMongoCrudTest {
         }
 
         // execute delete
-        BasicDocDeleter deleter = new BasicDocDeleter(translator, null);
+        BasicDocDeleter deleter = new BasicDocDeleter(translator, null, batchSize);
         CRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.DELETE);
         DBObject mongoQuery = new BasicDBObject();
         mongoQuery.put("_id", id);
@@ -90,7 +91,7 @@ public class BasicDocDeleterTest extends AbstractMongoCrudTest {
 
     @Test
     public void deleteMultiBatch() {
-        int docsToInsertCount = BasicDocDeleter.batchSize+2;
+        int docsToInsertCount = batchSize+2;
         // setup data to delete
         for (int i=0;i<docsToInsertCount;i++) {
             String id = "deleteTest1-"+i;
@@ -105,7 +106,7 @@ public class BasicDocDeleterTest extends AbstractMongoCrudTest {
         }
 
         // execute delete
-        BasicDocDeleter deleter = new BasicDocDeleter(translator, null);
+        BasicDocDeleter deleter = new BasicDocDeleter(translator, null, batchSize);
         CRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.DELETE);
         DBObject mongoQuery = new BasicDBObject();
         mongoQuery.put("objectType", "test");
