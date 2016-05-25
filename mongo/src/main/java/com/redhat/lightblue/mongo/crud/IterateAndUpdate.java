@@ -119,6 +119,7 @@ public class IterateAndUpdate implements DocUpdater {
             BulkWriteOperation bwo = collection.initializeUnorderedBulkOperation();
             while (cursor.hasNext()) {
                 DBObject document = cursor.next();
+                numMatched++;
                 boolean hasErrors = false;
                 LOGGER.debug("Retrieved doc {}", docIndex);
                 DocCtx doc = ctx.addDocument(translator.toJson(document));
@@ -170,7 +171,6 @@ public class IterateAndUpdate implements DocUpdater {
                                 BulkWriteResult result = executeAndLogBulkErrors(bwo);
                                 numUpdating = 0;
                                 numUpdated += result.getModifiedCount();
-                                numMatched += result.getMatchedCount();
                             }
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             doc.setUpdatedDocument(doc);
@@ -198,7 +198,6 @@ public class IterateAndUpdate implements DocUpdater {
                 try {
                     BulkWriteResult result = executeAndLogBulkErrors(bwo);
                     numUpdated += result.getModifiedCount();
-                    numMatched += result.getMatchedCount();
                 } catch (Exception e) {
                     LOGGER.warn("Update exception for documents for query: {}", query.toString());
                 }
