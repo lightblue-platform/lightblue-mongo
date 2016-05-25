@@ -189,7 +189,8 @@ public class BasicDocSaver implements DocSaver {
                     } else {
                         // This is an invalid  request
                         LOGGER.warn("Invalid request, cannot update or insert");
-                        doc.inputDoc.addError(Error.get(op.toString(), MongoCrudConstants.ERR_SAVE_ERROR, "Invalid request"));
+                        doc.inputDoc.addError(Error.get(op.toString(), MongoCrudConstants.ERR_SAVE_ERROR_INS_WITH_NO_UPSERT,
+                                                        "New document, but upsert=false"));
                     }
                 } else {
                     // There is a doc in the db

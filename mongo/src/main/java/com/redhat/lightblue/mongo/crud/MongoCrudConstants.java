@@ -24,6 +24,7 @@ public final class MongoCrudConstants {
     public static final String ERR_DUPLICATE = "mongo-crud:Duplicate";
     public static final String ERR_INSERTION_ERROR = "mongo-crud:InsertionError";
     public static final String ERR_SAVE_ERROR = "mongo-crud:SaveError";
+    public static final String ERR_SAVE_ERROR_INS_WITH_NO_UPSERT = "mongo-crud:SaveError:InsertionAttemptWithNoUpsert";
     public static final String ERR_DELETE_ERROR = "mongo-crud:DeleteError";
     public static final String ERR_UPDATE_ERROR = "mongo-crud:UpdateError";
     public static final String ERR_NO_ACCESS = "mongo-crud:NoAccess";
