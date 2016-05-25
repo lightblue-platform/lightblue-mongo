@@ -53,7 +53,7 @@ public class BasicDocSaver implements DocSaver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(BasicDocSaver.class);
 
-    private final int batchSize = 64;
+    private final int batchSize;
 
     private final FieldAccessRoleEvaluator roleEval;
     private final Translator translator;
@@ -70,11 +70,12 @@ public class BasicDocSaver implements DocSaver {
     public BasicDocSaver(Translator translator,
                          FieldAccessRoleEvaluator roleEval,
                          EntityMetadata md,
-                         WriteConcern writeConcern) {
+                         WriteConcern writeConcern, int batchSize) {
         this.translator = translator;
         this.roleEval = roleEval;
         this.md = md;
         this.writeConcern = writeConcern;
+        this.batchSize = batchSize;
 
         Field[] idf = md.getEntitySchema().getIdentityFields();
         if (idf == null || idf.length == 0) {

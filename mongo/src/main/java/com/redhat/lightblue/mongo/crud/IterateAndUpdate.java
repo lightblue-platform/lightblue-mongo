@@ -59,7 +59,7 @@ public class IterateAndUpdate implements DocUpdater {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(IterateAndUpdate.class);
 
-    private final int batchSize = 64;
+    private final int batchSize;
 
     private final JsonNodeFactory nodeFactory;
     private final ConstraintValidator validator;
@@ -83,7 +83,7 @@ public class IterateAndUpdate implements DocUpdater {
                             Updater updater,
                             Projector projector,
                             Projector errorProjector,
-                            WriteConcern writeConcern) {
+                            WriteConcern writeConcern, int batchSize) {
         this.nodeFactory = nodeFactory;
         this.validator = validator;
         this.roleEval = roleEval;
@@ -92,6 +92,7 @@ public class IterateAndUpdate implements DocUpdater {
         this.projector = projector;
         this.errorProjector = errorProjector;
         this.writeConcern = writeConcern;
+        this.batchSize = batchSize;
     }
 
     @Override

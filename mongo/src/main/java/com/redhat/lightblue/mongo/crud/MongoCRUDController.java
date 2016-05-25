@@ -138,6 +138,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private final DBResolver dbResolver;
     private final ControllerConfiguration controllerCfg;
 
+    private final int batchSize = 64;
+
     public MongoCRUDController(ControllerConfiguration controllerCfg, DBResolver dbResolver) {
         this.dbResolver = dbResolver;
         this.controllerCfg = controllerCfg;
@@ -218,7 +220,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     projector = null;
                 }
                 DocSaver saver = new BasicDocSaver(translator, roleEval, md, MongoExecutionOptions.
-                        getWriteConcern(ctx.getExecutionOptions()));
+                        getWriteConcern(ctx.getExecutionOptions()), batchSize);
                 ctx.setProperty(PROP_SAVER, saver);
 
                 saver.saveDocs(ctx,
@@ -300,7 +302,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 Updater updater = Updater.getInstance(ctx.getFactory().getNodeFactory(), md, update);
 
                 DocUpdater docUpdater = new IterateAndUpdate(ctx.getFactory().getNodeFactory(), validator, roleEval, translator, updater,
-                        projector, errorProjector, MongoExecutionOptions.getWriteConcern(ctx.getExecutionOptions()));
+                        projector, errorProjector, MongoExecutionOptions.getWriteConcern(ctx.getExecutionOptions()), batchSize);
                 ctx.setProperty(PROP_UPDATER, docUpdater);
                 docUpdater.update(ctx, coll, md, response, mongoQuery);
                 ctx.getHookManager().queueHooks(ctx);
@@ -339,7 +341,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 DB db = dbResolver.get((MongoDataStore) md.getDataStore());
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
                 DocDeleter deleter = new BasicDocDeleter(translator, MongoExecutionOptions.
-                        getWriteConcern(ctx.getExecutionOptions()));
+                        getWriteConcern(ctx.getExecutionOptions()), batchSize);
                 ctx.setProperty(PROP_DELETER, deleter);
                 deleter.delete(ctx, coll, mongoQuery, response);
                 ctx.getHookManager().queueHooks(ctx);
