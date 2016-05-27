@@ -775,7 +775,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                         fieldMap.put(p.getField().toString(), field.toString());
                         // if we have a case insensitive index, we want the index creation operation to be blocking
                         hidden = true;
-                        LOGGER.info("Index creation will be blocking.");
                     }
                     newIndex.put(Translator.translatePath(field), p.isDesc() ? -1 : 1);
                 }
@@ -785,8 +784,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 if (index.getName() != null && index.getName().trim().length() > 0) {
                     options.append("name", index.getName().trim());
                 }
-                // if we have hidden fields to generate, we want index creation to be blocking so we can ensure that the indexes are created before we generate the fields
-                options.append("background", !hidden);
+                options.append("background", true);
                 LOGGER.debug("Creating index {} with options {}", newIndex, options);
                 LOGGER.warn("Creating index {} with fields={}, options={}", index.getName(), index.getFields(), options);
                 entityCollection.createIndex(newIndex, options);
