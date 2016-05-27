@@ -915,6 +915,40 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void updateTest_SingleFailure() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        coll.createIndex(new BasicDBObject("field1", 1),"unique_test_index", true);
+        ctx.add(md);
+
+        // Generate some docs
+        List<JsonDoc> docs = new ArrayList<>();
+        int numDocs = 20;
+        for (int i = 0; i < numDocs; i++) {
+            JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+            doc.modify(new Path("field1"), nodeFactory.textNode("doc" + i), false);
+            doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
+            docs.add(doc);
+        }
+        ctx.addDocuments(docs);
+        CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals(numDocs, c.count());
+        }
+        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
+        ctx.add(md);
+
+        CRUDUpdateResponse upd = controller.update(ctx, query("{'field':'field3','op':'>','rvalue':-1}"),
+                update("{ '$set': { 'field1' : '100' } }"),
+                projection("{'field':'_id'}"));
+        assertEquals(1, upd.getNumUpdated());
+        assertEquals(20, upd.getNumMatched());
+        assertEquals(19, upd.getNumFailed());
+    }
+
+    @Test
     public void updateTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);

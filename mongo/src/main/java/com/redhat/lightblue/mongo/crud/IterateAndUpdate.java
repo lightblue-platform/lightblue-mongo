@@ -75,6 +75,8 @@ public class IterateAndUpdate implements DocUpdater {
     private final List<BulkWriteError> docUpdateErrors = new ArrayList<>();
     private final List<DocCtx> docUpdateActual = new ArrayList<>();
 
+    private int numFailed = 0;
+
 
     public IterateAndUpdate(JsonNodeFactory nodeFactory,
                             ConstraintValidator validator,
@@ -106,7 +108,6 @@ public class IterateAndUpdate implements DocUpdater {
         DBCursor cursor = null;
         int docIndex = 0;
         int numMatched = 0;
-        int numFailed = 0;
         int numUpdated = 0;
         int numUpdating = 0;
         BsonMerge merge = new BsonMerge(md);
@@ -228,6 +229,7 @@ public class IterateAndUpdate implements DocUpdater {
                 doc.addError(Error.get("update", MongoCrudConstants.ERR_SAVE_ERROR, e.getMessage()));
             }
         }
+        numFailed += (int) errors.stream().map(e -> e.getIndex()).distinct().count();
     }
 
     private BulkWriteResult executeAndLogBulkErrors(BulkWriteOperation bwo) {
@@ -242,12 +244,12 @@ public class IterateAndUpdate implements DocUpdater {
             }
         } catch (BulkWriteException e) {
             BulkWriteException bwe = e;
+            result = bwe.getWriteResult();
             LOGGER.warn("Bulk update operation contains errors", bwe);
             docUpdateErrors.addAll(bwe.getWriteErrors());
         } catch (Exception e) {
             throw e;
         }
-
         return result;
     }
 }
