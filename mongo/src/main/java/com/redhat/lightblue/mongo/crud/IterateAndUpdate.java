@@ -240,8 +240,6 @@ public class IterateAndUpdate implements DocUpdater {
             result = bwe.getWriteResult();
             LOGGER.warn("Bulk update operation contains errors", bwe);
             docUpdateErrors.addAll(bwe.getWriteErrors());
-        } catch (Exception e) {
-            throw e;
         }
         return result;
     }
