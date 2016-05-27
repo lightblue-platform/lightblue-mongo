@@ -73,10 +73,6 @@ public class IterateAndUpdate implements DocUpdater {
 
     private final List<DocCtx> docUpdateAttempts = new ArrayList<>();
     private final List<BulkWriteError> docUpdateErrors = new ArrayList<>();
-    private final List<DocCtx> docUpdateActual = new ArrayList<>();
-
-    private int numFailed = 0;
-
 
     public IterateAndUpdate(JsonNodeFactory nodeFactory,
                             ConstraintValidator validator,
@@ -108,8 +104,8 @@ public class IterateAndUpdate implements DocUpdater {
         DBCursor cursor = null;
         int docIndex = 0;
         int numMatched = 0;
-        int numUpdated = 0;
         int numUpdating = 0;
+        int numFailed = 0;
         BsonMerge merge = new BsonMerge(md);
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
@@ -169,9 +165,8 @@ public class IterateAndUpdate implements DocUpdater {
                             numUpdating++;
                             // update in batches
                             if (numUpdating >= batchSize) {
-                                BulkWriteResult result = executeAndLogBulkErrors(bwo);
+                                executeAndLogBulkErrors(bwo);
                                 numUpdating = 0;
-                                numUpdated += result.getModifiedCount();
                             }
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             doc.setUpdatedDocument(doc);
@@ -197,8 +192,8 @@ public class IterateAndUpdate implements DocUpdater {
             // if we have any remaining items to update
             if (numUpdating > 0) {
                 try {
-                    BulkWriteResult result = executeAndLogBulkErrors(bwo);
-                    numUpdated += result.getModifiedCount();
+                    executeAndLogBulkErrors(bwo);
+                    numFailed += (int) docUpdateErrors.stream().map(e -> e.getIndex()).distinct().count();
                 } catch (Exception e) {
                     LOGGER.warn("Update exception for documents for query: {}", query.toString());
                 }
@@ -210,17 +205,16 @@ public class IterateAndUpdate implements DocUpdater {
         }
         handleBulkWriteError(docUpdateErrors, docUpdateAttempts);
 
-        docUpdateActual.stream().filter(doc -> doc != null).forEach(doc -> {
+        ctx.getDocumentsWithoutErrors().stream().forEach(doc -> {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
         });
 
-        response.setNumUpdated(numUpdated);
+        response.setNumUpdated(ctx.getDocumentsWithoutErrors().size());
         response.setNumFailed(numFailed);
         response.setNumMatched(numMatched);
     }
 
     private void handleBulkWriteError(List<BulkWriteError> errors, List<DocCtx> docs) {
-        docUpdateActual.addAll(docs);
         for (BulkWriteError e : errors) {
             DocCtx doc = docs.get(e.getIndex());
             if (e.getCode() == 11000 || e.getCode() == 11001) {
@@ -229,7 +223,6 @@ public class IterateAndUpdate implements DocUpdater {
                 doc.addError(Error.get("update", MongoCrudConstants.ERR_SAVE_ERROR, e.getMessage()));
             }
         }
-        numFailed += (int) errors.stream().map(e -> e.getIndex()).distinct().count();
     }
 
     private BulkWriteResult executeAndLogBulkErrors(BulkWriteOperation bwo) {
