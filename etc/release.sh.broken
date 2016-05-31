@@ -4,14 +4,15 @@
 
 RELEASE_VERSION=$1
 DEVEL_VERSION=$2
+UPSTREAM=$3
+INCLUDES_DEPS=$4
+EXCLUDES_DEPS=$5
 
-if [ $1"x" == "x" ] || [ $2"x" == "x" ]; then
-    echo "Usage: ./release.sh <release version> <new snapshot version> [upstream repo]"
+if [ $1"x" == "x" ] || [ $2"x" == "x" ] || [ $3"x" == "x" ]; then
+    echo "Usage: ./release.sh <release version> <new snapshot version> <upstream> [include_deps exclude deps]" 
     echo "Example: ./release 1.1.0 1.2.0-SNAPSHOT origin"
     exit 1
 fi
-
-UPSTREAM=${3-origin}
 
 # prepare and verify state
 git fetch --all
@@ -26,7 +27,7 @@ if [ $BRANCH != "master" ]; then
     fi
 fi
 
-# check that local branch is equal to upstream master 
+# check that local branch is equal to upstream master
 MERGE_BASE=`git merge-base HEAD ${UPSTREAM}/master`
 HEAD_HASH=`git rev-parse HEAD`
 
@@ -36,28 +37,30 @@ if [ $MERGE_BASE != $HEAD_HASH ]; then
 fi
 
 # update to non-snapshot versions of lightblue dependencies and commit
-mvn versions:update-properties -DallowSnapshots=false
+# excludes overrides includes, so to exclude com.redhat.lightblue, add it to excludes
+sed -i 's#\(<lightblue\.[^.]*\.version>[^-]*\)-SNAPSHOT\(</lightblue\.[^.]*\.version>\)#\1\2#g' pom.xml
+mvn -U versions:use-latest-versions versions:update-properties -Dincludes=com.redhat.lightblue:*,$INCLUDES_DEPS -Dexcludes=$EXCLUDES_DEPS
 git commit -a -m "Updated versions to non snapshot"
 
 # prepare for release (note, this will warn if any snapshot dependencies still exist and allow for fixing)
-mvn release:prepare -P release \
+mvn clean -U release:prepare -P release \
                     -DpushChanges=false \
                     -DreleaseVersion=$RELEASE_VERSION \
                     -DdevelopmentVersion=$DEVEL_VERSION \
-                    -Dtag=V${RELEASE_VERSION} || exit
+                    -Dtag=V${RELEASE_VERSION} | tee prepare.log || exit
 
 # push prepared changes (doing separate just to have control)
-git push ${UPSTREAM} master --tags
+git push ${UPSREAM} master --tags
 
 # perform release
-mvn release:perform -P release || exit
+mvn release:perform -P release | tee release.log || exit
 
 # update to latest lightblue snapshot dependencies
-mvn versions:use-latest-snapshots versions:update-properties -Dincludes=*lightblue* -DallowSnapshots=true
+mvn versions:use-latest-snapshots versions:update-properties -DallowSnapshots=true -Dincludes=com.redhat.lightblue:*,$INCLUDES_DEPS -Dexcludes=$EXCLUDES_DEPS
 git add pom.xml **/pom.xml
 git commit -m "Updated to latest snapshot dependencies"
 git push ${UPSTREAM} master
 
 # deploy updated snapshots
-mvn clean deploy
+mvn clean deploy | tee deploy.log
 
