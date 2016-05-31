@@ -104,7 +104,6 @@ public class IterateAndUpdate implements DocUpdater {
         DBCursor cursor = null;
         int docIndex = 0;
         int numMatched = 0;
-        int numUpdating = 0;
         int numFailed = 0;
         BsonMerge merge = new BsonMerge(md);
         try {
@@ -114,6 +113,7 @@ public class IterateAndUpdate implements DocUpdater {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_RESULTSET, ctx);
             // read-update-write
             BulkWriteOperation bwo = collection.initializeUnorderedBulkOperation();
+            int numUpdating = 0;
             while (cursor.hasNext()) {
                 DBObject document = cursor.next();
                 numMatched++;
@@ -193,7 +193,6 @@ public class IterateAndUpdate implements DocUpdater {
             if (numUpdating > 0) {
                 try {
                     executeAndLogBulkErrors(bwo);
-                    numFailed += (int) docUpdateErrors.stream().map(e -> e.getIndex()).distinct().count();
                 } catch (Exception e) {
                     LOGGER.warn("Update exception for documents for query: {}", query.toString());
                 }
@@ -209,8 +208,9 @@ public class IterateAndUpdate implements DocUpdater {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
         });
 
-        response.setNumUpdated(ctx.getDocumentsWithoutErrors().size());
-        response.setNumFailed(numFailed);
+        response.setNumUpdated(docUpdateAttempts.size() - docUpdateErrors.size());
+        // number failed is the number of update attempts that failed along with documents that failed pre-update
+        response.setNumFailed(docUpdateErrors.size() + numFailed);
         response.setNumMatched(numMatched);
     }
 
