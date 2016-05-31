@@ -8,7 +8,7 @@ UPSTREAM=$3
 INCLUDES_DEPS=$4
 EXCLUDES_DEPS=$5
 
-if [ $1"x" == "x" ] || [ $2"x" == "x" || [ $3"x" == "x" ]; then
+if [ $1"x" == "x" ] || [ $2"x" == "x"] || [ $3"x" == "x" ]; then
     echo "Usage: ./release.sh <release version> <new snapshot version> <upstream> [include_deps exclude deps]" 
     echo "Example: ./release 1.1.0 1.2.0-SNAPSHOT origin"
     exit 1
