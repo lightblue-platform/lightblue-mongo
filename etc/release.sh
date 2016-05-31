@@ -4,12 +4,13 @@
 
 RELEASE_VERSION=$1
 DEVEL_VERSION=$2
-INCLUDES_DEPS=$3
-EXCLUDES_DEPS=$4
+UPSTREAM=$3
+INCLUDES_DEPS=$4
+EXCLUDES_DEPS=$5
 
-if [ $1"x" == "x" ] || [ $2"x" == "x" ]; then
-    echo "Usage: ./release.sh <release version> <new snapshot version>"
-    echo "Example: ./release 1.1.0 1.2.0-SNAPSHOT"
+if [ $1"x" == "x" ] || [ $2"x" == "x" || [ $3"x" == "x" ]; then
+    echo "Usage: ./release.sh <release version> <new snapshot version> <upstream> [include_deps exclude deps]" 
+    echo "Example: ./release 1.1.0 1.2.0-SNAPSHOT origin"
     exit 1
 fi
 
@@ -25,12 +26,12 @@ if [ $BRANCH != "master" ]; then
     fi
 fi
 
-# check that local branch is equal to upstream master (assumes remote of origin)
-MERGE_BASE=`git merge-base HEAD origin/master`
+# check that local branch is equal to upstream master
+MERGE_BASE=`git merge-base HEAD ${UPSTREAM}/master`
 HEAD_HASH=`git rev-parse HEAD`
 
 if [ $MERGE_BASE != $HEAD_HASH ]; then
-    echo "Local branch is not in sync with origin/master.  Fix and run this script again."
+    echo "Local branch is not in sync with ${UPSTREAM}/master.  Fix and run this script again."
     exit 1
 fi
 
@@ -48,7 +49,7 @@ mvn clean -U release:prepare -P release \
                     -Dtag=V${RELEASE_VERSION} | tee prepare.log || exit
 
 # push prepared changes (doing separate just to have control)
-git push origin master --tags
+git push ${UPSREAM} master --tags
 
 # perform release
 mvn release:perform -P release | tee release.log || exit
@@ -57,7 +58,7 @@ mvn release:perform -P release | tee release.log || exit
 mvn versions:use-latest-snapshots versions:update-properties -DallowSnapshots=true -Dincludes=com.redhat.lightblue:*,$INCLUDES_DEPS -Dexcludes=$EXCLUDES_DEPS
 git add pom.xml **/pom.xml
 git commit -m "Updated to latest snapshot dependencies"
-git push origin master
+git push ${UPSTREAM} master
 
 # deploy updated snapshots
 mvn clean deploy | tee deploy.log
