@@ -19,22 +19,33 @@
 package com.redhat.lightblue.mongo.crud;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-import com.redhat.lightblue.crud.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.mongodb.BasicDBObject;
+import com.mongodb.BulkWriteError;
+import com.mongodb.BulkWriteException;
+import com.mongodb.BulkWriteOperation;
+import com.mongodb.BulkWriteResult;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
-import com.mongodb.WriteResult;
-import com.redhat.lightblue.interceptor.InterceptPoint;
+import com.mongodb.WriteConcern;
+import com.redhat.lightblue.crud.CRUDOperation;
+import com.redhat.lightblue.crud.CRUDOperationContext;
+import com.redhat.lightblue.crud.CRUDUpdateResponse;
+import com.redhat.lightblue.crud.ConstraintValidator;
+import com.redhat.lightblue.crud.CrudConstants;
+import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
+import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.PredefinedFields;
 import com.redhat.lightblue.util.Error;
@@ -48,6 +59,8 @@ public class IterateAndUpdate implements DocUpdater {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(IterateAndUpdate.class);
 
+    private final int batchSize;
+
     private final JsonNodeFactory nodeFactory;
     private final ConstraintValidator validator;
     private final FieldAccessRoleEvaluator roleEval;
@@ -55,6 +68,11 @@ public class IterateAndUpdate implements DocUpdater {
     private final Updater updater;
     private final Projector projector;
     private final Projector errorProjector;
+    private final WriteConcern writeConcern;
+
+
+    private final List<DocCtx> docUpdateAttempts = new ArrayList<>();
+    private final List<BulkWriteError> docUpdateErrors = new ArrayList<>();
 
     public IterateAndUpdate(JsonNodeFactory nodeFactory,
                             ConstraintValidator validator,
@@ -62,7 +80,8 @@ public class IterateAndUpdate implements DocUpdater {
                             Translator translator,
                             Updater updater,
                             Projector projector,
-                            Projector errorProjector) {
+                            Projector errorProjector,
+                            WriteConcern writeConcern, int batchSize) {
         this.nodeFactory = nodeFactory;
         this.validator = validator;
         this.roleEval = roleEval;
@@ -70,6 +89,8 @@ public class IterateAndUpdate implements DocUpdater {
         this.updater = updater;
         this.projector = projector;
         this.errorProjector = errorProjector;
+        this.writeConcern = writeConcern;
+        this.batchSize = batchSize;
     }
 
     @Override
@@ -82,8 +103,8 @@ public class IterateAndUpdate implements DocUpdater {
         LOGGER.debug("Computing the result set for {}", query);
         DBCursor cursor = null;
         int docIndex = 0;
+        int numMatched = 0;
         int numFailed = 0;
-        int numUpdated = 0;
         BsonMerge merge = new BsonMerge(md);
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
@@ -91,8 +112,11 @@ public class IterateAndUpdate implements DocUpdater {
             LOGGER.debug("Found {} documents", cursor.count());
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_RESULTSET, ctx);
             // read-update-write
+            BulkWriteOperation bwo = collection.initializeUnorderedBulkOperation();
+            int numUpdating = 0;
             while (cursor.hasNext()) {
                 DBObject document = cursor.next();
+                numMatched++;
                 boolean hasErrors = false;
                 LOGGER.debug("Retrieved doc {}", docIndex);
                 DocCtx doc = ctx.addDocument(translator.toJson(document));
@@ -135,11 +159,16 @@ public class IterateAndUpdate implements DocUpdater {
                             } catch (IOException e) {
                                 throw new RuntimeException("Error populating document: \n" + updatedObject);
                             }
-                            WriteResult result = collection.save(updatedObject);
-                            numUpdated++;
+
+                            bwo.find(new BasicDBObject("_id", document.get("_id"))).replaceOne(updatedObject);
+                            docUpdateAttempts.add(doc);
+                            numUpdating++;
+                            // update in batches
+                            if (numUpdating >= batchSize) {
+                                executeAndLogBulkErrors(bwo);
+                                numUpdating = 0;
+                            }
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
-                            LOGGER.debug("Number of rows affected : ", result.getN());
-                            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
                             doc.setUpdatedDocument(doc);
                         } catch (Exception e) {
                             LOGGER.warn("Update exception for document {}: {}", docIndex, e);
@@ -160,14 +189,58 @@ public class IterateAndUpdate implements DocUpdater {
                 }
                 docIndex++;
             }
+            // if we have any remaining items to update
+            if (numUpdating > 0) {
+                try {
+                    executeAndLogBulkErrors(bwo);
+                } catch (Exception e) {
+                    LOGGER.warn("Update exception for documents for query: {}", query.toString());
+                }
+            }
         } finally {
             if (cursor != null) {
                 cursor.close();
             }
         }
-        response.setNumUpdated(numUpdated);
-        response.setNumFailed(numFailed);
-        response.setNumMatched(docIndex);
+        handleBulkWriteError(docUpdateErrors, docUpdateAttempts);
+
+        ctx.getDocumentsWithoutErrors().stream().forEach(doc -> {
+            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
+        });
+
+        response.setNumUpdated(docUpdateAttempts.size() - docUpdateErrors.size());
+        // number failed is the number of update attempts that failed along with documents that failed pre-update
+        response.setNumFailed(docUpdateErrors.size() + numFailed);
+        response.setNumMatched(numMatched);
     }
 
+    private void handleBulkWriteError(List<BulkWriteError> errors, List<DocCtx> docs) {
+        for (BulkWriteError e : errors) {
+            DocCtx doc = docs.get(e.getIndex());
+            if (e.getCode() == 11000 || e.getCode() == 11001) {
+                doc.addError(Error.get("update", MongoCrudConstants.ERR_DUPLICATE, e.getMessage()));
+            } else {
+                doc.addError(Error.get("update", MongoCrudConstants.ERR_SAVE_ERROR, e.getMessage()));
+            }
+        }
+    }
+
+    private BulkWriteResult executeAndLogBulkErrors(BulkWriteOperation bwo) {
+        BulkWriteResult result = null;
+        try {
+            if (writeConcern == null) {
+                LOGGER.debug("Bulk updating docs");
+                result = bwo.execute();
+            } else {
+                LOGGER.debug("Bulk deleting docs with writeConcern={} from execution", writeConcern);
+                result = bwo.execute(writeConcern);
+            }
+        } catch (BulkWriteException e) {
+            BulkWriteException bwe = e;
+            result = bwe.getWriteResult();
+            LOGGER.warn("Bulk update operation contains errors", bwe);
+            docUpdateErrors.addAll(bwe.getWriteErrors());
+        }
+        return result;
+    }
 }

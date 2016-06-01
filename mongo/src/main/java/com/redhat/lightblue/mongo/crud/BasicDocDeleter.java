@@ -48,15 +48,16 @@ public class BasicDocDeleter implements DocDeleter {
     private static final Logger LOGGER = LoggerFactory.getLogger(BasicDocDeleter.class);
 
     // TODO: move this to a better place
-    public static final int batchSize = 64;
+    public final int batchSize;
 
     private final Translator translator;
     private final WriteConcern writeConcern;
 
-    public BasicDocDeleter(Translator translator, WriteConcern writeConcern) {
+    public BasicDocDeleter(Translator translator, WriteConcern writeConcern, int batchSize) {
         super();
         this.translator = translator;
         this.writeConcern = writeConcern;
+        this.batchSize = batchSize;
     }
 
     private final class DocInfo {
