@@ -21,6 +21,7 @@ package com.redhat.lightblue.mongo.crud;
 import static org.junit.Assert.assertEquals;
 import java.io.IOException;
 import java.util.Set;
+import java.util.ArrayList;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -116,6 +117,30 @@ public class TranslatorTest extends AbstractMongoCrudTest {
 
         BasicDBObject trans = (BasicDBObject) translator.translate(indexMd, queryExp);
         assertEquals(expected, trans);
+    }
+
+    @Test
+    public void translateIdQuery() throws IOException, ProcessingException {
+        String query = "{'field':'_id','op':'=','rvalue':'5446c74fe4b02251a5376918'}";
+        BasicDBObject expected = new BasicDBObject("_id",new BasicDBObject("$oid","5446c74fe4b02251a5376918"));
+
+        QueryExpression queryExp = QueryExpression.fromJson(JsonUtils.json(query.replace('\'', '\"')));
+        EntityMetadata md = getMd("./testMetadata.json");
+        BasicDBObject trans = (BasicDBObject) translator.translate(md, queryExp);
+        assertEquals(expected.toString(), trans.toString());
+    }
+
+    @Test
+    public void translateIdInQuery() throws IOException, ProcessingException {
+        String query = "{'field':'_id','op':'$in','values':['5446c74fe4b02251a5376918']}";
+        ArrayList l=new ArrayList();
+        l.add(new BasicDBObject("$oid","5446c74fe4b02251a5376918"));
+        BasicDBObject expected = new BasicDBObject("_id",new BasicDBObject("$in",l));
+
+        QueryExpression queryExp = QueryExpression.fromJson(JsonUtils.json(query.replace('\'', '\"')));
+        EntityMetadata md = getMd("./testMetadata.json");
+        BasicDBObject trans = (BasicDBObject) translator.translate(md, queryExp);
+        assertEquals(expected.toString(), trans.toString());
     }
 
     @Test

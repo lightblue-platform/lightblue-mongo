@@ -623,8 +623,10 @@ public class Translator {
 
     /**
      * Converts a value list to a list of values with the proper type
+     *
+     * @param idList If true, the list contains _ids
      */
-    private List<Object> translateValueList(Type t, List<Value> values) {
+    private List<Object> translateValueList(Type t, List<Value> values,boolean idList) {
         if (values == null || values.isEmpty()) {
             throw new IllegalArgumentException(MongoCrudConstants.ERR_EMPTY_VALUE_LIST);
         }
@@ -632,9 +634,11 @@ public class Translator {
         for (Value v : values) {
             Object value = v == null ? null : v.getValue();
             if (value != null) {
-                value = t.cast(value);
+                value = filterBigNumbers(t.cast(value));
+                if(idList)
+                    value=createIdFrom(value);
             }
-            ret.add(filterBigNumbers(value));
+            ret.add(value);
         }
         return ret;
     }
@@ -727,7 +731,7 @@ public class Translator {
     private DBObject translateNaryValueRelationalExpression(FieldTreeNode context, NaryValueRelationalExpression expr) {
         Type t = resolve(context, expr.getField()).getType();
         if (t.supportsEq()) {
-            List<Object> values = translateValueList(t, expr.getValues());
+            List<Object> values = translateValueList(t, expr.getValues(),expr.getField().equals(ID_PATH));
             return new BasicDBObject(translatePath(expr.getField()),
                     new BasicDBObject(NARY_RELATIONAL_OPERATOR_MAP.get(expr.getOp()),
                             values));
@@ -1109,7 +1113,7 @@ public class Translator {
     private DBObject translateArrayContainsAll(Type t, Path array, List<Value> values) {
         return new BasicDBObject(translatePath(array),
                 new BasicDBObject("$all",
-                        translateValueList(t, values)));
+                                  translateValueList(t, values,false)));
     }
 
     /**
