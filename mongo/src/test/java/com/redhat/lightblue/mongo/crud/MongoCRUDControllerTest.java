@@ -31,7 +31,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -946,6 +945,37 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         assertEquals(1, upd.getNumUpdated());
         assertEquals(20, upd.getNumMatched());
         assertEquals(19, upd.getNumFailed());
+    }
+
+    @Test
+    public void update_MultiBatch() throws Exception {
+        int batch = controller.getBatchSize() + 2;
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+
+        // Generate some docs
+        List<JsonDoc> docs = new ArrayList<>();
+        for (int i = 0; i < batch; i++) {
+            JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+            doc.modify(new Path("field1"), nodeFactory.textNode("doc" + i), false);
+            doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
+            docs.add(doc);
+        }
+        ctx.addDocuments(docs);
+        CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
+        try (DBCursor c = coll.find(null)) {
+            Assert.assertEquals(batch, c.count());
+        }
+        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+        ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
+        ctx.add(md);
+        CRUDUpdateResponse upd = controller.update(ctx, query("{'field':'field3','op':'>','rvalue':-1}"),
+                update("{ '$set': { 'field1' : '100' } }"),
+                projection("{'field':'_id'}"));
+        // just make sure all get inserted when we're multi batching.  difficult to spy from here
+        assertEquals(batch, upd.getNumUpdated());
+
     }
 
     @Test

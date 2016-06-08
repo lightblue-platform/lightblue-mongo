@@ -166,6 +166,7 @@ public class IterateAndUpdate implements DocUpdater {
                             // update in batches
                             if (numUpdating >= batchSize) {
                                 executeAndLogBulkErrors(bwo);
+                                bwo = collection.initializeUnorderedBulkOperation();
                                 numUpdating = 0;
                             }
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
