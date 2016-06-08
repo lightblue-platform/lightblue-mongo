@@ -149,6 +149,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         return dbResolver;
     }
 
+    public int getBatchSize() {
+        return batchSize;
+    }
+
     public ControllerConfiguration getControllerConfiguration() {
         return controllerCfg;
     }
