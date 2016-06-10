@@ -33,9 +33,7 @@ import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.mongo.crud.CannotTranslateException;
 import com.redhat.lightblue.mongo.crud.Translator;
 import com.redhat.lightblue.metadata.CompositeMetadata;
-import com.redhat.lightblue.query.QueryExpression;
-import com.redhat.lightblue.query.RegexMatchExpression;
-import com.redhat.lightblue.query.UpdateExpression;
+import com.redhat.lightblue.query.*;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.JsonUtils;
@@ -404,5 +402,31 @@ public class TranslatorTest extends AbstractMongoCrudTest {
         Assert.assertFalse(fields.contains(new Path("field7.*.elemf1.*")));
         Assert.assertTrue(fields.contains(new Path("field7.*.elemf2")));
         Assert.assertTrue(fields.contains(new Path("field7.*.elemf3")));
+    }
+
+    @Test
+    public void appendObjectTypeToNull() throws Exception {
+        QueryExpression  q=Translator.appendObjectType(null,"test");
+        assertObjectTypeQ(q);
+    }
+
+    @Test
+    public void appendObjectTypeToAnd() throws Exception {
+        QueryExpression  q=Translator.appendObjectType(query("{'$and':[{'field':'field1','op':'=','rvalue':'x'}]}"),"test");
+        assertObjectTypeQ( ((NaryLogicalExpression)q).getQueries().get(1));
+    }
+
+    @Test
+    public void appendObjectTypeToOr() throws Exception {
+        QueryExpression  q=Translator.appendObjectType(query("{'$or':[{'field':'field1','op':'=','rvalue':'x'}]}"),"test");
+        assertObjectTypeQ( ((NaryLogicalExpression)q).getQueries().get(1));
+    }
+
+    private void assertObjectTypeQ(QueryExpression q) {
+        Assert.assertNotNull(q);
+        Assert.assertTrue(q instanceof ValueComparisonExpression);
+        Assert.assertEquals("objectType",((ValueComparisonExpression)q).getField().toString());
+        Assert.assertEquals("test",((ValueComparisonExpression)q).getRvalue().getValue().toString());
+        Assert.assertEquals("$eq",((ValueComparisonExpression)q).getOp().toString());
     }
 }
