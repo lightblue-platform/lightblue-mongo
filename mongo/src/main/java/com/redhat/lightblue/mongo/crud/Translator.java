@@ -213,6 +213,23 @@ public class Translator {
     }
 
     /**
+     * Appends objectType:X to the query
+     */
+    public static QueryExpression appendObjectType(QueryExpression q,String entityName) {
+        QueryExpression ot=new ValueComparisonExpression(OBJECT_TYPE,BinaryComparisonOperator._eq,new Value(entityName));
+        if(q==null) {
+            return ot;
+        } if(q instanceof NaryLogicalExpression &&
+             ((NaryLogicalExpression)q).getOp()==NaryLogicalOperator._and) {
+            List<QueryExpression> l=new ArrayList<>(((NaryLogicalExpression)q).getQueries());
+            l.add(ot);
+            return new NaryLogicalExpression(NaryLogicalOperator._and,l);
+        } else {
+            return new NaryLogicalExpression(NaryLogicalOperator._and,q,ot);
+        }
+    }
+
+    /**
      * Translates a list of JSON documents to DBObjects. Translation is metadata
      * driven.
      */

@@ -281,7 +281,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             if (md.getAccess().getUpdate().hasAccess(ctx.getCallerRoles())) {
                 ConstraintValidator validator = ctx.getFactory().getConstraintValidator(md);
                 LOGGER.debug("Translating query {}", query);
-                DBObject mongoQuery = translator.translate(md, query);
+                DBObject mongoQuery = translator.translate(md, Translator.appendObjectType(query,ctx.getEntityName()));
                 LOGGER.debug("Translated query {}", mongoQuery);
                 FieldAccessRoleEvaluator roleEval = new FieldAccessRoleEvaluator(md, ctx.getCallerRoles());
 
@@ -340,7 +340,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
             if (md.getAccess().getDelete().hasAccess(ctx.getCallerRoles())) {
                 LOGGER.debug("Translating query {}", query);
-                DBObject mongoQuery = translator.translate(md, query);
+                DBObject mongoQuery = translator.translate(md, Translator.appendObjectType(query,ctx.getEntityName()));
                 LOGGER.debug("Translated query {}", mongoQuery);
                 DB db = dbResolver.get((MongoDataStore) md.getDataStore());
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
@@ -409,7 +409,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             if (md.getAccess().getFind().hasAccess(ctx.getCallerRoles())) {
                 FieldAccessRoleEvaluator roleEval = new FieldAccessRoleEvaluator(md, ctx.getCallerRoles());
                 LOGGER.debug("Translating query {}", query);
-                DBObject mongoQuery = query == null ? null : translator.translate(md, query);
+                DBObject mongoQuery = translator.translate(md, Translator.appendObjectType(query,ctx.getEntityName()));
                 LOGGER.debug("Translated query {}", mongoQuery);
                 DBObject mongoSort;
                 if (sort != null) {
@@ -472,7 +472,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
             FieldAccessRoleEvaluator roleEval = new FieldAccessRoleEvaluator(md, ctx.getCallerRoles());
             LOGGER.debug("Translating query {}", query);
-            DBObject mongoQuery = query == null ? null : translator.translate(md, query);
+            DBObject mongoQuery = translator.translate(md, Translator.appendObjectType(query,ctx.getEntityName()));
             LOGGER.debug("Translated query {}", mongoQuery);
             DBObject mongoProjection = translator.translateProjection(md, getProjectionFields(projection, md), query, sort);
             LOGGER.debug("Translated projection {}", mongoProjection);
@@ -1005,7 +1005,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private Error analyzeException(Exception e, final String otherwise) {
         return analyzeException(e, otherwise, null, false);
     }
-
+    
     private Error analyzeException(Exception e, final String otherwise, final String msg, boolean specialHandling) {
         if (e instanceof Error) {
             return (Error) e;
