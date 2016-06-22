@@ -644,18 +644,17 @@ public class Translator {
      * @param idList If true, the list contains _ids
      */
     private List<Object> translateValueList(Type t, List<Value> values,boolean idList) {
-        if (values == null || values.isEmpty()) {
-            throw new IllegalArgumentException(MongoCrudConstants.ERR_EMPTY_VALUE_LIST);
-        }
-        List<Object> ret = new ArrayList<>(values.size());
-        for (Value v : values) {
-            Object value = v == null ? null : v.getValue();
-            if (value != null) {
-                value = filterBigNumbers(t.cast(value));
-                if(idList)
-                    value=createIdFrom(value);
+       List<Object> ret = new ArrayList<>(values==null?0:values.size());
+        if(values!=null) {
+            for (Value v : values) {
+                Object value = v == null ? null : v.getValue();
+                if (value != null) {
+                    value = filterBigNumbers(t.cast(value));
+                    if(idList)
+                        value=createIdFrom(value);
+                }
+                ret.add(value);
             }
-            ret.add(value);
         }
         return ret;
     }

@@ -105,16 +105,20 @@ public abstract class AbstractMongoCrudTest extends AbstractJsonSchemaTest {
         return JsonUtils.json(s.replace('\'', '\"'));
     }
 
-    public EntityMetadata getMd(String fname) throws IOException, ProcessingException {
+    public EntityMetadata getMd(String fname)  {
         //runValidJsonTest("json-schema/metadata/metadata.json", fname);
-        JsonNode node = loadJsonNode(fname);
-        Extensions<JsonNode> extensions = new Extensions<>();
-        extensions.addDefaultExtensions();
-        extensions.registerDataStoreParser("mongo", new MongoDataStoreParser<JsonNode>());
-        TypeResolver resolver = new DefaultTypes();
-        JSONMetadataParser parser = new JSONMetadataParser(extensions, resolver, nodeFactory);
-        EntityMetadata md = parser.parseEntityMetadata(node);
-        PredefinedFields.ensurePredefinedFields(md);
-        return md;
+        try {
+            JsonNode node = loadJsonNode(fname);
+            Extensions<JsonNode> extensions = new Extensions<>();
+            extensions.addDefaultExtensions();
+            extensions.registerDataStoreParser("mongo", new MongoDataStoreParser<JsonNode>());
+            TypeResolver resolver = new DefaultTypes();
+            JSONMetadataParser parser = new JSONMetadataParser(extensions, resolver, nodeFactory);
+            EntityMetadata md = parser.parseEntityMetadata(node);
+            PredefinedFields.ensurePredefinedFields(md);
+            return md;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }
