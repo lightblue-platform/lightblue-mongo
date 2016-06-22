@@ -644,7 +644,7 @@ public class Translator {
      * @param idList If true, the list contains _ids
      */
     private List<Object> translateValueList(Type t, List<Value> values,boolean idList) {
-        List<Object> ret = new ArrayList<>(values==null?0:values.size());
+       List<Object> ret = new ArrayList<>(values==null?0:values.size());
         if(values!=null) {
             for (Value v : values) {
                 Object value = v == null ? null : v.getValue();
