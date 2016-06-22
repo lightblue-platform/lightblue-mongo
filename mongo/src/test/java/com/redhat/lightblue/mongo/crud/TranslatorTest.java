@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import java.io.IOException;
 import java.util.Set;
 import java.util.ArrayList;
+import java.util.List;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -420,6 +421,14 @@ public class TranslatorTest extends AbstractMongoCrudTest {
     public void appendObjectTypeToOr() throws Exception {
         QueryExpression  q=Translator.appendObjectType(query("{'$or':[{'field':'field1','op':'=','rvalue':'x'}]}"),"test");
         assertObjectTypeQ( ((NaryLogicalExpression)q).getQueries().get(1));
+    }
+
+    @Test
+    public void translateEmptyArray() throws Exception {
+        String query="{'field':'_id','op':'$in','values':[]}";
+        QueryExpression q= QueryExpression.fromJson(JsonUtils.json(query.replace('\'', '\"')));
+        DBObject obj=translator.translate(md,q);
+        Assert.assertEquals(0,((List) ((DBObject)obj.get("_id")).get("$in")).size());
     }
 
     private void assertObjectTypeQ(QueryExpression q) {
