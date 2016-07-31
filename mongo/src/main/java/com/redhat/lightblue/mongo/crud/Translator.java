@@ -302,7 +302,7 @@ public class Translator {
                 trc = ((DBObject) trc).get(segment);
             }
             if (trc == null && seg + 1 < n) {
-                LOGGER.warn(Error.get(MongoCrudConstants.ERR_TRANSLATION_ERROR, p.toString()).toString());
+                //At least one element in the Path is optional and does not exist in the document. Just return null.
                 LOGGER.debug("Error retrieving path {} with {} segments from {}", p, p.numSegments(), start);
                 return null;
             }
