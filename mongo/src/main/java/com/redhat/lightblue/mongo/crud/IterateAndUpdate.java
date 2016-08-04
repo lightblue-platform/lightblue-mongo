@@ -155,7 +155,7 @@ public class IterateAndUpdate implements DocUpdater {
                             DBObject updatedObject = translator.toBson(doc);
                             merge.merge(document, updatedObject);
                             try {
-                                Translator.populateDocHiddenFields(updatedObject, md);
+                                Translator.populateCaseInsensitiveHiddenFields(updatedObject, md);
                             } catch (IOException e) {
                                 throw new RuntimeException("Error populating document: \n" + updatedObject);
                             }

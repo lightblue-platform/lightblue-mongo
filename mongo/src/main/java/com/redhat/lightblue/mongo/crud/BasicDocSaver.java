@@ -222,7 +222,7 @@ public class BasicDocSaver implements DocSaver {
                     LOGGER.debug("Inaccessible fields:{}", paths);
                     if (paths == null || paths.isEmpty()) {
                         try {
-                            Translator.populateDocHiddenFields(doc.newDoc, md);
+                            Translator.populateCaseInsensitiveHiddenFields(doc.newDoc, md);
                             insertionAttemptList.add(doc);
                         } catch (IOException e) {
                             doc.inputDoc.addError(Error.get("insert", MongoCrudConstants.ERR_TRANSLATION_ERROR, e));
@@ -288,7 +288,7 @@ public class BasicDocSaver implements DocSaver {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc.inputDoc);
                             merge.merge(doc.oldDoc, doc.newDoc);
-                            Translator.populateDocHiddenFields(doc.newDoc, md);
+                            Translator.populateCaseInsensitiveHiddenFields(doc.newDoc, md);
                             updateAttemptList.add(doc);
                         } catch (Exception e) {
                             doc.inputDoc.addError(Error.get("update", MongoCrudConstants.ERR_TRANSLATION_ERROR, e));

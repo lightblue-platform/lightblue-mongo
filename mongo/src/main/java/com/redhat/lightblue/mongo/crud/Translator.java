@@ -756,17 +756,17 @@ public class Translator {
         }
     }
 
-    public static void populateDocHiddenFields(DBObject doc, EntityMetadata md) throws IOException {
+    public static void populateCaseInsensitiveHiddenFields(DBObject doc, EntityMetadata md) throws IOException {
         Stream<IndexSortKey> ciIndexes = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes());
         Map<String, String> fieldMap = new HashMap<>();
         ciIndexes.forEach(i -> {
             String hidden = Translator.getHiddenForField(i.getField()).toString();
             fieldMap.put(i.getField().toString(), hidden);
         });
-        populateDocHiddenFields(doc, fieldMap);
+        populateCaseInsensitiveHiddenFields(doc, fieldMap);
     }
 
-    public static void populateDocHiddenFields(DBObject doc, Map<String, String> fieldMap) throws IOException {
+    public static void populateCaseInsensitiveHiddenFields(DBObject doc, Map<String, String> fieldMap) throws IOException {
         for (String index : fieldMap.keySet()) {
             int arrIndex = index.indexOf("*");
             if (arrIndex > -1) {

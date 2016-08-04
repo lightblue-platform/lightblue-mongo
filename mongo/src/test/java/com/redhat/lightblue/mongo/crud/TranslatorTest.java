@@ -80,7 +80,7 @@ public class TranslatorTest extends AbstractMongoCrudTest {
                 .put("field2", "testField2");
 
         DBObject bson = translator.toBson(new JsonDoc(obj));
-        Translator.populateDocHiddenFields(bson, md);
+        Translator.populateCaseInsensitiveHiddenFields(bson, md);
 
         DBObject hidden = (DBObject) bson.get(Translator.HIDDEN_SUB_PATH.toString());
 
