@@ -52,6 +52,8 @@ public final class MongoCrudConstants {
     public static final String ERR_TOO_MANY_RESULTS = "mongo-crud:TooManyResults";
     public static final String ERR_RESERVED_FIELD = "mongo-crud:ReservedFieldInMetadata";
 
+    public static final String ERR_CONCURRENT_MODIFICATION = "mongo:crud:ConcurrentModification";
+    
     private MongoCrudConstants() {
 
     }

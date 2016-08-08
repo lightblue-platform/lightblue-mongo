@@ -26,6 +26,8 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.bson.types.ObjectId;
+
 import com.mongodb.BasicDBObject;
 import com.mongodb.BulkWriteError;
 import com.mongodb.BulkWriteException;
@@ -63,6 +65,7 @@ public class BasicDocSaver implements DocSaver {
     private final Field[] idFields;
     private final Path[] idPaths;
     private final String[] mongoIdFields;
+    private final String txid=ObjectId.get().toString();
 
     /**
      * Creates a doc saver with the given translator and role evaluator
@@ -223,6 +226,7 @@ public class BasicDocSaver implements DocSaver {
                     if (paths == null || paths.isEmpty()) {
                         try {
                             Translator.populateCaseInsensitiveHiddenFields(doc.newDoc, md);
+                            Translator.setDocVersion(doc.newDoc,txid);
                             insertionAttemptList.add(doc);
                         } catch (IOException e) {
                             doc.inputDoc.addError(Error.get("insert", MongoCrudConstants.ERR_TRANSLATION_ERROR, e));
@@ -251,7 +255,8 @@ public class BasicDocSaver implements DocSaver {
                         }
                     } catch (BulkWriteException bwe) {
                         LOGGER.error("Bulk write exception", bwe);
-                        handleBulkWriteError(bwe.getWriteErrors(), "insert", insertionAttemptList);
+                        BulkUpdateCtx.
+                            handleBulkWriteError(bwe.getWriteErrors(), "insert", (int i)->insertionAttemptList.get(i).inputDoc);
                     } catch (RuntimeException e) {
                         LOGGER.error("Exception", e);
                         throw e;
@@ -278,8 +283,8 @@ public class BasicDocSaver implements DocSaver {
                             CrudConstants.ERR_NO_ACCESS, "update:" + md.getName()));
                 }
             } else {
-                List<DocInfo> updateAttemptList = new ArrayList<>(list.size());
                 BsonMerge merge = new BsonMerge(md);
+                List<DocInfo> updateAttemptList=new ArrayList<>(list.size());
                 for (DocInfo doc : list) {
                     JsonDoc oldDoc = translator.toJson(doc.oldDoc);
                     doc.inputDoc.setOriginalDocument(oldDoc);
@@ -295,48 +300,24 @@ public class BasicDocSaver implements DocSaver {
                         }
                     } else {
                         doc.inputDoc.addError(Error.get("update",
-                                CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
+                                                        CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
                     }
                 }
                 LOGGER.debug("After checks and merge, updating {} docs", updateAttemptList.size());
                 if (!updateAttemptList.isEmpty()) {
-                    BulkWriteOperation bw = collection.initializeUnorderedBulkOperation();
+                    BulkUpdateCtx updateCtx=new BulkUpdateCtx();
+                    updateCtx.reset(collection);
                     for (DocInfo doc : updateAttemptList) {
-                        bw.find(new BasicDBObject("_id", doc.oldDoc.get("_id"))).replaceOne(doc.newDoc);
-                        doc.inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
+                        BulkUpdateCtx.UpdateDoc updateDoc=new BulkUpdateCtx.UpdateDoc(doc.oldDoc,doc.inputDoc);
+                        updateCtx.addDoc(updateDoc,doc.newDoc);
                     }
-                    try {
-                        if (writeConcern == null) {
-                            LOGGER.debug("Bulk updating docs");
-                            bw.execute();
-                        }
-                        else {
-                            LOGGER.debug("Bulk updating docs with writeConcern={} from execution", writeConcern);
-                            bw.execute(writeConcern);
-                        }
-                    } catch (BulkWriteException bwe) {
-                        LOGGER.error("Bulk write exception", bwe);
-                        handleBulkWriteError(bwe.getWriteErrors(), "update", updateAttemptList);
-                    } catch (RuntimeException e) {
-                    } finally {
-                        for (DocInfo doc : updateAttemptList) {
-                            if (!doc.inputDoc.hasErrors()) {
-                                ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc.inputDoc);
-                            }
+                    updateCtx.execute(collection,writeConcern);
+                    for (DocInfo doc : updateAttemptList) {
+                        if (!doc.inputDoc.hasErrors()) {
+                            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc.inputDoc);
                         }
                     }
                 }
-            }
-        }
-    }
-
-    private void handleBulkWriteError(List<BulkWriteError> errors, String operation, List<DocInfo> docs) {
-        for (BulkWriteError e : errors) {
-            DocInfo doc = docs.get(e.getIndex());
-            if (e.getCode() == 11000 || e.getCode() == 11001) {
-                doc.inputDoc.addError(Error.get("update", MongoCrudConstants.ERR_DUPLICATE, e.getMessage()));
-            } else {
-                doc.inputDoc.addError(Error.get("update", MongoCrudConstants.ERR_SAVE_ERROR, e.getMessage()));
             }
         }
     }
