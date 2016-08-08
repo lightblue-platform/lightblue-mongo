@@ -44,11 +44,20 @@ import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.util.Error;
 
 /**
- * Helper class to facilitate bulk updates
+ * Helper class to facilitate safe bulk updates
  *
  * Call reset before the bulk update operation. Then use addDoc to add
  * documents to the bulk update operation, Once there is enough number
- * of docs, call execute to update, and then reset to restart.
+ * of docs, call execute to update, which also resets the bulk operation.
+ *
+ * This class implements a timestamping scheme to prevent concurrent
+ * updates. Each document has a unique @docver variable. When we read
+ * the doc, this class saves that @docver value (which can be null),
+ * and updates only those documents whose @docver is the same. During
+ * the update, it also updates the @docver to a different value. Any
+ * documents that are missed are the documents modified by someone
+ * else after it is read by this instance, so those documents are
+ * marked with concurrent modification errors.
  */
 public class BulkUpdateCtx {
     
