@@ -169,7 +169,7 @@ public class BulkUpdateCtx {
         DocCtx getCtx(int index);
     }
     
-    public static <T> void handleBulkWriteError(List<BulkWriteError> errors,String op,GetCB cb) {
+    public static void handleBulkWriteError(List<BulkWriteError> errors,String op,GetCB cb) {
         for (BulkWriteError e : errors) {
             cb.getCtx(e.getIndex()).addError(getError(e,op));
         }
