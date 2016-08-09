@@ -105,14 +105,13 @@ public class IterateAndUpdate implements DocUpdater {
         int numMatched = 0;
         int numFailed = 0;
         BsonMerge merge = new BsonMerge(md);
-        BulkUpdateCtx bulkCtx=new BulkUpdateCtx();
+        BulkUpdateCtx bulkCtx=new BulkUpdateCtx(collection);
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
             cursor = collection.find(query, null);
             LOGGER.debug("Found {} documents", cursor.count());
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_RESULTSET, ctx);
             // read-update-write
-            bulkCtx.reset(collection);
             
             while (cursor.hasNext()) {
                 numMatched++;
@@ -161,12 +160,12 @@ public class IterateAndUpdate implements DocUpdater {
                             } catch (IOException e) {
                                 throw new RuntimeException("Error populating document: \n" + updatedObject);
                             }
-                            Translator.setDocVersion(updatedObject,bulkCtx.txid);
+                            Translator.setDocVersion(updatedObject,bulkCtx.newDocver);
 
                             bulkCtx.addDoc(doc,updatedObject);
                             // update in batches
                             if (bulkCtx.updateDocs.size() >= batchSize) {
-                                bulkCtx.execute(collection,writeConcern);
+                                bulkCtx.execute(writeConcern);
                             }
                         } catch (Exception e) {
                             LOGGER.warn("Update exception for document {}: {}", docIndex, e);
@@ -190,7 +189,7 @@ public class IterateAndUpdate implements DocUpdater {
             // if we have any remaining items to update
             if (!bulkCtx.updateDocs.isEmpty()) {
                 try {
-                    bulkCtx.execute(collection,writeConcern);
+                    bulkCtx.execute(writeConcern);
                 } catch (Exception e) {
                     LOGGER.warn("Update exception for documents for query: {}", query.toString());
                 }

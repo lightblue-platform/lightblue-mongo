@@ -72,7 +72,7 @@ public class BulkUpdateCtx {
         /**
          * The docver field read from the doc, coul dbe null
          */
-        final String docTxId;
+        final String docver;
         /**
          * The old mongo document
          */
@@ -83,7 +83,7 @@ public class BulkUpdateCtx {
                          DocCtx docCtx) {
             this.oldMongoDocument=mongoDocument;
             this.docCtx=docCtx;
-            docTxId=Translator.getDocVersion(oldMongoDocument);
+            docver=Translator.getDocVersion(oldMongoDocument);
             id=oldMongoDocument.get(Translator.ID_STR);
         }
     }
@@ -92,34 +92,41 @@ public class BulkUpdateCtx {
     /**
      * The new docver value
      */
-    String txid;
+    String newDocver;
     /**
      * Map of _id -> docver
      */
-    Map<Object,String> docIdTxIdMap;
+    Map<Object,String> docIdDocVerMap;
     List<UpdateDoc> updateDocs;
     int numUpdated;
     int numErrors;
+
+    private final DBCollection collection;
+
+    public BulkUpdateCtx(DBCollection collection) {
+        this.collection=collection;
+        reset();
+    }
     
-    public void reset(DBCollection collection) {
+    private void reset() {
         bwo=collection.initializeUnorderedBulkOperation();
-        txid=ObjectId.get().toString();
-        docIdTxIdMap=new HashMap<>();
+        newDocver=ObjectId.get().toString();
+        docIdDocVerMap=new HashMap<>();
         updateDocs=new ArrayList<>();
     }
     
     public void addDoc(UpdateDoc doc,DBObject replaceDoc) {
         bwo.find(new BasicDBObject("_id", doc.id).
-                 append(Translator.DOC_VERSION_FULLPATH_STR,doc.docTxId)).
+                 append(Translator.DOC_VERSION_FULLPATH_STR,doc.docver)).
             replaceOne(replaceDoc);
         updateDocs.add(doc);
-        docIdTxIdMap.put(doc.id,doc.docTxId);
+        docIdDocVerMap.put(doc.id,doc.docver);
         doc.docCtx.setCRUDOperationPerformed(CRUDOperation.UPDATE);
         doc.docCtx.setUpdatedDocument(doc.docCtx);
     }
     
     private void checkConcurrentModifications(DBCollection collection) {
-        Set<Object> failedIds=Utils.checkFailedUpdates(collection,txid,docIdTxIdMap);
+        Set<Object> failedIds=Utils.checkFailedUpdates(collection,newDocver,docIdDocVerMap);
         for(Object id:failedIds) {
             for(UpdateDoc doc:updateDocs) {
                 if(doc.id.equals(id)&&!doc.docCtx.hasErrors()) {
@@ -130,7 +137,7 @@ public class BulkUpdateCtx {
         }
     }
     
-    public void execute(DBCollection collection,WriteConcern writeConcern) {
+    public void execute(WriteConcern writeConcern) {
         try {
             BulkWriteResult result;
             if (writeConcern == null) {
@@ -155,7 +162,7 @@ public class BulkUpdateCtx {
         for(UpdateDoc doc:updateDocs)
             if(doc.docCtx.hasErrors())
                 numErrors++;
-        reset(collection);
+        reset();
     }
 
     public interface GetCB {

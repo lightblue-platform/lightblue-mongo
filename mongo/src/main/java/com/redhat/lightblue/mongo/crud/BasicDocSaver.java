@@ -65,7 +65,7 @@ public class BasicDocSaver implements DocSaver {
     private final Field[] idFields;
     private final Path[] idPaths;
     private final String[] mongoIdFields;
-    private final String txid=ObjectId.get().toString();
+    private final String newDocver=ObjectId.get().toString();
 
     /**
      * Creates a doc saver with the given translator and role evaluator
@@ -226,7 +226,7 @@ public class BasicDocSaver implements DocSaver {
                     if (paths == null || paths.isEmpty()) {
                         try {
                             Translator.populateCaseInsensitiveHiddenFields(doc.newDoc, md);
-                            Translator.setDocVersion(doc.newDoc,txid);
+                            Translator.setDocVersion(doc.newDoc,newDocver);
                             insertionAttemptList.add(doc);
                         } catch (IOException e) {
                             doc.inputDoc.addError(Error.get("insert", MongoCrudConstants.ERR_TRANSLATION_ERROR, e));
@@ -305,13 +305,12 @@ public class BasicDocSaver implements DocSaver {
                 }
                 LOGGER.debug("After checks and merge, updating {} docs", updateAttemptList.size());
                 if (!updateAttemptList.isEmpty()) {
-                    BulkUpdateCtx updateCtx=new BulkUpdateCtx();
-                    updateCtx.reset(collection);
+                    BulkUpdateCtx updateCtx=new BulkUpdateCtx(collection);
                     for (DocInfo doc : updateAttemptList) {
                         BulkUpdateCtx.UpdateDoc updateDoc=new BulkUpdateCtx.UpdateDoc(doc.oldDoc,doc.inputDoc);
                         updateCtx.addDoc(updateDoc,doc.newDoc);
                     }
-                    updateCtx.execute(collection,writeConcern);
+                    updateCtx.execute(writeConcern);
                     for (DocInfo doc : updateAttemptList) {
                         if (!doc.inputDoc.hasErrors()) {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc.inputDoc);
