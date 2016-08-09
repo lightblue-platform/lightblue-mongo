@@ -33,24 +33,24 @@ public final class Utils {
      * Returns the _ids of documents that are failed to be updated
      *
      * @param collection The DB collection
-     * @param currentTxId The txid of the current operation. The
+     * @param currentDocVer The docver of the current operation. The
      * docversion field of all docs are set to this value for the
      * current operation
-     * @param idToTxIdMap A mapping of doc _id to the old transaction
+     * @param idToDocVerMap A mapping of doc _id to the old transaction
      * id of the document
      *
-     * @return A set of _ids whose `document version is not equal to currentTxId
+     * @return A set of _ids whose `document version is not equal to currentDocVer
      */
     public static Set<Object> checkFailedUpdates(DBCollection collection,
-                                                 String currentTxId,
-                                                 Map<Object,String> idToTxIdMap) {
-        // We would like to find all _id:currentTxId documents. Those
+                                                 String currentDocVer,
+                                                 Map<Object,String> idToDocVerMap) {
+        // We would like to find all _id:currentDocVer documents. Those
         // that are missing, i.e. not in the resultset, are the docs
         // that are modified during or after our update operation
         DBCursor cursor=null;
         try {
-            Set<Object> keys=idToTxIdMap.keySet();
-            cursor=collection.find(new BasicDBObject(Translator.DOC_VERSION_FULLPATH_STR,currentTxId).
+            Set<Object> keys=idToDocVerMap.keySet();
+            cursor=collection.find(new BasicDBObject(Translator.DOC_VERSION_FULLPATH_STR,currentDocVer).
                                    append(Translator.ID_STR,new BasicDBObject("$in",new ArrayList<>(keys))),
                                    new BasicDBObject(Translator.ID_STR,1)); 
             Set<Object> failedIds=new HashSet<>(keys);
