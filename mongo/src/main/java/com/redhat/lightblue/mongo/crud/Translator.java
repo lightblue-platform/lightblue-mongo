@@ -756,6 +756,12 @@ public class Translator {
         }
     }
 
+    /**
+     *
+     * @param doc
+     * @param md
+     * @throws IOException
+     */
     public static void populateDocHiddenFields(DBObject doc, EntityMetadata md) throws IOException {
         Stream<IndexSortKey> ciIndexes = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes());
         Map<String, String> fieldMap = new HashMap<>();
@@ -766,6 +772,12 @@ public class Translator {
         populateDocHiddenFields(doc, fieldMap);
     }
 
+    /**
+     *
+     * @param doc
+     * @param fieldMap <field, hiddenCounterpart>
+     * @throws IOException
+     */
     public static void populateDocHiddenFields(DBObject doc, Map<String, String> fieldMap) throws IOException {
         for (String index : fieldMap.keySet()) {
             int arrIndex = index.indexOf("*");
@@ -781,16 +793,14 @@ public class Translator {
                             + "Document being populated: \n{}", fieldMap.get(index), index, doc);
                     throw e;
                 }
-                if (dbObject != null) {
-                    ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
-                    LOGGER.debug("Adding field '" + fieldMap.get(index) + "' to document with value " + dbObject.toString().toUpperCase());
-                    JsonDoc.modify(arrNode, new Path(fieldMap.get(index)), JsonNodeFactory.instance.textNode(dbObject.toString().toUpperCase()), true);
-                    ObjectMapper mapper = new ObjectMapper();
-                    JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
-                    DBObject obj = (DBObject) JSON.parse(merged.toString());
-                    ((BasicDBObject) doc).clear();
-                    ((BasicDBObject) doc).putAll(obj);
+                DBObject currentDbo = doc;
+                Path path = new Path(index);
+                for(int i = 0; i < path.numSegments() - 1; i++){
+                    // recurse down the obj tree and get the last obj (not last field)
+                    currentDbo = (DBObject) currentDbo.get(path.head(i));
                 }
+                // given the last basic object, populate its hidden field
+                currentDbo.put(HIDDEN_SUB_PATH.toString(), new BasicDBObject(path.getLast(), currentDbo.get(path.getLast())));
             }
         }
     }
@@ -1470,7 +1480,7 @@ public class Translator {
         }
         return node;
     }
-    
+
     public static ObjectNode rawObjectToJson(DBObject obj) {
         ObjectNode ret=JsonNodeFactory.instance.objectNode();
         for(String key:obj.keySet()) {
