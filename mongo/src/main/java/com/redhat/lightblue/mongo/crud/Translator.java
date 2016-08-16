@@ -787,19 +787,21 @@ public class Translator {
             } else {
                 DBObject currentDbo = doc;
                 Path path = new Path(index);
-                for(int i = 0; i < path.numSegments() - 1; i++){
+                for (int i = 0; i < path.numSegments() - 1; i++) {
                     // recurse down the obj tree and
                     currentDbo = (DBObject) currentDbo.get(path.head(i));
                 }
                 // given the last basic object, populate its hidden field
                 String val = (String) currentDbo.get(path.getLast());
+                DBObject hidden = (DBObject) currentDbo.get(HIDDEN_SUB_PATH.toString());
                 if (val != null) {
-                    DBObject hidden = (DBObject) currentDbo.get(HIDDEN_SUB_PATH.toString());
                     if (hidden == null) {
                         currentDbo.put(HIDDEN_SUB_PATH.toString(), new BasicDBObject(path.getLast(), val.toUpperCase()));
                     } else {
                         hidden.put(path.getLast(), val.toUpperCase());
                     }
+                } else if (val == null && hidden != null) {
+                    currentDbo.removeField(HIDDEN_SUB_PATH.toString());
                 }
             }
         }
