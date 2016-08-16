@@ -801,8 +801,8 @@ public class Translator {
                         hidden.put(path.getLast(), val.toUpperCase());
                     }
                 } else if (val == null && hidden != null) {
-                    Path hiddenFieldPath = HIDDEN_SUB_PATH.add(new Path(path.getLast()));
-                    currentDbo.removeField(hiddenFieldPath.toString());
+                    Path suffix = new Path(fieldMap.get(index)).suffix(2);
+                    currentDbo.removeField(suffix.toString());
                 }
             }
         }
