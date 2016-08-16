@@ -108,8 +108,12 @@ public class Translator {
     public static final String OBJECT_TYPE_STR = "objectType";
     public static final Path OBJECT_TYPE = new Path(OBJECT_TYPE_STR);
 
-    public static final Path ID_PATH = new Path("_id");
-    public static final Path HIDDEN_SUB_PATH = new Path("@mongoHidden");
+    public static final String ID_STR="_id";
+    public static final Path ID_PATH = new Path(ID_STR);
+    public static final String HIDDEN_SUB_PATH_STR = "@mongoHidden";
+    public static final Path HIDDEN_SUB_PATH = new Path(HIDDEN_SUB_PATH_STR);
+    public static final String DOC_VERSION_STR = "@docver";
+    public static final String DOC_VERSION_FULLPATH_STR=HIDDEN_SUB_PATH_STR+"."+DOC_VERSION_STR;
 
     public static final String ERR_NO_OBJECT_TYPE = "mongo-translation:no-object-type";
     public static final String ERR_INVALID_OBJECTTYPE = "mongo-translation:invalid-object-type";
@@ -718,6 +722,29 @@ public class Translator {
     }
 
     /**
+     * Returns the document version field if there is one
+     */
+    public static String getDocVersion(DBObject doc) {
+        DBObject obj=(DBObject)doc.get(HIDDEN_SUB_PATH_STR);
+        if(obj!=null) {
+            return (String)obj.get(DOC_VERSION_STR);
+        }
+        return null;
+    }
+
+    /**
+     * Sets the document version field
+     */
+    public static void setDocVersion(DBObject doc,String version) {
+        DBObject obj=(DBObject)doc.get(HIDDEN_SUB_PATH_STR);
+        if(obj==null) {
+            obj=new BasicDBObject();
+            doc.put(HIDDEN_SUB_PATH_STR,obj);
+        }
+        obj.put(DOC_VERSION_STR,version);
+    }
+
+    /**
      * Get a reference to the path's hidden sub-field.
      *
      * This does not guarantee the sub-path exists.
@@ -756,17 +783,17 @@ public class Translator {
         }
     }
 
-    public static void populateDocHiddenFields(DBObject doc, EntityMetadata md) throws IOException {
+    public static void populateCaseInsensitiveHiddenFields(DBObject doc, EntityMetadata md) throws IOException {
         Stream<IndexSortKey> ciIndexes = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes());
         Map<String, String> fieldMap = new HashMap<>();
         ciIndexes.forEach(i -> {
             String hidden = Translator.getHiddenForField(i.getField()).toString();
             fieldMap.put(i.getField().toString(), hidden);
         });
-        populateDocHiddenFields(doc, fieldMap);
+        populateCaseInsensitiveHiddenFields(doc, fieldMap);
     }
 
-    public static void populateDocHiddenFields(DBObject doc, Map<String, String> fieldMap) throws IOException {
+    public static void populateCaseInsensitiveHiddenFields(DBObject doc, Map<String, String> fieldMap) throws IOException {
         for (String index : fieldMap.keySet()) {
             int arrIndex = index.indexOf("*");
             if (arrIndex > -1) {

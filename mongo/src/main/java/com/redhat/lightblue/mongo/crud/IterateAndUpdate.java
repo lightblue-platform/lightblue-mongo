@@ -22,11 +22,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
+import java.util.HashMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import org.bson.types.ObjectId;
 import com.mongodb.BasicDBObject;
 import com.mongodb.BulkWriteError;
 import com.mongodb.BulkWriteException;
@@ -70,10 +73,6 @@ public class IterateAndUpdate implements DocUpdater {
     private final Projector errorProjector;
     private final WriteConcern writeConcern;
 
-
-    private final List<DocCtx> docUpdateAttempts = new ArrayList<>();
-    private final List<BulkWriteError> docUpdateErrors = new ArrayList<>();
-
     public IterateAndUpdate(JsonNodeFactory nodeFactory,
                             ConstraintValidator validator,
                             FieldAccessRoleEvaluator roleEval,
@@ -92,7 +91,7 @@ public class IterateAndUpdate implements DocUpdater {
         this.writeConcern = writeConcern;
         this.batchSize = batchSize;
     }
-
+    
     @Override
     public void update(CRUDOperationContext ctx,
                        DBCollection collection,
@@ -106,74 +105,71 @@ public class IterateAndUpdate implements DocUpdater {
         int numMatched = 0;
         int numFailed = 0;
         BsonMerge merge = new BsonMerge(md);
+        BulkUpdateCtx bulkCtx=new BulkUpdateCtx(collection);
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
             cursor = collection.find(query, null);
             LOGGER.debug("Found {} documents", cursor.count());
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_RESULTSET, ctx);
             // read-update-write
-            BulkWriteOperation bwo = collection.initializeUnorderedBulkOperation();
-            int numUpdating = 0;
+            
             while (cursor.hasNext()) {
-                DBObject document = cursor.next();
                 numMatched++;
                 boolean hasErrors = false;
+                DBObject mongoDocument = cursor.next();
+                BulkUpdateCtx.UpdateDoc doc=new BulkUpdateCtx.UpdateDoc(mongoDocument,ctx.addDocument(translator.toJson(mongoDocument)));
+                
                 LOGGER.debug("Retrieved doc {}", docIndex);
-                DocCtx doc = ctx.addDocument(translator.toJson(document));
-                doc.startModifications();
-                // From now on: doc contains the working copy, and doc.originalDoc contains the original copy
-                if (updater.update(doc, md.getFieldTreeRoot(), Path.EMPTY)) {
+
+                doc.docCtx.startModifications();
+                // From now on: doc.docCtx contains the working copy, and doc.docCtx.originalDoc contains the original copy
+                if (updater.update(doc.docCtx, md.getFieldTreeRoot(), Path.EMPTY)) {
                     LOGGER.debug("Document {} modified, updating", docIndex);
-                    PredefinedFields.updateArraySizes(md, nodeFactory, doc);
+                    PredefinedFields.updateArraySizes(md, nodeFactory, doc.docCtx);
                     LOGGER.debug("Running constraint validations");
-                    ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC_VALIDATION, ctx, doc);
+                    ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC_VALIDATION, ctx, doc.docCtx);
                     validator.clearErrors();
-                    validator.validateDoc(doc);
+                    validator.validateDoc(doc.docCtx);
                     List<Error> errors = validator.getErrors();
                     if (errors != null && !errors.isEmpty()) {
                         ctx.addErrors(errors);
                         hasErrors = true;
                         LOGGER.debug("Doc has errors");
                     }
-                    errors = validator.getDocErrors().get(doc);
+                    errors = validator.getDocErrors().get(doc.docCtx);
                     if (errors != null && !errors.isEmpty()) {
-                        doc.addErrors(errors);
+                        doc.docCtx.addErrors(errors);
                         hasErrors = true;
                         LOGGER.debug("Doc has data errors");
                     }
                     if (!hasErrors) {
-                        Set<Path> paths = roleEval.getInaccessibleFields_Update(doc, doc.getOriginalDocument());
+                        Set<Path> paths = roleEval.getInaccessibleFields_Update(doc.docCtx, doc.docCtx.getOriginalDocument());
                         LOGGER.debug("Inaccesible fields during update={}" + paths);
                         if (paths != null && !paths.isEmpty()) {
-                            doc.addError(Error.get("update", CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
+                            doc.docCtx.addError(Error.get("update", CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
                             hasErrors = true;
                         }
                     }
                     if (!hasErrors) {
                         try {
-                            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc);
-                            DBObject updatedObject = translator.toBson(doc);
-                            merge.merge(document, updatedObject);
+                            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc.docCtx);
+                            DBObject updatedObject = translator.toBson(doc.docCtx);
+                            merge.merge(doc.oldMongoDocument, updatedObject);
                             try {
-                                Translator.populateDocHiddenFields(updatedObject, md);
+                                Translator.populateCaseInsensitiveHiddenFields(updatedObject, md);
                             } catch (IOException e) {
                                 throw new RuntimeException("Error populating document: \n" + updatedObject);
                             }
+                            Translator.setDocVersion(updatedObject,bulkCtx.newDocver);
 
-                            bwo.find(new BasicDBObject("_id", document.get("_id"))).replaceOne(updatedObject);
-                            docUpdateAttempts.add(doc);
-                            numUpdating++;
+                            bulkCtx.addDoc(doc,updatedObject);
                             // update in batches
-                            if (numUpdating >= batchSize) {
-                                executeAndLogBulkErrors(bwo);
-                                bwo = collection.initializeUnorderedBulkOperation();
-                                numUpdating = 0;
+                            if (bulkCtx.updateDocs.size() >= batchSize) {
+                                bulkCtx.execute(writeConcern);
                             }
-                            doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
-                            doc.setUpdatedDocument(doc);
                         } catch (Exception e) {
                             LOGGER.warn("Update exception for document {}: {}", docIndex, e);
-                            doc.addError(Error.get(MongoCrudConstants.ERR_UPDATE_ERROR, e.toString()));
+                            doc.docCtx.addError(Error.get(MongoCrudConstants.ERR_UPDATE_ERROR, e.toString()));
                             hasErrors = true;
                         }
                     }
@@ -183,17 +179,17 @@ public class IterateAndUpdate implements DocUpdater {
                 if (hasErrors) {
                     LOGGER.debug("Document {} has errors", docIndex);
                     numFailed++;
-                    doc.setOutputDocument(errorProjector.project(doc, nodeFactory));
+                    doc.docCtx.setOutputDocument(errorProjector.project(doc.docCtx, nodeFactory));
                 } else if (projector != null) {
                     LOGGER.debug("Projecting document {}", docIndex);
-                    doc.setOutputDocument(projector.project(doc, nodeFactory));
+                    doc.docCtx.setOutputDocument(projector.project(doc.docCtx, nodeFactory));
                 }
                 docIndex++;
             }
             // if we have any remaining items to update
-            if (numUpdating > 0) {
+            if (!bulkCtx.updateDocs.isEmpty()) {
                 try {
-                    executeAndLogBulkErrors(bwo);
+                    bulkCtx.execute(writeConcern);
                 } catch (Exception e) {
                     LOGGER.warn("Update exception for documents for query: {}", query.toString());
                 }
@@ -203,45 +199,15 @@ public class IterateAndUpdate implements DocUpdater {
                 cursor.close();
             }
         }
-        handleBulkWriteError(docUpdateErrors, docUpdateAttempts);
-
-        ctx.getDocumentsWithoutErrors().stream().forEach(doc -> {
-            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
-        });
-
-        response.setNumUpdated(docUpdateAttempts.size() - docUpdateErrors.size());
-        // number failed is the number of update attempts that failed along with documents that failed pre-update
-        response.setNumFailed(docUpdateErrors.size() + numFailed);
+        List<DocCtx> docsWithoutErrors=ctx.getDocumentsWithoutErrors();
+        docsWithoutErrors.stream().forEach(doc -> {
+                ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
+            });
+        
+        response.setNumUpdated(bulkCtx.numUpdated);
+        // numFailed has the number of failed docs that did not even make it into the bulkCtx
+        response.setNumFailed(bulkCtx.numErrors+numFailed);
         response.setNumMatched(numMatched);
     }
 
-    private void handleBulkWriteError(List<BulkWriteError> errors, List<DocCtx> docs) {
-        for (BulkWriteError e : errors) {
-            DocCtx doc = docs.get(e.getIndex());
-            if (e.getCode() == 11000 || e.getCode() == 11001) {
-                doc.addError(Error.get("update", MongoCrudConstants.ERR_DUPLICATE, e.getMessage()));
-            } else {
-                doc.addError(Error.get("update", MongoCrudConstants.ERR_SAVE_ERROR, e.getMessage()));
-            }
-        }
-    }
-
-    private BulkWriteResult executeAndLogBulkErrors(BulkWriteOperation bwo) {
-        BulkWriteResult result = null;
-        try {
-            if (writeConcern == null) {
-                LOGGER.debug("Bulk updating docs");
-                result = bwo.execute();
-            } else {
-                LOGGER.debug("Bulk deleting docs with writeConcern={} from execution", writeConcern);
-                result = bwo.execute(writeConcern);
-            }
-        } catch (BulkWriteException e) {
-            BulkWriteException bwe = e;
-            result = bwe.getWriteResult();
-            LOGGER.warn("Bulk update operation contains errors", bwe);
-            docUpdateErrors.addAll(bwe.getWriteErrors());
-        }
-        return result;
-    }
 }
