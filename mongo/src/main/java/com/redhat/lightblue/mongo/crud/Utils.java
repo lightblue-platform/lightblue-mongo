@@ -39,6 +39,14 @@ public final class Utils {
      * @param idToDocVerMap A mapping of doc _id to the old transaction
      * id of the document
      *
+     * This algorithm will catch all modifications to documents
+     * between they are first read and the update attempt. However,
+     * since there is a time window where someone else may update the
+     * documents until this algorithm is complete, there is a chance
+     * that a successfully updated document may appear as a concurrent
+     * update even though the actual update took place after our
+     * update. So, 
+     *
      * @return A set of _ids whose `document version is not equal to currentDocVer
      */
     public static Set<Object> checkFailedUpdates(DBCollection collection,
