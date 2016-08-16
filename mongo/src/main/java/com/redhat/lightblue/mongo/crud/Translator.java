@@ -785,22 +785,22 @@ public class Translator {
                 // recurse if we have more arrays in the path
                 populateHiddenArrayField(doc, index, fieldMap.get(index));
             } else {
-                Object dbObject = null;
-                try {
-                    dbObject = getDBObject(doc, new Path(index));
-                } catch (Exception e) {
-                    LOGGER.debug("Error when populating hidden field {} with value from canonical field {}\n"
-                            + "Document being populated: \n{}", fieldMap.get(index), index, doc);
-                    throw e;
-                }
                 DBObject currentDbo = doc;
                 Path path = new Path(index);
                 for(int i = 0; i < path.numSegments() - 1; i++){
-                    // recurse down the obj tree and get the last obj (not last field)
+                    // recurse down the obj tree and
                     currentDbo = (DBObject) currentDbo.get(path.head(i));
                 }
                 // given the last basic object, populate its hidden field
-                currentDbo.put(HIDDEN_SUB_PATH.toString(), new BasicDBObject(path.getLast(), currentDbo.get(path.getLast())));
+                String val = (String) currentDbo.get(path.getLast());
+                if (val != null) {
+                    DBObject hidden = (DBObject) currentDbo.get(HIDDEN_SUB_PATH.toString());
+                    if (hidden == null) {
+                        currentDbo.put(HIDDEN_SUB_PATH.toString(), new BasicDBObject(path.getLast(), val.toUpperCase()));
+                    } else {
+                        hidden.put(path.getLast(), val.toUpperCase());
+                    }
+                }
             }
         }
     }
