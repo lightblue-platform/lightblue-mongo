@@ -39,15 +39,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
-import com.mongodb.util.JSON;
 import com.redhat.lightblue.crud.MetadataResolver;
 import com.redhat.lightblue.metadata.ArrayElement;
 import com.redhat.lightblue.metadata.ArrayField;
@@ -788,21 +787,25 @@ public class Translator {
                 DBObject currentDbo = doc;
                 Path path = new Path(index);
                 for (int i = 0; i < path.numSegments() - 1; i++) {
-                    // recurse down the obj tree and
+                    // recurse down the obj tree and get the last object
                     currentDbo = (DBObject) currentDbo.get(path.head(i));
                 }
-                // given the last basic object, populate its hidden field
-                String val = (String) currentDbo.get(path.getLast());
-                DBObject hidden = (DBObject) currentDbo.get(HIDDEN_SUB_PATH.toString());
-                if (val != null) {
-                    if (hidden == null) {
-                        currentDbo.put(HIDDEN_SUB_PATH.toString(), new BasicDBObject(path.getLast(), val.toUpperCase()));
-                    } else {
-                        hidden.put(path.getLast(), val.toUpperCase());
+                if (currentDbo instanceof BasicDBObject) {
+                    // given the last basic object, populate its hidden field
+                    String val = (String) currentDbo.get(path.getLast());
+                    DBObject hidden = (DBObject) currentDbo.get(HIDDEN_SUB_PATH.toString());
+                    if (val != null) {
+                        if (hidden == null) {
+                            currentDbo.put(HIDDEN_SUB_PATH.toString(), new BasicDBObject(path.getLast(), val.toUpperCase()));
+                        } else {
+                            hidden.put(path.getLast(), val.toUpperCase());
+                        }
+                    } else if (val == null && hidden != null) {
+                        Path suffix = new Path(fieldMap.get(index)).suffix(2);
+                        currentDbo.removeField(suffix.toString());
                     }
-                } else if (val == null && hidden != null) {
-                    Path suffix = new Path(fieldMap.get(index)).suffix(2);
-                    currentDbo.removeField(suffix.toString());
+                } else if (currentDbo instanceof BasicDBList) {
+                    // should only get here if we have a primitive list.  need to get the obj previous to the list and then access that hidden field...
                 }
             }
         }
@@ -814,31 +817,29 @@ public class Translator {
      *
      * @param doc
      * @param index
-     * @param hidden
+     * @param hiddenIndex
      * @throws IOException
      */
-    @SuppressWarnings("rawtypes")
-    private static void populateHiddenArrayField(DBObject doc, String index, String hidden) throws IOException {
+    private static void populateHiddenArrayField(DBObject doc, String index, String hiddenIndex) throws IOException {
         String[] indexSplit = splitArrayPath(index);
         String fieldPre = indexSplit[0];
         String fieldPost = indexSplit[1];
 
-        String[] hiddenSplit = splitArrayPath(hidden);
+        String[] hiddenSplit = splitArrayPath(hiddenIndex);
         String hiddenPre = hiddenSplit[0];
         String hiddenPost = hiddenSplit[1];
 
-        List docArr = null;
+        BasicDBList docList = null;
         try {
-            docArr = (List) getDBObject(doc, new Path(fieldPre));
+            docList = (BasicDBList) getDBObject(doc, new Path(fieldPre));
         } catch (Exception e) {
             LOGGER.debug("Error when populating hidden field {} with value from canonical field {}\n"
-                    + "Document being populated: \n{}", hidden, index, doc);
+                    + "Document being populated: \n{}", hiddenIndex, index, doc);
             throw e;
         }
 
-        if (docArr != null) {
-            ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
-            for (int i = 0; i < docArr.size(); i++) {
+        if (docList != null && !docList.isEmpty()) {
+            for (int i = 0; i < docList.size(); i++) {
                 // check if there's an array in the index
                 int indx = fieldPost.indexOf("*");
                 String fullIdxPath = fieldPre + "." + i + fieldPost;
@@ -848,34 +849,22 @@ public class Translator {
                     populateHiddenArrayField(doc, fullIdxPath, fullHiddenPath);
                 } else {
                     // if no more arrays, set the field and continue
-                    String node = null;
-                    Object object = docArr.get(i);
+                    Object object = docList.get(i);
                     if (object instanceof BasicDBObject) {
-                        Object obj = null;
-                        try {
-                            obj = getDBObject((BasicDBObject) object, new Path(fieldPost.substring(1)));
-                        } catch (Exception e) {
-                            LOGGER.debug("Error when populating hidden field {} with value from canonical field {}\n"
-                                    + "Document being populated: \n{}", fullHiddenPath, fullIdxPath, doc);
-                            throw e;
-                        }
-
-                        if (obj != null) {
-                            node = obj.toString().toUpperCase();
-                        }
+                        Map<String, String> currentFields = new HashMap<>();
+                        Path subIdxPath = new Path(fieldPost.substring(1));
+                        Path subHiddenIdxPath = new Path(hiddenPost.substring(1));
+                        currentFields.put(fullIdxPath, fullHiddenPath);
+                        populateDocHiddenFields(doc, currentFields);
                     } else {
-                        node = object.toString().toUpperCase();
-                    }
-                    if (node != null) {
-                        LOGGER.debug("Adding field '" + fullHiddenPath + "' to document with value " + node);
-                        JsonDoc.modify(arrNode, new Path(fullHiddenPath), JsonNodeFactory.instance.textNode(node), true);
+                        // primitive array
+                        Map<String, String> currentFields = new HashMap<>();
+                        Path subIdxPath = new Path(fieldPre + "." + i);
+                        Path subHiddenIdxPath = new Path(hiddenPre + "." + i);
+                        currentFields.put(fullIdxPath, fullHiddenPath);
+                        populateDocHiddenFields(doc, currentFields);
                     }
                 }
-                ObjectMapper mapper = new ObjectMapper();
-                JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
-                DBObject obj = (DBObject) JSON.parse(merged.toString());
-                ((BasicDBObject) doc).clear();
-                ((BasicDBObject) doc).putAll(obj);
             }
         }
     }
