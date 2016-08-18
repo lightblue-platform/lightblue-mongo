@@ -786,11 +786,43 @@ public class Translator {
             } else {
                 DBObject currentDbo = doc;
                 Path path = new Path(index);
+                boolean isPrimList = false;
                 for (int i = 0; i < path.numSegments() - 1; i++) {
-                    // recurse down the obj tree and get the last object
-                    currentDbo = (DBObject) currentDbo.get(path.head(i));
+                    // if last iteration and next path segment is a primitive array
+                    if (i == path.numSegments() - 2 && currentDbo.get(path.head(i)) instanceof List) {
+                        isPrimList = true;
+                        // return the current obj, not the prim array
+                        break;
+                    } else {
+                        // recurse down the obj tree and get the next object until we have the last object
+                        Object currentObj = currentDbo.get(path.head(i));
+                        if(currentObj instanceof List) {
+                            BasicDBList potentialDBList = new BasicDBList();
+                            potentialDBList.addAll((List) currentObj);
+                            currentDbo = potentialDBList;
+                        } else {
+                            currentDbo = (DBObject) currentObj;
+                        }
+                    }
                 }
-                if (currentDbo instanceof BasicDBObject) {
+                if (isPrimList) {
+                    List primList = (List) currentDbo.get(path.tail(1));
+                    String val = (String) primList.get(Integer.valueOf(path.getLast()));
+                    DBObject hidden = (DBObject) currentDbo.get(HIDDEN_SUB_PATH.toString());
+                    if (hidden == null) {
+                        hidden = new BasicDBObject();
+                        currentDbo.put(HIDDEN_SUB_PATH.toString(), hidden);
+                    }
+                    BasicDBList hiddenPrimList = (BasicDBList) hidden.get(path.tail(1));
+                    if (hiddenPrimList == null) {
+                        hiddenPrimList = new BasicDBList();
+                        hidden.put(path.tail(1), hiddenPrimList);
+                    }
+                    if (val != null) {
+                        hiddenPrimList.put(Integer.valueOf(path.getLast()), val.toUpperCase());
+                    }
+                }
+                else {
                     // given the last basic object, populate its hidden field
                     String val = (String) currentDbo.get(path.getLast());
                     DBObject hidden = (DBObject) currentDbo.get(HIDDEN_SUB_PATH.toString());
@@ -804,8 +836,6 @@ public class Translator {
                         Path suffix = new Path(fieldMap.get(index)).suffix(2);
                         currentDbo.removeField(suffix.toString());
                     }
-                } else if (currentDbo instanceof BasicDBList) {
-                    // should only get here if we have a primitive list.  need to get the obj previous to the list and then access that hidden field...
                 }
             }
         }
@@ -829,9 +859,9 @@ public class Translator {
         String hiddenPre = hiddenSplit[0];
         String hiddenPost = hiddenSplit[1];
 
-        BasicDBList docList = null;
+        List docList = null;
         try {
-            docList = (BasicDBList) getDBObject(doc, new Path(fieldPre));
+            docList = (List) getDBObject(doc, new Path(fieldPre));
         } catch (Exception e) {
             LOGGER.debug("Error when populating hidden field {} with value from canonical field {}\n"
                     + "Document being populated: \n{}", hiddenIndex, index, doc);
@@ -849,21 +879,9 @@ public class Translator {
                     populateHiddenArrayField(doc, fullIdxPath, fullHiddenPath);
                 } else {
                     // if no more arrays, set the field and continue
-                    Object object = docList.get(i);
-                    if (object instanceof BasicDBObject) {
-                        Map<String, String> currentFields = new HashMap<>();
-                        Path subIdxPath = new Path(fieldPost.substring(1));
-                        Path subHiddenIdxPath = new Path(hiddenPost.substring(1));
-                        currentFields.put(fullIdxPath, fullHiddenPath);
-                        populateDocHiddenFields(doc, currentFields);
-                    } else {
-                        // primitive array
-                        Map<String, String> currentFields = new HashMap<>();
-                        Path subIdxPath = new Path(fieldPre + "." + i);
-                        Path subHiddenIdxPath = new Path(hiddenPre + "." + i);
-                        currentFields.put(fullIdxPath, fullHiddenPath);
-                        populateDocHiddenFields(doc, currentFields);
-                    }
+                    Map<String, String> currentFields = new HashMap<>();
+                    currentFields.put(fullIdxPath, fullHiddenPath);
+                    populateDocHiddenFields(doc, currentFields);
                 }
             }
         }
