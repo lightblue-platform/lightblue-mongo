@@ -132,9 +132,9 @@ public class IterateAndUpdate implements DocUpdater {
                 // From now on: doc contains the working copy, and doc.originalDoc contains the original copy
                 if (updater.update(doc, md.getFieldTreeRoot(), Path.EMPTY)) {
                     LOGGER.debug("Document {} modified, updating", docIndex);
-                    measure.begin("array sizes");
+                    measure.begin("updateArraySizes");
                     PredefinedFields.updateArraySizes(md, nodeFactory, doc);
-                    measure.end("array sizes");
+                    measure.end("updateArraySizes");
                     LOGGER.debug("Running constraint validations");
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC_VALIDATION, ctx, doc);
                     measure.begin("validation");
@@ -154,9 +154,9 @@ public class IterateAndUpdate implements DocUpdater {
                         LOGGER.debug("Doc has data errors");
                     }
                     if (!hasErrors) {
-                        measure.begin("access check");
+                        measure.begin("accesCheck");
                         Set<Path> paths = roleEval.getInaccessibleFields_Update(doc, doc.getOriginalDocument());
-                        measure.end("access check");
+                        measure.end("accessCheck");
                         LOGGER.debug("Inaccesible fields during update={}" + paths);
                         if (paths != null && !paths.isEmpty()) {
                             doc.addError(Error.get("update", CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
@@ -166,26 +166,26 @@ public class IterateAndUpdate implements DocUpdater {
                     if (!hasErrors) {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc);
-                            measure.begin("tobson and merge");
+                            measure.begin("toBsonAndMerge");
                             DBObject updatedObject = translator.toBson(doc);
                             merge.merge(document, updatedObject);
-                            measure.end("tobson and merge");
-                            measure.begin("hidden");
+                            measure.end("toBsonAndMerge");
+                            measure.begin("populateHiddenFields");
                             try {
                                 Translator.populateDocHiddenFields(updatedObject, md);
                             } catch (IOException e) {
                                 throw new RuntimeException("Error populating document: \n" + updatedObject);
                             }
-                            measure.end("hidden");
+                            measure.end("populateHiddenFields");
 
                             bwo.find(new BasicDBObject("_id", document.get("_id"))).replaceOne(updatedObject);
                             docUpdateAttempts.add(doc);
                             numUpdating++;
                             // update in batches
                             if (numUpdating >= batchSize) {
-                                measure.begin("bulk update");
+                                measure.begin("bulkUpdate");
                                 executeAndLogBulkErrors(bwo);
-                                measure.end("bulk update");
+                                measure.end("bulkUpdate");
                                 bwo = collection.initializeUnorderedBulkOperation();
                                 numUpdating = 0;
                             }
@@ -234,7 +234,7 @@ public class IterateAndUpdate implements DocUpdater {
         // number failed is the number of update attempts that failed along with documents that failed pre-update
         response.setNumFailed(docUpdateErrors.size() + numFailed);
         response.setNumMatched(numMatched);
-        METRICS.error("Metrics:{}",measure);
+        METRICS.info("IterateAndUpdate:\n{}",measure);
     }
 
     private void handleBulkWriteError(List<BulkWriteError> errors, List<DocCtx> docs) {
