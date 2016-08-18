@@ -50,6 +50,7 @@ import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.PredefinedFields;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.Path;
+import com.redhat.lightblue.util.Measure;
 
 /**
  * Non-atomic updater that evaluates the query, and updates the documents one by
@@ -58,6 +59,7 @@ import com.redhat.lightblue.util.Path;
 public class IterateAndUpdate implements DocUpdater {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(IterateAndUpdate.class);
+    private static final Logger METRICS = LoggerFactory.getLogger("com.redhat.lightblue.metrics");
 
     private final int batchSize;
 
@@ -101,6 +103,7 @@ public class IterateAndUpdate implements DocUpdater {
                        DBObject query) {
         LOGGER.debug("iterateUpdate: start");
         LOGGER.debug("Computing the result set for {}", query);
+        Measure measure=new Measure();
         DBCursor cursor = null;
         int docIndex = 0;
         int numMatched = 0;
@@ -108,27 +111,36 @@ public class IterateAndUpdate implements DocUpdater {
         BsonMerge merge = new BsonMerge(md);
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
+            measure.begin("collection.find");
             cursor = collection.find(query, null);
+            measure.end("collection.find");
             LOGGER.debug("Found {} documents", cursor.count());
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_RESULTSET, ctx);
             // read-update-write
             BulkWriteOperation bwo = collection.initializeUnorderedBulkOperation();
             int numUpdating = 0;
+            measure.begin("iteration");
             while (cursor.hasNext()) {
                 DBObject document = cursor.next();
                 numMatched++;
                 boolean hasErrors = false;
                 LOGGER.debug("Retrieved doc {}", docIndex);
+                measure.begin("ctx.addDocument");
                 DocCtx doc = ctx.addDocument(translator.toJson(document));
                 doc.startModifications();
+                measure.end("ctx.addDocument");
                 // From now on: doc contains the working copy, and doc.originalDoc contains the original copy
                 if (updater.update(doc, md.getFieldTreeRoot(), Path.EMPTY)) {
                     LOGGER.debug("Document {} modified, updating", docIndex);
+                    measure.begin("array sizes");
                     PredefinedFields.updateArraySizes(md, nodeFactory, doc);
+                    measure.end("array sizes");
                     LOGGER.debug("Running constraint validations");
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC_VALIDATION, ctx, doc);
+                    measure.begin("validation");
                     validator.clearErrors();
                     validator.validateDoc(doc);
+                    measure.end("validation");
                     List<Error> errors = validator.getErrors();
                     if (errors != null && !errors.isEmpty()) {
                         ctx.addErrors(errors);
@@ -142,7 +154,9 @@ public class IterateAndUpdate implements DocUpdater {
                         LOGGER.debug("Doc has data errors");
                     }
                     if (!hasErrors) {
+                        measure.begin("access check");
                         Set<Path> paths = roleEval.getInaccessibleFields_Update(doc, doc.getOriginalDocument());
+                        measure.end("access check");
                         LOGGER.debug("Inaccesible fields during update={}" + paths);
                         if (paths != null && !paths.isEmpty()) {
                             doc.addError(Error.get("update", CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
@@ -152,20 +166,26 @@ public class IterateAndUpdate implements DocUpdater {
                     if (!hasErrors) {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc);
+                            measure.begin("tobson and merge");
                             DBObject updatedObject = translator.toBson(doc);
                             merge.merge(document, updatedObject);
+                            measure.end("tobson and merge");
+                            measure.begin("hidden");
                             try {
                                 Translator.populateDocHiddenFields(updatedObject, md);
                             } catch (IOException e) {
                                 throw new RuntimeException("Error populating document: \n" + updatedObject);
                             }
+                            measure.end("hidden");
 
                             bwo.find(new BasicDBObject("_id", document.get("_id"))).replaceOne(updatedObject);
                             docUpdateAttempts.add(doc);
                             numUpdating++;
                             // update in batches
                             if (numUpdating >= batchSize) {
+                                measure.begin("bulk update");
                                 executeAndLogBulkErrors(bwo);
+                                measure.end("bulk update");
                                 bwo = collection.initializeUnorderedBulkOperation();
                                 numUpdating = 0;
                             }
@@ -190,6 +210,7 @@ public class IterateAndUpdate implements DocUpdater {
                 }
                 docIndex++;
             }
+            measure.end("iteration");
             // if we have any remaining items to update
             if (numUpdating > 0) {
                 try {
@@ -213,6 +234,7 @@ public class IterateAndUpdate implements DocUpdater {
         // number failed is the number of update attempts that failed along with documents that failed pre-update
         response.setNumFailed(docUpdateErrors.size() + numFailed);
         response.setNumMatched(numMatched);
+        METRICS.error("Metrics:{}",measure);
     }
 
     private void handleBulkWriteError(List<BulkWriteError> errors, List<DocCtx> docs) {
