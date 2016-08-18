@@ -59,7 +59,7 @@ import com.redhat.lightblue.util.Measure;
 public class IterateAndUpdate implements DocUpdater {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(IterateAndUpdate.class);
-    private static final Logger METRICS = LoggerFactory.getLogger("com.redhat.lightblue.metrics");
+    private static final Logger METRICS = LoggerFactory.getLogger("metrics."+IterateAndUpdate.class.getName());
 
     private final int batchSize;
 
