@@ -761,8 +761,6 @@ public class Translator {
                 // no value, so nothing to populate
                 return;
             } else if (docObj.get(field.head(0)) instanceof List) {
-                // will this ever be hit? We require `*`, so even a first level prim array would be `array.*`
-                // I forget why else we wanted that requirement
                 // primitive list - add hidden field to doc and populate list
                 List<String> objList = (List<String>) docObj.get(field.head(0));
                 BasicDBList hiddenList = new BasicDBList();
