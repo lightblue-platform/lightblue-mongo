@@ -18,7 +18,6 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -154,11 +153,7 @@ public class IterateAndUpdate implements DocUpdater {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc);
                             DBObject updatedObject = translator.toBson(doc);
                             merge.merge(document, updatedObject);
-                            try {
-                                Translator.populateDocHiddenFields(updatedObject, md);
-                            } catch (IOException e) {
-                                throw new RuntimeException("Error populating document: \n" + updatedObject);
-                            }
+                            Translator.populateDocHiddenFields(updatedObject, md);
 
                             bwo.find(new BasicDBObject("_id", document.get("_id"))).replaceOne(updatedObject);
                             docUpdateAttempts.add(doc);
