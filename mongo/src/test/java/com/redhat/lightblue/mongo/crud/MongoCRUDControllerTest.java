@@ -133,6 +133,22 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         assertFalse(((DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString())).containsField("field3"));
     }
 
+    @Test(expected = Error.class)
+    public void invalidArrayIndex() throws Exception {
+        db.getCollection("testCollectionIndex1").drop();
+        EntityMetadata md = createMetadata();
+        md = addCIIndexes(md);
+
+        IndexSortKey newIndexKey = new IndexSortKey(new Path("new.*.primarray.*"), true, true);
+        Index newIndex = new Index(newIndexKey);
+        newIndex.setName("invalidArrayIndex");
+        newIndex.setUnique(true);
+        md.getEntityInfo().getIndexes().add(newIndex);
+        md.getClass();
+
+        controller.beforeUpdateEntityInfo(null, md.getEntityInfo(), false);
+    }
+
     @Test
     public void findDocument_CI() throws Exception {
         db.getCollection("testCollectionIndex1").drop();

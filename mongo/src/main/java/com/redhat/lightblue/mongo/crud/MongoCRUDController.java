@@ -92,7 +92,6 @@ import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
-import com.redhat.lightblue.util.MutablePath;
 import com.redhat.lightblue.util.Path;
 
 public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport, ExplainQuerySupport {
@@ -538,7 +537,19 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     @Override
     public void beforeUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
         ensureIdIndex(ei);
+        validateArrayIndexes(ei.getIndexes().getIndexes());
         validateSaneIndexSet(ei.getIndexes().getIndexes());
+    }
+
+    /**
+     * Array indexes must not end with `*`
+     * @param indexes
+     */
+    private void validateArrayIndexes(List<Index> indexes) {
+        boolean endsWithAny = indexes.stream().flatMap(i -> i.getFields().stream()).map(f -> f.getField()).anyMatch(p -> p.getLast().equals(Path.ANY));
+        if(endsWithAny) {
+            throw Error.get(MongoCrudConstants.ERR_INVALID_INDEX_FIELD);
+        }
     }
 
     @Override
@@ -549,21 +560,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     public void beforeCreateNewSchema(Metadata md, EntityMetadata emd) {
         validateNoHiddenInMetaData(emd);
         ensureIdField(emd);
-    }
-
-    private Path translateIndexPath(Path p) {
-        MutablePath newPath = new MutablePath();
-        int n = p.numSegments();
-        for (int i = 0; i < n; i++) {
-            String x = p.head(i);
-            if (!x.equals(Path.ANY)) {
-                if (p.isIndex(i)) {
-                    throw Error.get(MongoCrudConstants.ERR_INVALID_INDEX_FIELD, p.toString());
-                }
-                newPath.push(x);
-            }
-        }
-        return newPath.immutableCopy();
     }
 
     private void validateNoHiddenInMetaData(EntityMetadata emd) {
