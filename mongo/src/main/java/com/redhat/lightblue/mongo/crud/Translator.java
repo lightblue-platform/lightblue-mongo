@@ -759,6 +759,10 @@ public class Translator {
             DBObject docObj = (DBObject) doc;
             if (docObj.get(field.head(0)) == null) {
                 // no value, so nothing to populate
+                DBObject dbo = (DBObject) docObj.get(HIDDEN_SUB_PATH.toString());
+                if(dbo != null && dbo.get(field.head(0)) != null) {
+                    dbo.removeField(field.head(0));
+                }
                 return;
             } else if (docObj.get(field.head(0)) instanceof List) {
                 // primitive list - add hidden field to doc and populate list
