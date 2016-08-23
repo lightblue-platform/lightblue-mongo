@@ -884,6 +884,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 DBObject original = (DBObject) ((BasicDBObject) doc).copy();
                 try {
                     Translator.populateDocHiddenFields(doc, fields);
+                    LOGGER.debug("Original doc:{}, new doc:{}",original,doc);
                     if (!doc.equals(original)) {
                         coll.save(doc);
                     }
