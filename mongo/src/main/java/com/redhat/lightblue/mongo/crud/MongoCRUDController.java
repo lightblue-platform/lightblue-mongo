@@ -21,7 +21,6 @@ package com.redhat.lightblue.mongo.crud;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -93,7 +92,6 @@ import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
-import com.redhat.lightblue.util.MutablePath;
 import com.redhat.lightblue.util.Path;
 
 public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport, ExplainQuerySupport {
@@ -539,7 +537,19 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     @Override
     public void beforeUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
         ensureIdIndex(ei);
+        validateArrayIndexes(ei.getIndexes().getIndexes());
         validateSaneIndexSet(ei.getIndexes().getIndexes());
+    }
+
+    /**
+     * Array indexes must not end with `*`
+     * @param indexes
+     */
+    private void validateArrayIndexes(List<Index> indexes) {
+        boolean endsWithAny = indexes.stream().flatMap(i -> i.getFields().stream()).map(f -> f.getField()).anyMatch(p -> p.getLast().equals(Path.ANY));
+        if(endsWithAny) {
+            throw Error.get(MongoCrudConstants.ERR_INVALID_INDEX_FIELD);
+        }
     }
 
     @Override
@@ -550,21 +560,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     public void beforeCreateNewSchema(Metadata md, EntityMetadata emd) {
         validateNoHiddenInMetaData(emd);
         ensureIdField(emd);
-    }
-
-    private Path translateIndexPath(Path p) {
-        MutablePath newPath = new MutablePath();
-        int n = p.numSegments();
-        for (int i = 0; i < n; i++) {
-            String x = p.head(i);
-            if (!x.equals(Path.ANY)) {
-                if (p.isIndex(i)) {
-                    throw Error.get(MongoCrudConstants.ERR_INVALID_INDEX_FIELD, p.toString());
-                }
-                newPath.push(x);
-            }
-        }
-        return newPath.immutableCopy();
     }
 
     private void validateNoHiddenInMetaData(EntityMetadata emd) {
@@ -770,15 +765,14 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             // we want to run in the background if we're only creating indexes (no field generation)
             boolean hidden = false;
             // fieldMap is <canonicalPath, hiddenPath>
-            Map<String, String> fieldMap = new HashMap<>();
+            List<Path> fields = new ArrayList<>();
             for (Index index : createIndexes) {
                 DBObject newIndex = new BasicDBObject();
                 for (IndexSortKey p : index.getFields()) {
                     Path field = p.getField();
                     if (p.isCaseInsensitive()) {
-                        // build a map of the index's field to it's actual @mongoHidden path
+                        fields.add(p.getField());
                         field = Translator.getHiddenForField(field);
-                        fieldMap.put(p.getField().toString(), field.toString());
                         // if we have a case insensitive index, we want the index creation operation to be blocking
                         hidden = true;
                     }
@@ -802,7 +796,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     @Override
                     public void run() {
                         try {
-                            populateHiddenFields(ei, md, fieldMap);
+                            populateHiddenFields(ei, md, fields);
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
@@ -838,8 +832,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     public void reindex(EntityInfo ei, Metadata md, String version, QueryExpression query) throws IOException {
         Map<String, String> fieldMap = Translator.getCaseInsensitiveIndexes(ei.getIndexes().getIndexes()).collect(Collectors.toMap(i -> i.getField().toString(), i -> Translator
                 .getHiddenForField(i.getField()).toString()));
+        List<Path> fields = Translator.getCaseInsensitiveIndexes(ei.getIndexes().getIndexes()).map(i -> i.getField()).collect(Collectors.toList());
         if (!fieldMap.keySet().isEmpty()) {
-            populateHiddenFields(ei, md, version, fieldMap, query);
+            populateHiddenFields(ei, md, version, fields, query);
         }
         // This is not a common command, I think INFO level is safe and appropriate
         LOGGER.info("Starting reindex of {} for fields:  {}", ei.getName(), fieldMap.keySet());
@@ -859,11 +854,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
      * @throws IOException
      * @throws URISyntaxException
      */
-    protected void populateHiddenFields(EntityInfo ei, Metadata md, Map<String, String> fieldMap) throws IOException {
-        populateHiddenFields(ei, md, null, fieldMap, null);
+    protected void populateHiddenFields(EntityInfo ei, Metadata md, List<Path> fields) throws IOException {
+        populateHiddenFields(ei, md, null, fields, null);
     }
 
-    protected void populateHiddenFields(EntityInfo ei, Metadata md, String version, Map<String, String> fieldMap, QueryExpression query) throws IOException {
+    protected void populateHiddenFields(EntityInfo ei, Metadata md, String version, List<Path> fields, QueryExpression query) throws IOException {
         LOGGER.info("Starting population of hidden fields due to new or modified indexes.");
         MongoDataStore ds = (MongoDataStore) ei.getDataStore();
         DB entityDB = dbResolver.get(ds);
@@ -888,7 +883,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 DBObject doc = cursor.next();
                 DBObject original = (DBObject) ((BasicDBObject) doc).copy();
                 try {
-                    Translator.populateDocHiddenFields(doc, fieldMap);
+                    Translator.populateDocHiddenFields(doc, fields);
+                    LOGGER.debug("Original doc:{}, new doc:{}",original,doc);
                     if (!doc.equals(original)) {
                         coll.save(doc);
                     }
@@ -1005,7 +1001,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private Error analyzeException(Exception e, final String otherwise) {
         return analyzeException(e, otherwise, null, false);
     }
-    
+
     private Error analyzeException(Exception e, final String otherwise, final String msg, boolean specialHandling) {
         if (e instanceof Error) {
             return (Error) e;

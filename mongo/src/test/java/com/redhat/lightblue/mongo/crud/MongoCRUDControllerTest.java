@@ -133,6 +133,22 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         assertFalse(((DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString())).containsField("field3"));
     }
 
+    @Test(expected = Error.class)
+    public void invalidArrayIndex() throws Exception {
+        db.getCollection("testCollectionIndex1").drop();
+        EntityMetadata md = createMetadata();
+        md = addCIIndexes(md);
+
+        IndexSortKey newIndexKey = new IndexSortKey(new Path("new.*.primarray.*"), true, true);
+        Index newIndex = new Index(newIndexKey);
+        newIndex.setName("invalidArrayIndex");
+        newIndex.setUnique(true);
+        md.getEntityInfo().getIndexes().add(newIndex);
+        md.getClass();
+
+        controller.beforeUpdateEntityInfo(null, md.getEntityInfo(), false);
+    }
+
     @Test
     public void findDocument_CI() throws Exception {
         db.getCollection("testCollectionIndex1").drop();
@@ -361,16 +377,16 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         assertFalse(indexInfo.toString().contains("arrayObj.@mongoHidden.x"));
         assertTrue(indexInfo.toString().contains("arrayObj.x"));
 
-        assertFalse(indexInfo.toString().contains("arrayObj.@mongoHidden.arraySubObj.*"));
+        assertFalse(indexInfo.toString().contains("arrayObj.@mongoHidden.arraySubObj"));
         assertTrue(indexInfo.toString().contains("arrayObj.arraySubObj"));
 
-        assertFalse(indexInfo.toString().contains("@mongoHidden.arrayField.*"));
+        assertFalse(indexInfo.toString().contains("@mongoHidden.arrayField"));
         assertTrue(indexInfo.toString().contains("arrayField"));
 
         assertFalse(indexInfo.toString().contains("field2.@mongoHidden.x"));
         assertTrue(indexInfo.toString().contains("field2.x"));
 
-        assertFalse(indexInfo.toString().contains("field2.@mongoHidden.subArrayField.*"));
+        assertFalse(indexInfo.toString().contains("field2.@mongoHidden.subArrayField"));
         assertTrue(indexInfo.toString().contains("field2.subArrayField"));
 
     }
@@ -429,10 +445,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         assertFalse(indexInfo.toString().contains("@mongoHidden.field3"));
         assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.x"));
-        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.arraySubObj.*"));
-        assertFalse(indexInfo.toString().contains("@mongoHidden.arrayField.*"));
+        assertFalse(indexInfo.toString().contains("arrayObj.*.@mongoHidden.arraySubObj"));
+        assertFalse(indexInfo.toString().contains("@mongoHidden.arrayField"));
         assertFalse(indexInfo.toString().contains("field2.@mongoHidden.x"));
-        assertFalse(indexInfo.toString().contains("field2.@mongoHidden.subArrayField.*"));
+        assertFalse(indexInfo.toString().contains("field2.@mongoHidden.subArrayField"));
     }
 
     private EntityMetadata createMetadata() {
@@ -489,7 +505,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         List<IndexSortKey> indexFields1 = new ArrayList<>();
         indexFields1.add(new IndexSortKey(new Path("field1"), true));
         indexFields1.add(new IndexSortKey(new Path("field3"), true, true));
-        indexFields1.add(new IndexSortKey(new Path("arrayField.*"), true, true));
+        indexFields1.add(new IndexSortKey(new Path("arrayField"), true, true));
         indexFields1.add(new IndexSortKey(new Path("field2.x"), true, true));
         index1.setFields(indexFields1);
 
@@ -504,14 +520,14 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         index3.setName("testIndex3");
         index3.setUnique(true);
         List<IndexSortKey> indexFields3 = new ArrayList<>();
-        indexFields3.add(new IndexSortKey(new Path("arrayObj.*.arraySubObj.*"), true, true));
+        indexFields3.add(new IndexSortKey(new Path("arrayObj.*.arraySubObj"), true, true));
         index3.setFields(indexFields3);
 
         Index index4 = new Index();
         index4.setName("testIndex4");
         index4.setUnique(true);
         List<IndexSortKey> indexFields4 = new ArrayList<>();
-        indexFields4.add(new IndexSortKey(new Path("field2.subArrayField.*"), true, true));
+        indexFields4.add(new IndexSortKey(new Path("field2.subArrayField"), true, true));
         index4.setFields(indexFields4);
 
         Index index5 = new Index();

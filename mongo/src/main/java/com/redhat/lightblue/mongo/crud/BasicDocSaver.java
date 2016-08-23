@@ -18,7 +18,6 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -221,12 +220,8 @@ public class BasicDocSaver implements DocSaver {
                     Set<Path> paths = roleEval.getInaccessibleFields_Insert(doc.inputDoc);
                     LOGGER.debug("Inaccessible fields:{}", paths);
                     if (paths == null || paths.isEmpty()) {
-                        try {
-                            Translator.populateDocHiddenFields(doc.newDoc, md);
-                            insertionAttemptList.add(doc);
-                        } catch (IOException e) {
-                            doc.inputDoc.addError(Error.get("insert", MongoCrudConstants.ERR_TRANSLATION_ERROR, e));
-                        }
+                        Translator.populateDocHiddenFields(doc.newDoc, md);
+                        insertionAttemptList.add(doc);
                     } else {
                         for (Path path : paths) {
                             doc.inputDoc.addError(Error.get("insert", CrudConstants.ERR_NO_FIELD_INSERT_ACCESS, path.toString()));

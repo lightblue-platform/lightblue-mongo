@@ -18,11 +18,9 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -33,21 +31,19 @@ import java.util.Set;
 import java.util.Date;
 import java.util.stream.Stream;
 
-import org.apache.commons.lang3.StringUtils;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
-import com.mongodb.util.JSON;
 import com.redhat.lightblue.crud.MetadataResolver;
 import com.redhat.lightblue.metadata.ArrayElement;
 import com.redhat.lightblue.metadata.ArrayField;
@@ -756,162 +752,55 @@ public class Translator {
         }
     }
 
-    public static void populateDocHiddenFields(DBObject doc, EntityMetadata md) throws IOException {
-        Stream<IndexSortKey> ciIndexes = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes());
-        Map<String, String> fieldMap = new HashMap<>();
-        ciIndexes.forEach(i -> {
-            String hidden = Translator.getHiddenForField(i.getField()).toString();
-            fieldMap.put(i.getField().toString(), hidden);
-        });
-        populateDocHiddenFields(doc, fieldMap);
-    }
-
-    public static void populateDocHiddenFields(DBObject doc, Map<String, String> fieldMap) throws IOException {
-        for (String index : fieldMap.keySet()) {
-            int arrIndex = index.indexOf("*");
-            if (arrIndex > -1) {
-                // recurse if we have more arrays in the path
-                populateHiddenArrayField(doc, index, fieldMap.get(index));
-            } else {
-                Object dbObject = null;
-                try {
-                    dbObject = getDBObject(doc, new Path(index));
-                } catch (Exception e) {
-                    LOGGER.debug("Error when populating hidden field {} with value from canonical field {}\n"
-                            + "Document being populated: \n{}", fieldMap.get(index), index, doc);
-                    throw e;
+    public static void populateCaseInsensitiveField(Object doc, Path field) {
+        if (doc == null) {
+            return;
+        } else if (field.numSegments() == 1) {
+            DBObject docObj = (DBObject) doc;
+            if (docObj.get(field.head(0)) == null) {
+                // no value, so nothing to populate
+                DBObject dbo = (DBObject) docObj.get(HIDDEN_SUB_PATH.toString());
+                if(dbo != null && dbo.get(field.head(0)) != null) {
+                    dbo.removeField(field.head(0));
                 }
-                if (dbObject != null) {
-                    ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
-                    LOGGER.debug("Adding field '" + fieldMap.get(index) + "' to document with value " + dbObject.toString().toUpperCase());
-                    JsonDoc.modify(arrNode, new Path(fieldMap.get(index)), JsonNodeFactory.instance.textNode(dbObject.toString().toUpperCase()), true);
-                    ObjectMapper mapper = new ObjectMapper();
-                    JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
-                    DBObject obj = (DBObject) JSON.parse(merged.toString());
-                    ((BasicDBObject) doc).clear();
-                    ((BasicDBObject) doc).putAll(obj);
-                }
-            }
-        }
-    }
-
-    /**
-     * Given an index and it's hidden counterpart, populate the document with
-     * the correct value for the hidden field
-     *
-     * @param doc
-     * @param index
-     * @param hidden
-     * @throws IOException
-     */
-    @SuppressWarnings("rawtypes")
-    private static void populateHiddenArrayField(DBObject doc, String index, String hidden) throws IOException {
-        String[] indexSplit = splitArrayPath(index);
-        String fieldPre = indexSplit[0];
-        String fieldPost = indexSplit[1];
-
-        String[] hiddenSplit = splitArrayPath(hidden);
-        String hiddenPre = hiddenSplit[0];
-        String hiddenPost = hiddenSplit[1];
-
-        List docArr = null;
-        try {
-            docArr = (List) getDBObject(doc, new Path(fieldPre));
-        } catch (Exception e) {
-            LOGGER.debug("Error when populating hidden field {} with value from canonical field {}\n"
-                    + "Document being populated: \n{}", hidden, index, doc);
-            throw e;
-        }
-
-        if (docArr != null) {
-            ObjectNode arrNode = JsonNodeFactory.instance.objectNode();
-            for (int i = 0; i < docArr.size(); i++) {
-                // check if there's an array in the index
-                int indx = fieldPost.indexOf("*");
-                String fullIdxPath = fieldPre + "." + i + fieldPost;
-                String fullHiddenPath = hiddenPre + "." + i + hiddenPost;
-                if (indx > -1) {
-                    // if we have another array, descend
-                    populateHiddenArrayField(doc, fullIdxPath, fullHiddenPath);
+                return;
+            } else if (docObj.get(field.head(0)) instanceof List) {
+                // primitive list - add hidden field to doc and populate list
+                List<String> objList = (List<String>) docObj.get(field.head(0));
+                BasicDBList hiddenList = new BasicDBList();
+                objList.forEach(s -> hiddenList.add(s.toUpperCase()));
+                DBObject dbo = (DBObject) docObj.get(HIDDEN_SUB_PATH.toString());
+                if (dbo == null) {
+                    docObj.put(HIDDEN_SUB_PATH.toString(), new BasicDBObject(field.head(0), hiddenList));
                 } else {
-                    // if no more arrays, set the field and continue
-                    String node = null;
-                    Object object = docArr.get(i);
-                    if (object instanceof BasicDBObject) {
-                        Object obj = null;
-                        try {
-                            obj = getDBObject((BasicDBObject) object, new Path(fieldPost.substring(1)));
-                        } catch (Exception e) {
-                            LOGGER.debug("Error when populating hidden field {} with value from canonical field {}\n"
-                                    + "Document being populated: \n{}", fullHiddenPath, fullIdxPath, doc);
-                            throw e;
-                        }
-
-                        if (obj != null) {
-                            node = obj.toString().toUpperCase();
-                        }
-                    } else {
-                        node = object.toString().toUpperCase();
-                    }
-                    if (node != null) {
-                        LOGGER.debug("Adding field '" + fullHiddenPath + "' to document with value " + node);
-                        JsonDoc.modify(arrNode, new Path(fullHiddenPath), JsonNodeFactory.instance.textNode(node), true);
-                    }
+                    dbo.put(field.head(0), hiddenList);
                 }
-                ObjectMapper mapper = new ObjectMapper();
-                JsonNode merged = merge(mapper.readTree(doc.toString()), mapper.readTree(arrNode.toString()));
-                DBObject obj = (DBObject) JSON.parse(merged.toString());
-                ((BasicDBObject) doc).clear();
-                ((BasicDBObject) doc).putAll(obj);
+            } else {
+                // add hidden field to doc, populate field
+                DBObject dbo = (DBObject) docObj.get(HIDDEN_SUB_PATH.toString());
+                if (dbo == null) {
+                    docObj.put(HIDDEN_SUB_PATH.toString(), new BasicDBObject(field.head(0), docObj.get(field.head(0)).toString().toUpperCase()));
+                } else {
+                    dbo.put(field.head(0), docObj.get(field.head(0)).toString().toUpperCase());
+                }
             }
+        } else if (field.head(0).equals(Path.ANY)) {
+            // doc is a list
+            List<?> docList = ((List<?>) doc);
+            docList.forEach(key -> populateCaseInsensitiveField(key, field.suffix(-1)));
+        } else {
+            DBObject docObj = (DBObject) doc;
+            populateCaseInsensitiveField(docObj.get(field.head(0)), field.suffix(-1));
         }
     }
 
-    /**
-     * Splits a path with a * based on its first occurrence
-     *
-     * @param index
-     * @return A tuple where the first index is the path before the array and
-     * the second index is the path after the array
-     */
-    private static String[] splitArrayPath(String index) {
-        String[] indexSplit = index.split("\\*");
-        String fieldPre = indexSplit[0];
-        fieldPre = fieldPre.substring(0, fieldPre.length() - 1);
-        String fieldPost = StringUtils.join(Arrays.copyOfRange(indexSplit, 1, indexSplit.length), "*");
-        if (!fieldPost.isEmpty()) {
-            if (index.lastIndexOf("*") == index.length() - 1) {
-                // re-append the * from the split
-                fieldPost += "*";
-            } else if (index.lastIndexOf(".") == index.length() - 1) {
-                fieldPost = fieldPost.substring(0, fieldPost.length() - 1);
-            }
-        }
-        return new String[]{fieldPre, fieldPost};
+    public static void populateDocHiddenFields(DBObject doc, EntityMetadata md){
+        Stream<IndexSortKey> ciIndexes = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes());
+        ciIndexes.forEach(i -> populateCaseInsensitiveField(doc, i.getField()));
     }
 
-    private static JsonNode merge(JsonNode mainNode, JsonNode updateNode) {
-        updateNode.fieldNames().forEachRemaining(f -> {
-            JsonNode valueToBeUpdated = mainNode.get(f);
-            JsonNode updatedValue = updateNode.get(f);
-            // if node is an array
-            if (valueToBeUpdated != null && updatedValue.isArray()) {
-                for (int i = 0; i < updatedValue.size(); i++) {
-                    JsonNode updatedChildNode = updatedValue.get(i);
-                    if (valueToBeUpdated.size() <= i) {
-                        ((ArrayNode) valueToBeUpdated).add(updatedChildNode);
-                    }
-                    JsonNode childNodeToBeUpdated = valueToBeUpdated.get(i);
-                    merge(childNodeToBeUpdated, updatedChildNode);
-                }
-                // if node is an object
-            } else if (valueToBeUpdated != null && valueToBeUpdated.isObject()) {
-                merge(valueToBeUpdated, updatedValue);
-            } else if (mainNode instanceof ObjectNode) {
-                ((ObjectNode) mainNode).replace(f, updatedValue);
-            }
-        });
-        return mainNode;
+    public static void populateDocHiddenFields(DBObject doc, List<Path> fields) {
+        fields.forEach(f -> populateCaseInsensitiveField(doc, f));
     }
 
     private DBObject translateNaryFieldRelationalExpression(FieldTreeNode context, NaryFieldRelationalExpression expr) {
@@ -1470,7 +1359,7 @@ public class Translator {
         }
         return node;
     }
-    
+
     public static ObjectNode rawObjectToJson(DBObject obj) {
         ObjectNode ret=JsonNodeFactory.instance.objectNode();
         for(String key:obj.keySet()) {
