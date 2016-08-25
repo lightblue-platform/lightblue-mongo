@@ -298,6 +298,11 @@ public class MongoSafeUpdateProtocol {
         return hidden;
     }
 
+    public static void overwriteDocVer(DBObject doc,ObjectId docver) {
+        getHidden(doc,true).removeField(DOCVER);
+        setDocVer(doc,docver);
+    }
+    
     public static void setDocVer(DBObject doc,ObjectId docver) {
         DBObject hidden=getHidden(doc,true);
         List<ObjectId> list=(List<ObjectId>)hidden.get(DOCVER);

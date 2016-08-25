@@ -25,6 +25,8 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.bson.types.ObjectId;
+
 import com.mongodb.BasicDBObject;
 import com.mongodb.BulkWriteError;
 import com.mongodb.BulkWriteException;
@@ -62,6 +64,7 @@ public class BasicDocSaver implements DocSaver {
     private final Field[] idFields;
     private final Path[] idPaths;
     private final String[] mongoIdFields;
+    private final ObjectId docver=new ObjectId();
 
     /**
      * Creates a doc saver with the given translator and role evaluator
@@ -221,6 +224,7 @@ public class BasicDocSaver implements DocSaver {
                     LOGGER.debug("Inaccessible fields:{}", paths);
                     if (paths == null || paths.isEmpty()) {
                         Translator.populateDocHiddenFields(doc.newDoc, md);
+                        MongoSafeUpdateProtocol.overwriteDocVer(doc.newDoc,docver);
                         insertionAttemptList.add(doc);
                     } else {
                         for (Path path : paths) {
@@ -284,6 +288,7 @@ public class BasicDocSaver implements DocSaver {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc.inputDoc);
                             merge.merge(doc.oldDoc, doc.newDoc);
                             Translator.populateDocHiddenFields(doc.newDoc, md);
+                            MongoSafeUpdateProtocol.overwriteDocVer(doc.newDoc,docver);
                             updateAttemptList.add(doc);
                         } catch (Exception e) {
                             doc.inputDoc.addError(Error.get("update", MongoCrudConstants.ERR_TRANSLATION_ERROR, e));
