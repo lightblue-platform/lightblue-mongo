@@ -144,7 +144,7 @@ public class MongoSafeUpdateProtocol {
     public static final String DOCVER_FLD=Translator.HIDDEN_SUB_PATH.toString()+"."+DOCVER;
     public static final String DOCVER_FLD0=Translator.HIDDEN_SUB_PATH.toString()+"."+DOCVER+".0";
 
-    private static final long TOO_OLD=10l*60l*1000l; // Any docver older than 10 minutes is to old
+    private static final long TOO_OLD_MS=1l*60l*1000l; // Any docver older than 1 minute is to old
     
     private final DBCollection collection;
     private final WriteConcern writeConcern;
@@ -189,7 +189,7 @@ public class MongoSafeUpdateProtocol {
         Map<Integer,Error> results=new HashMap<>();
         if(!idsInBatch.isEmpty()) {
             BulkWriteResult writeResult;
-            LOGGER.debug("attempToUpdate={}",idsInBatch.size());
+            LOGGER.debug("attemptToUpdate={}",idsInBatch.size());
             try {
                 if(writeConcern==null) {
                     writeResult=bwo.execute();
@@ -207,7 +207,7 @@ public class MongoSafeUpdateProtocol {
                 List<BulkWriteError> writeErrors=e.getWriteErrors();
                 if(writeErrors!=null) {
                     for(BulkWriteError we:writeErrors) {
-                        if (we.getCode() == 11000 || we.getCode() == 11001) {
+                        if (MongoCrudConstants.isDuplicate(we.getCode())) {
                             results.put(we.getIndex(),
                                         Error.get("update", MongoCrudConstants.ERR_DUPLICATE, we.getMessage()));
                         } else {
@@ -326,7 +326,7 @@ public class MongoSafeUpdateProtocol {
                 for(ObjectId id:list) {
                     if(!id.equals(docVer)) {
                         Date d=id.getDate();
-                        if(now-d.getTime()<TOO_OLD) {
+                        if(now-d.getTime()<TOO_OLD_MS) {
                             copy.add(id);
                         }
                     } else {

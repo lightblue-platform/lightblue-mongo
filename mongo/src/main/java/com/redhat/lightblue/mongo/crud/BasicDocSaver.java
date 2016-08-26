@@ -333,7 +333,7 @@ public class BasicDocSaver implements DocSaver {
     private void handleBulkWriteError(List<BulkWriteError> errors, String operation, List<DocInfo> docs) {
         for (BulkWriteError e : errors) {
             DocInfo doc = docs.get(e.getIndex());
-            if (e.getCode() == 11000 || e.getCode() == 11001) {
+            if (MongoCrudConstants.isDuplicate(e.getCode())) {
                 doc.inputDoc.addError(Error.get("update", MongoCrudConstants.ERR_DUPLICATE, e.getMessage()));
             } else {
                 doc.inputDoc.addError(Error.get("update", MongoCrudConstants.ERR_SAVE_ERROR, e.getMessage()));
