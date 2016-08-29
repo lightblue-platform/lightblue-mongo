@@ -152,11 +152,24 @@ public class MongoSafeUpdateProtocol {
     private BulkWriteOperation bwo;
 
     private List<Object> idsInBatch;
+    private final boolean detectConcurrencyErrors;
 
-    public MongoSafeUpdateProtocol(DBCollection collection,WriteConcern writeConcern) {
+    /**
+     * @param collection The DB collection
+     * @param writeConcern Write concern to use. Can be null to use the default
+     * @param detectConcurrencyErrors If set to false, turns off
+     * concurrent modification checking. That turns of concurrent
+     * update prevention as well as detection
+     */
+    public MongoSafeUpdateProtocol(DBCollection collection,WriteConcern writeConcern,boolean detectConcurrencyErrors) {
         this.collection=collection;
         this.writeConcern=writeConcern;
+        this.detectConcurrencyErrors=detectConcurrencyErrors;
         reset();
+    }
+
+    public MongoSafeUpdateProtocol(DBCollection collection,WriteConcern writeConcern) {
+        this(collection,writeConcern,true);
     }
 
     /**
@@ -164,8 +177,8 @@ public class MongoSafeUpdateProtocol {
      * contain the original docver as read from the db
      */
     public void addDoc(DBObject doc) {
-        cleanupOldDocVer(doc);
         DBObject q=writeReplaceQuery(doc);
+        cleanupOldDocVer(doc);
         setDocVer(doc,docVer);
         LOGGER.debug("replaceQuery={}",q);
         bwo.find(q).replaceOne(doc);
@@ -227,6 +240,9 @@ public class MongoSafeUpdateProtocol {
      * This executes a query to find out documents with concurrent modification errors
      */
     protected void findConcurrentModifications(Map<Integer,Error> results) {
+        if(!detectConcurrencyErrors)
+            return;
+        
         List<Object> updatedIds=new ArrayList<>(idsInBatch.size());
         // Collect all ids without errors
         int index=0;
@@ -282,7 +298,8 @@ public class MongoSafeUpdateProtocol {
                 top=list.get(0);
         }
         BasicDBObject query=new BasicDBObject("_id",doc.get("_id"));
-        query.append(DOCVER_FLD0,top);
+        if(detectConcurrencyErrors)
+            query.append(DOCVER_FLD0,top);
         return query;
     }
     
@@ -311,6 +328,13 @@ public class MongoSafeUpdateProtocol {
         }
         list.add(0,docver);
         hidden.put(DOCVER,list);
+    }
+
+    public static void copyDocVer(DBObject destDoc,DBObject sourceDoc) {
+        DBObject hidden=getHidden(sourceDoc,false);
+        if(hidden!=null) {
+            destDoc.put(Translator.HIDDEN_SUB_PATH.toString(),hidden);
+        }
     }
 
     /**

@@ -99,7 +99,7 @@ public class IterateAndUpdate implements DocUpdater {
                        DBObject query) {
         LOGGER.debug("iterateUpdate: start");
         LOGGER.debug("Computing the result set for {}", query);
-        MongoSafeUpdateProtocol sup=new MongoSafeUpdateProtocol(collection,writeConcern);
+        MongoSafeUpdateProtocol sup=new MongoSafeUpdateProtocol(collection,writeConcern,true);
         Measure measure=new Measure();
         DBCursor cursor = null;
         int docIndex = 0;
