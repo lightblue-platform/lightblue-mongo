@@ -71,6 +71,7 @@ public class IterateAndUpdate implements DocUpdater {
     private final Projector projector;
     private final Projector errorProjector;
     private final WriteConcern writeConcern;
+    private final boolean concurrentModificationDetection;
 
     public IterateAndUpdate(JsonNodeFactory nodeFactory,
                             ConstraintValidator validator,
@@ -79,7 +80,9 @@ public class IterateAndUpdate implements DocUpdater {
                             Updater updater,
                             Projector projector,
                             Projector errorProjector,
-                            WriteConcern writeConcern, int batchSize) {
+                            WriteConcern writeConcern,
+                            int batchSize,
+                            boolean concurrentModificationDetection) {
         this.nodeFactory = nodeFactory;
         this.validator = validator;
         this.roleEval = roleEval;
@@ -89,6 +92,7 @@ public class IterateAndUpdate implements DocUpdater {
         this.errorProjector = errorProjector;
         this.writeConcern = writeConcern;
         this.batchSize = batchSize;
+        this.concurrentModificationDetection = concurrentModificationDetection;
     }
 
     @Override
@@ -99,7 +103,7 @@ public class IterateAndUpdate implements DocUpdater {
                        DBObject query) {
         LOGGER.debug("iterateUpdate: start");
         LOGGER.debug("Computing the result set for {}", query);
-        MongoSafeUpdateProtocol sup=new MongoSafeUpdateProtocol(collection,writeConcern,true);
+        MongoSafeUpdateProtocol sup=new MongoSafeUpdateProtocol(collection,writeConcern,concurrentModificationDetection);
         Measure measure=new Measure();
         DBCursor cursor = null;
         int docIndex = 0;

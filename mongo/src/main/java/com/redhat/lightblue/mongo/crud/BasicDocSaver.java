@@ -61,6 +61,7 @@ public class BasicDocSaver implements DocSaver {
     private final Translator translator;
     private final EntityMetadata md;
     private final WriteConcern writeConcern;
+    private final boolean concurrentModificationDetection;
 
     private final Field[] idFields;
     private final Path[] idPaths;
@@ -73,12 +74,15 @@ public class BasicDocSaver implements DocSaver {
     public BasicDocSaver(Translator translator,
                          FieldAccessRoleEvaluator roleEval,
                          EntityMetadata md,
-                         WriteConcern writeConcern, int batchSize) {
+                         WriteConcern writeConcern,
+                         int batchSize,
+                         boolean concurrentModificationDetection) {
         this.translator = translator;
         this.roleEval = roleEval;
         this.md = md;
         this.writeConcern = writeConcern;
         this.batchSize = batchSize;
+        this.concurrentModificationDetection=concurrentModificationDetection;
 
         Field[] idf = md.getEntitySchema().getIdentityFields();
         if (idf == null || idf.length == 0) {
@@ -303,7 +307,7 @@ public class BasicDocSaver implements DocSaver {
                 }
                 LOGGER.debug("After checks and merge, updating {} docs", updateAttemptList.size());
                 if (!updateAttemptList.isEmpty()) {
-                    MongoSafeUpdateProtocol upd=new MongoSafeUpdateProtocol(collection,writeConcern,true);
+                    MongoSafeUpdateProtocol upd=new MongoSafeUpdateProtocol(collection,writeConcern,concurrentModificationDetection);
                     for (DocInfo doc : updateAttemptList) {
                         upd.addDoc(doc.newDoc);
                         doc.inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
