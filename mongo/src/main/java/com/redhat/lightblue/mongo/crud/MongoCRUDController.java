@@ -136,11 +136,44 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private final DBResolver dbResolver;
     private final ControllerConfiguration controllerCfg;
 
-    private final int batchSize = 64;
+    private final int batchSize;
+    private final boolean concurrentModificationDetection;
 
-    public MongoCRUDController(ControllerConfiguration controllerCfg, DBResolver dbResolver) {
+    public MongoCRUDController(ControllerConfiguration controllerCfg, DBResolver dbResolver) {        
         this.dbResolver = dbResolver;
         this.controllerCfg = controllerCfg;
+        this.batchSize=getIntOption("updateBatchSize",64);
+        this.concurrentModificationDetection=getBooleanOption("concurrentModificationDetection",true);
+    }
+
+    private String getOption(String optionName,String defaultValue) {
+        if(controllerCfg!=null) {
+            ObjectNode node=controllerCfg.getOptions();
+            if(node!=null) {
+                JsonNode value=node.get(optionName);
+                if(value!=null||!value.isNull())
+                    return value.asText();
+            }
+        }
+        return defaultValue;
+    }
+
+    private int getIntOption(String optionName,int defaultValue) {
+        String v=getOption(optionName,null);
+        if(v!=null) {
+            return Integer.valueOf(v);
+        } else {
+            return defaultValue;
+        }
+    }
+
+    private boolean getBooleanOption(String optionName,boolean defaultValue) {
+        String v=getOption(optionName,null);
+        if(v!=null) {
+            return Boolean.valueOf(v);
+        } else {
+            return defaultValue;
+        }
     }
 
     public DBResolver getDbResolver() {
@@ -222,7 +255,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     projector = null;
                 }
                 DocSaver saver = new BasicDocSaver(translator, roleEval, md, MongoExecutionOptions.
-                        getWriteConcern(ctx.getExecutionOptions()), batchSize);
+                                                   getWriteConcern(ctx.getExecutionOptions()), batchSize,concurrentModificationDetection);
                 ctx.setProperty(PROP_SAVER, saver);
 
                 saver.saveDocs(ctx,
@@ -304,7 +337,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 Updater updater = Updater.getInstance(ctx.getFactory().getNodeFactory(), md, update);
 
                 DocUpdater docUpdater = new IterateAndUpdate(ctx.getFactory().getNodeFactory(), validator, roleEval, translator, updater,
-                        projector, errorProjector, MongoExecutionOptions.getWriteConcern(ctx.getExecutionOptions()), batchSize);
+                                                             projector, errorProjector,
+                                                             MongoExecutionOptions.getWriteConcern(ctx.getExecutionOptions()),
+                                                             batchSize,
+                                                             concurrentModificationDetection);
                 ctx.setProperty(PROP_UPDATER, docUpdater);
                 docUpdater.update(ctx, coll, md, response, mongoQuery);
                 ctx.getHookManager().queueHooks(ctx);

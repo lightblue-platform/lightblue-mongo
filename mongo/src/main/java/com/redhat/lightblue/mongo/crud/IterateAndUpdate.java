@@ -21,6 +21,7 @@ package com.redhat.lightblue.mongo.crud;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,10 +71,7 @@ public class IterateAndUpdate implements DocUpdater {
     private final Projector projector;
     private final Projector errorProjector;
     private final WriteConcern writeConcern;
-
-
-    private final List<DocCtx> docUpdateAttempts = new ArrayList<>();
-    private final List<BulkWriteError> docUpdateErrors = new ArrayList<>();
+    private final boolean concurrentModificationDetection;
 
     public IterateAndUpdate(JsonNodeFactory nodeFactory,
                             ConstraintValidator validator,
@@ -82,7 +80,9 @@ public class IterateAndUpdate implements DocUpdater {
                             Updater updater,
                             Projector projector,
                             Projector errorProjector,
-                            WriteConcern writeConcern, int batchSize) {
+                            WriteConcern writeConcern,
+                            int batchSize,
+                            boolean concurrentModificationDetection) {
         this.nodeFactory = nodeFactory;
         this.validator = validator;
         this.roleEval = roleEval;
@@ -92,6 +92,7 @@ public class IterateAndUpdate implements DocUpdater {
         this.errorProjector = errorProjector;
         this.writeConcern = writeConcern;
         this.batchSize = batchSize;
+        this.concurrentModificationDetection = concurrentModificationDetection;
     }
 
     @Override
@@ -102,12 +103,15 @@ public class IterateAndUpdate implements DocUpdater {
                        DBObject query) {
         LOGGER.debug("iterateUpdate: start");
         LOGGER.debug("Computing the result set for {}", query);
+        MongoSafeUpdateProtocol sup=new MongoSafeUpdateProtocol(collection,writeConcern,concurrentModificationDetection);
         Measure measure=new Measure();
         DBCursor cursor = null;
         int docIndex = 0;
         int numMatched = 0;
-        int numFailed = 0;
+        int numUpdated =0;
+        int numFailed =0;
         BsonMerge merge = new BsonMerge(md);
+        List<DocCtx> docUpdateAttempts=new ArrayList<>();
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
             measure.begin("collection.find");
@@ -116,9 +120,8 @@ public class IterateAndUpdate implements DocUpdater {
             LOGGER.debug("Found {} documents", cursor.count());
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_RESULTSET, ctx);
             // read-update-write
-            BulkWriteOperation bwo = collection.initializeUnorderedBulkOperation();
-            int numUpdating = 0;
             measure.begin("iteration");
+            int batchStartIndex=0; // docUpdateAttempts[batchStartIndex] is the first doc in this batch
             while (cursor.hasNext()) {
                 DBObject document = cursor.next();
                 numMatched++;
@@ -153,7 +156,7 @@ public class IterateAndUpdate implements DocUpdater {
                         LOGGER.debug("Doc has data errors");
                     }
                     if (!hasErrors) {
-                        measure.begin("accesCheck");
+                        measure.begin("accessCheck");
                         Set<Path> paths = roleEval.getInaccessibleFields_Update(doc, doc.getOriginalDocument());
                         measure.end("accessCheck");
                         LOGGER.debug("Inaccesible fields during update={}" + paths);
@@ -173,16 +176,20 @@ public class IterateAndUpdate implements DocUpdater {
                             Translator.populateDocHiddenFields(updatedObject, md);
                             measure.end("populateHiddenFields");
 
-                            bwo.find(new BasicDBObject("_id", document.get("_id"))).replaceOne(updatedObject);
+                            sup.addDoc(updatedObject);
                             docUpdateAttempts.add(doc);
-                            numUpdating++;
                             // update in batches
-                            if (numUpdating >= batchSize) {
+                            if (docUpdateAttempts.size()-batchStartIndex>= batchSize) {
                                 measure.begin("bulkUpdate");
-                                executeAndLogBulkErrors(bwo);
+                                Map<Integer,Error> updateErrors=sup.commit();
                                 measure.end("bulkUpdate");
-                                bwo = collection.initializeUnorderedBulkOperation();
-                                numUpdating = 0;
+                                for(Map.Entry<Integer,Error> entry:updateErrors.entrySet()) {
+                                    docUpdateAttempts.get(entry.getKey()+batchStartIndex).addError(entry.getValue());
+                                }
+                                int k=updateErrors.size();
+                                numFailed+=k;
+                                numUpdated+=docUpdateAttempts.size()-batchStartIndex-k;
+                                batchStartIndex=docUpdateAttempts.size();
                             }
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             doc.setUpdatedDocument(doc);
@@ -191,13 +198,14 @@ public class IterateAndUpdate implements DocUpdater {
                             doc.addError(Error.get(MongoCrudConstants.ERR_UPDATE_ERROR, e.toString()));
                             hasErrors = true;
                         }
+                    } else {
+                        numFailed++;
                     }
                 } else {
                     LOGGER.debug("Document {} was not modified", docIndex);
                 }
                 if (hasErrors) {
                     LOGGER.debug("Document {} has errors", docIndex);
-                    numFailed++;
                     doc.setOutputDocument(errorProjector.project(doc, nodeFactory));
                 } else if (projector != null) {
                     LOGGER.debug("Projecting document {}", docIndex);
@@ -207,58 +215,29 @@ public class IterateAndUpdate implements DocUpdater {
             }
             measure.end("iteration");
             // if we have any remaining items to update
-            if (numUpdating > 0) {
-                try {
-                    executeAndLogBulkErrors(bwo);
-                } catch (Exception e) {
-                    LOGGER.warn("Update exception for documents for query: {}", query.toString());
+            if (docUpdateAttempts.size() > batchStartIndex) {
+                Map<Integer,Error> updateErrors=sup.commit();
+                for(Map.Entry<Integer,Error> entry:updateErrors.entrySet()) {
+                    docUpdateAttempts.get(entry.getKey()+batchStartIndex).addError(entry.getValue());
                 }
-            }
+                int k=updateErrors.size();
+                numFailed+=k;
+                numUpdated+=docUpdateAttempts.size()-batchStartIndex-k;
+           }
         } finally {
             if (cursor != null) {
                 cursor.close();
             }
         }
-        handleBulkWriteError(docUpdateErrors, docUpdateAttempts);
 
         ctx.getDocumentsWithoutErrors().stream().forEach(doc -> {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
         });
 
-        response.setNumUpdated(docUpdateAttempts.size() - docUpdateErrors.size());
-        // number failed is the number of update attempts that failed along with documents that failed pre-update
-        response.setNumFailed(docUpdateErrors.size() + numFailed);
+        response.setNumUpdated(numUpdated);
+        response.setNumFailed(numFailed);
         response.setNumMatched(numMatched);
         METRICS.info("IterateAndUpdate:\n{}",measure);
     }
 
-    private void handleBulkWriteError(List<BulkWriteError> errors, List<DocCtx> docs) {
-        for (BulkWriteError e : errors) {
-            DocCtx doc = docs.get(e.getIndex());
-            if (e.getCode() == 11000 || e.getCode() == 11001) {
-                doc.addError(Error.get("update", MongoCrudConstants.ERR_DUPLICATE, e.getMessage()));
-            } else {
-                doc.addError(Error.get("update", MongoCrudConstants.ERR_SAVE_ERROR, e.getMessage()));
-            }
-        }
-    }
-
-    private BulkWriteResult executeAndLogBulkErrors(BulkWriteOperation bwo) {
-        BulkWriteResult result = null;
-        try {
-            if (writeConcern == null) {
-                LOGGER.debug("Bulk updating docs");
-                result = bwo.execute();
-            } else {
-                LOGGER.debug("Bulk deleting docs with writeConcern={} from execution", writeConcern);
-                result = bwo.execute(writeConcern);
-            }
-        } catch (BulkWriteException e) {
-            BulkWriteException bwe = e;
-            result = bwe.getWriteResult();
-            LOGGER.warn("Bulk update operation contains errors", bwe);
-            docUpdateErrors.addAll(bwe.getWriteErrors());
-        }
-        return result;
-    }
 }

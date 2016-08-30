@@ -21,9 +21,12 @@ package com.redhat.lightblue.mongo.crud;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.bson.types.ObjectId;
 
 import com.mongodb.BasicDBObject;
 import com.mongodb.BulkWriteError;
@@ -58,10 +61,12 @@ public class BasicDocSaver implements DocSaver {
     private final Translator translator;
     private final EntityMetadata md;
     private final WriteConcern writeConcern;
+    private final boolean concurrentModificationDetection;
 
     private final Field[] idFields;
     private final Path[] idPaths;
     private final String[] mongoIdFields;
+    private final ObjectId docver=new ObjectId();
 
     /**
      * Creates a doc saver with the given translator and role evaluator
@@ -69,12 +74,15 @@ public class BasicDocSaver implements DocSaver {
     public BasicDocSaver(Translator translator,
                          FieldAccessRoleEvaluator roleEval,
                          EntityMetadata md,
-                         WriteConcern writeConcern, int batchSize) {
+                         WriteConcern writeConcern,
+                         int batchSize,
+                         boolean concurrentModificationDetection) {
         this.translator = translator;
         this.roleEval = roleEval;
         this.md = md;
         this.writeConcern = writeConcern;
         this.batchSize = batchSize;
+        this.concurrentModificationDetection=concurrentModificationDetection;
 
         Field[] idf = md.getEntitySchema().getIdentityFields();
         if (idf == null || idf.length == 0) {
@@ -221,6 +229,7 @@ public class BasicDocSaver implements DocSaver {
                     LOGGER.debug("Inaccessible fields:{}", paths);
                     if (paths == null || paths.isEmpty()) {
                         Translator.populateDocHiddenFields(doc.newDoc, md);
+                        MongoSafeUpdateProtocol.overwriteDocVer(doc.newDoc,docver);
                         insertionAttemptList.add(doc);
                     } else {
                         for (Path path : paths) {
@@ -282,6 +291,9 @@ public class BasicDocSaver implements DocSaver {
                     if (paths == null || paths.isEmpty()) {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc.inputDoc);
+                            MongoSafeUpdateProtocol.copyDocVer(doc.newDoc,doc.oldDoc);
+                            // Copy the _id, newdoc doesn't necessarily have _id
+                            doc.newDoc.put("_id",doc.oldDoc.get("_id"));
                             merge.merge(doc.oldDoc, doc.newDoc);
                             Translator.populateDocHiddenFields(doc.newDoc, md);
                             updateAttemptList.add(doc);
@@ -290,28 +302,21 @@ public class BasicDocSaver implements DocSaver {
                         }
                     } else {
                         doc.inputDoc.addError(Error.get("update",
-                                CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
+                                                        CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
                     }
                 }
                 LOGGER.debug("After checks and merge, updating {} docs", updateAttemptList.size());
                 if (!updateAttemptList.isEmpty()) {
-                    BulkWriteOperation bw = collection.initializeUnorderedBulkOperation();
+                    MongoSafeUpdateProtocol upd=new MongoSafeUpdateProtocol(collection,writeConcern,concurrentModificationDetection);
                     for (DocInfo doc : updateAttemptList) {
-                        bw.find(new BasicDBObject("_id", doc.oldDoc.get("_id"))).replaceOne(doc.newDoc);
+                        upd.addDoc(doc.newDoc);
                         doc.inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                     }
                     try {
-                        if (writeConcern == null) {
-                            LOGGER.debug("Bulk updating docs");
-                            bw.execute();
-                        }
-                        else {
-                            LOGGER.debug("Bulk updating docs with writeConcern={} from execution", writeConcern);
-                            bw.execute(writeConcern);
-                        }
-                    } catch (BulkWriteException bwe) {
-                        LOGGER.error("Bulk write exception", bwe);
-                        handleBulkWriteError(bwe.getWriteErrors(), "update", updateAttemptList);
+                        Map<Integer,Error> errorMap=upd.commit();
+                        for(Map.Entry<Integer,Error> entry:errorMap.entrySet()) {
+                            updateAttemptList.get(entry.getKey()).inputDoc.addError(entry.getValue());
+                        }                        
                     } catch (RuntimeException e) {
                     } finally {
                         for (DocInfo doc : updateAttemptList) {
@@ -328,7 +333,7 @@ public class BasicDocSaver implements DocSaver {
     private void handleBulkWriteError(List<BulkWriteError> errors, String operation, List<DocInfo> docs) {
         for (BulkWriteError e : errors) {
             DocInfo doc = docs.get(e.getIndex());
-            if (e.getCode() == 11000 || e.getCode() == 11001) {
+            if (MongoCrudConstants.isDuplicate(e.getCode())) {
                 doc.inputDoc.addError(Error.get("update", MongoCrudConstants.ERR_DUPLICATE, e.getMessage()));
             } else {
                 doc.inputDoc.addError(Error.get("update", MongoCrudConstants.ERR_SAVE_ERROR, e.getMessage()));
