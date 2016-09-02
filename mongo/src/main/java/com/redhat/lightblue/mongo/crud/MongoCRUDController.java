@@ -151,7 +151,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             ObjectNode node=controllerCfg.getOptions();
             if(node!=null) {
                 JsonNode value=node.get(optionName);
-                if(value!=null||!value.isNull())
+                if(value!=null&&!value.isNull())
                     return value.asText();
             }
         }
