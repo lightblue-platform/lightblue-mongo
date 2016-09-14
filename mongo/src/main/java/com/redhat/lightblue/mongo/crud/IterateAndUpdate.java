@@ -117,6 +117,8 @@ public class IterateAndUpdate implements DocUpdater {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
             measure.begin("collection.find");
             cursor = collection.find(query, null);
+            // Read from primary for read-for-update operations
+            cursor.setReadPreference(ReadPreference.primary());
             measure.end("collection.find");
             LOGGER.debug("Found {} documents", cursor.count());
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_RESULTSET, ctx);
@@ -124,8 +126,6 @@ public class IterateAndUpdate implements DocUpdater {
             measure.begin("iteration");
             int batchStartIndex=0; // docUpdateAttempts[batchStartIndex] is the first doc in this batch
             while (cursor.hasNext()) {
-                // Read from primary for read-for-update operations
-                cursor.setReadPreference(ReadPreference.primary());
                 DBObject document = cursor.next();
                 numMatched++;
                 boolean hasErrors = false;
