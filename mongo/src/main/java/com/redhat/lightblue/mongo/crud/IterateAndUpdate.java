@@ -36,6 +36,7 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.WriteConcern;
+import com.mongodb.ReadPreference;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
@@ -123,6 +124,8 @@ public class IterateAndUpdate implements DocUpdater {
             measure.begin("iteration");
             int batchStartIndex=0; // docUpdateAttempts[batchStartIndex] is the first doc in this batch
             while (cursor.hasNext()) {
+                // Read from primary for read-for-update operations
+                cursor.setReadPreference(ReadPreference.primary());
                 DBObject document = cursor.next();
                 numMatched++;
                 boolean hasErrors = false;

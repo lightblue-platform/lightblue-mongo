@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.mongodb.WriteConcern;
+import com.mongodb.ReadPreference;
 import com.mongodb.WriteResult;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
@@ -139,7 +140,7 @@ public class MongoLocking implements Locking {
             // version number will change, and we will fail.
             query = new BasicDBObject(RESOURCEID, resourceId);
             LOGGER.debug("find: {}", query);
-            DBObject lockObject = coll.findOne(query);
+            DBObject lockObject = coll.findOne(query,null,ReadPreference.primary());
             if (lockObject == null) {
                 LOGGER.debug("{}/{}: lock cannot be read. Retrying to acquire", callerId, resourceId);
                 locked = acquire(callerId, resourceId, ttl, now, expiration);
@@ -226,7 +227,7 @@ public class MongoLocking implements Locking {
         // Retrieve the lock
         query = new BasicDBObject(RESOURCEID, resourceId).
                 append(CALLERID, callerId);
-        DBObject lock = coll.findOne(query);
+        DBObject lock = coll.findOne(query,null,ReadPreference.primary());
         if (lock != null) {
             long ttl = ((Number) lock.get(TTL)).longValue();
             Date expiration = new Date(now.getTime() + ttl);
@@ -262,7 +263,7 @@ public class MongoLocking implements Locking {
                 append(EXPIRATION, new BasicDBObject("$gt", now)).
                 append(COUNT, new BasicDBObject("$gt", 0));
         BasicDBObject field = new BasicDBObject(COUNT, 1);
-        DBObject lock = coll.findOne(q, field);
+        DBObject lock = coll.findOne(q, field,ReadPreference.primary());
         if (lock != null) {
             int cnt = ((Number) lock.get(COUNT)).intValue();
             LOGGER.debug("{}/{} lockCount={}", callerId, resourceId, cnt);
@@ -279,7 +280,7 @@ public class MongoLocking implements Locking {
                 append(RESOURCEID, resourceId).
                 append(EXPIRATION, new BasicDBObject("$gt", now)).
                 append(COUNT, new BasicDBObject("$gt", 0));
-        DBObject lock = coll.findOne(q);
+        DBObject lock = coll.findOne(q,null,ReadPreference.primary());
         if (lock != null) {
             Date expiration = new Date(now.getTime() + ((Number) lock.get(TTL)).longValue());
             int ver = ((Number) lock.get(VERSION)).intValue();

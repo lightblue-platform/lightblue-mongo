@@ -33,6 +33,7 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.WriteConcern;
+import com.mongodb.ReadPreference;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
@@ -83,6 +84,8 @@ public class BasicDocDeleter implements DocDeleter {
         int numDeleted = 0;
 
         try (DBCursor cursor = collection.find(mongoQuery, null)) {
+            // Set read preference to primary for read-for-update operations
+            cursor.setReadPreference(ReadPreference.primary());
             List<DocInfo> docsToDelete = new ArrayList<>();
 
             while (cursor.hasNext()) {
