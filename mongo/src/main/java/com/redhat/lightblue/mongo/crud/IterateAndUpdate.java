@@ -51,6 +51,7 @@ import com.redhat.lightblue.metadata.PredefinedFields;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.Measure;
+import com.redhat.lightblue.util.JsonDoc;
 
 /**
  * Non-atomic updater that evaluates the query, and updates the documents one by
@@ -133,6 +134,8 @@ public class IterateAndUpdate implements DocUpdater {
                 measure.end("ctx.addDocument");
                 // From now on: doc contains the working copy, and doc.originalDoc contains the original copy
                 if (updater.update(doc, md.getFieldTreeRoot(), Path.EMPTY)) {
+                    // Remove any nulls from the document
+                    JsonDoc.filterNulls(doc.getRoot());
                     LOGGER.debug("Document {} modified, updating", docIndex);
                     measure.begin("updateArraySizes");
                     PredefinedFields.updateArraySizes(md, nodeFactory, doc);
