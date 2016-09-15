@@ -25,6 +25,7 @@ import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.WriteConcern;
+import com.mongodb.ReadPreference;
 
 /**
  * Sequence generation using a MongoDB collection.
@@ -76,7 +77,7 @@ public class MongoSequenceGenerator {
         LOGGER.debug("getNextSequenceValue({})", name);
         // Read the sequence document
         BasicDBObject q = new BasicDBObject(NAME, name);
-        DBObject doc = coll.findOne(q);
+        DBObject doc = coll.findOne(q,null,ReadPreference.primary());
         if (doc == null) {
             // Sequence document does not exist. Insert a new document using the init and inc
             LOGGER.debug("inserting sequence record name={}, init={}, inc={}", name, init, inc);
@@ -96,7 +97,7 @@ public class MongoSequenceGenerator {
                 // Someone else might have inserted already, try to re-read
                 LOGGER.debug("Insertion failed with {}, trying to read", e);
             }
-            doc = coll.findOne(q);
+            doc = coll.findOne(q,null,ReadPreference.primary());
             if (doc == null) {
                 throw new RuntimeException("Cannot generate value for " + name);
             }

@@ -36,6 +36,7 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.WriteConcern;
+import com.mongodb.ReadPreference;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CrudConstants;
@@ -160,6 +161,8 @@ public class BasicDocSaver implements DocSaver {
                 BasicDBObject retrievalq = new BasicDBObject("$or", idQueries);
                 LOGGER.debug("Existing document retrieval query={}", retrievalq);
                 try (DBCursor cursor = collection.find(retrievalq, null)) {
+                    // Make sure we read from primary, because that's where we'll write
+                    cursor.setReadPreference(ReadPreference.primary());
                     List<DBObject> results = cursor.toArray();
                     LOGGER.debug("Retrieved {} docs", results.size());
 
