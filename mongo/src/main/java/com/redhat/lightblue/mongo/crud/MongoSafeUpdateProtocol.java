@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.HashMap;
 import java.util.Date;
 
+import com.mongodb.ReadPreference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -257,10 +258,9 @@ public class MongoSafeUpdateProtocol {
             // others are failures
             BasicDBObject query=new BasicDBObject(DOCVER_FLD,docVer);
             query.append("_id",new BasicDBObject("$in",updatedIds));
-            DBCursor cursor=null;
-            try {
+            try (DBCursor cursor = collection.find(query,new BasicDBObject("_id",1))
+                    .setReadPreference(ReadPreference.primaryPreferred())) {
                 Set<Object> successfulIds=new HashSet<>(updatedIds.size());
-                cursor=collection.find(query,new BasicDBObject("_id",1));
                 while(cursor.hasNext()) {
                     DBObject obj=cursor.next();
                     Object id=obj.get("_id");
@@ -276,9 +276,6 @@ public class MongoSafeUpdateProtocol {
                     }
                     index++;
                 }
-            } finally {
-                if(cursor!=null)
-                    cursor.close();
             }
         }
     }
