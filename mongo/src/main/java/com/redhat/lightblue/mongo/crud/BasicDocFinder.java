@@ -94,10 +94,8 @@ public class BasicDocFinder implements DocFinder {
                 cursor = cursor.sort(mongoSort);
                 LOGGER.debug("Result set sorted");
             }
-            int size = cursor.count();
-            long ret = size;
-
-            int nRetrieve=size;
+            int numMatched = cursor.count();
+            int nRetrieve=numMatched;
             List<DBObject> mongoResults=null;            
             List<JsonDoc> jsonDocs=null;
 
@@ -106,24 +104,21 @@ public class BasicDocFinder implements DocFinder {
 
             // f and t are from and to indexes, both inclusive
             int f=from==null?0:from.intValue();
-            int t=to==null?size-1:to.intValue();
+            int t=to==null?numMatched-1:to.intValue();
             if(f<0)
                 f=0;
-            if(t<0)
+            if(t>=numMatched)
+                t=numMatched-1;
+            if(t<f||f>=numMatched)
                 nRetrieve=0;
-            if(t>=size)
-                t=size-1;
-            if(f>=size) 
-                nRetrieve=0;
-            if(t<f)
-                nRetrieve=0;
+            
             if(nRetrieve>0) {
                 nRetrieve=t-f+1;                
                 cursor.skip(f);
                 cursor.limit(nRetrieve);
                 if (maxResultSetSize > 0 && nRetrieve > maxResultSetSize) {
-                    LOGGER.warn("Too many results:{} of {}", nRetrieve, size);
-                    RESULTSET_LOGGER.debug("resultset_size={}, requested={}, query={}", size, nRetrieve, mongoQuery);
+                    LOGGER.warn("Too many results:{} of {}", nRetrieve, numMatched);
+                    RESULTSET_LOGGER.debug("resultset_size={}, requested={}, query={}", numMatched, nRetrieve, mongoQuery);
                     throw Error.get(MongoCrudConstants.ERR_TOO_MANY_RESULTS, Integer.toString(nRetrieve));
                 }
                 
@@ -151,7 +146,7 @@ public class BasicDocFinder implements DocFinder {
                                        mongoQuery,
                                        f, t);
             }            
-            return ret;
+            return numMatched;
         } finally {
             if (cursor != null) {
                 cursor.close();
