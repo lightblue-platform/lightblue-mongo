@@ -77,7 +77,6 @@ public class BasicDocFinder implements DocFinder {
 
         long executionTime = System.currentTimeMillis();
         DBCursor cursor = null;
-
         try {
             cursor = coll.find(mongoQuery, mongoProjection);
             if (readPreference != null) {
@@ -97,50 +96,61 @@ public class BasicDocFinder implements DocFinder {
             }
             int size = cursor.count();
             long ret = size;
-            LOGGER.debug("Applying limits: {} - {}", from, to);
 
-            if (from != null) {
-                cursor.skip(from.intValue());
-                if (to != null && from > to) //if 'to' is not null but lesser than 'from', skip the entire list to return nothing 
-                {
-                    cursor.skip(size);
+            int nRetrieve=size;
+            List<DBObject> mongoResults=null;            
+            List<JsonDoc> jsonDocs=null;
+
+           LOGGER.debug("Applying limits: {} - {}", from, to);
+            long retrievalTime=0;
+
+            // f and t are from and to indexes, both inclusive
+            int f=from==null?0:from.intValue();
+            int t=to==null?size-1:to.intValue();
+            if(f<0)
+                f=0;
+            if(t<0)
+                nRetrieve=0;
+            if(t>=size)
+                t=size-1;
+            if(f>=size) 
+                nRetrieve=0;
+            if(t<f)
+                nRetrieve=0;
+            if(nRetrieve>0) {
+                nRetrieve=t-f+1;                
+                cursor.skip(f);
+                cursor.limit(nRetrieve);
+                if (maxResultSetSize > 0 && nRetrieve > maxResultSetSize) {
+                    LOGGER.warn("Too many results:{} of {}", nRetrieve, size);
+                    RESULTSET_LOGGER.debug("resultset_size={}, requested={}, query={}", size, nRetrieve, mongoQuery);
+                    throw Error.get(MongoCrudConstants.ERR_TOO_MANY_RESULTS, Integer.toString(nRetrieve));
                 }
-            }
-            if (to != null) {
-                //if 'to' is not null, check if greater than or equal to 0 and set limit 
-                if (to >= 0) {
-                    cursor.limit(to.intValue() - (from == null ? 0 : from.intValue()) + 1);
-                } // if to is less than 0, skip the entire list to return nothing
-                else if (to < 0) {
-                    cursor.skip(size);
+                
+                LOGGER.debug("Retrieving results");
+                retrievalTime = System.currentTimeMillis();
+                mongoResults = cursor.toArray();
+                retrievalTime = System.currentTimeMillis() - retrievalTime;
+                
+                LOGGER.debug("Retrieved {} results", mongoResults.size());
+                jsonDocs = translator.toJson(mongoResults);
+                if(jsonDocs.size()!=nRetrieve)
+                    throw Error.get(MongoCrudConstants.ERR_MONGO_RESULTSET_MISMATCH,"Requested="+nRetrieve+" Retrieved="+jsonDocs.size());
+                
+                ctx.addDocuments(jsonDocs);
+                for (DocCtx doc : ctx.getDocuments()) {
+                    doc.setCRUDOperationPerformed(CRUDOperation.FIND);
+                    ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_FIND_DOC, ctx, doc);
                 }
+                LOGGER.debug("Translated DBObjects to json");
             }
-            if (maxResultSetSize > 0 && cursor.size() > maxResultSetSize) {
-                LOGGER.warn("Too many results:{}", size);
-                RESULTSET_LOGGER.debug("resultset_size={}, query={}", size, mongoQuery);
-                throw Error.get(MongoCrudConstants.ERR_TOO_MANY_RESULTS, Integer.toString(size));
-            }
-
-            LOGGER.debug("Retrieving results");
-            long retrievalTime = System.currentTimeMillis();
-            List<DBObject> mongoResults = cursor.toArray();
-            retrievalTime = System.currentTimeMillis() - retrievalTime;
-
-            LOGGER.debug("Retrieved {} results", mongoResults.size());
-            List<JsonDoc> jsonDocs = translator.toJson(mongoResults);
-
             if (RESULTSET_LOGGER.isDebugEnabled() && (executionTime > 100 || retrievalTime > 100)) {
                 RESULTSET_LOGGER.debug("execution_time={}, retrieval_time={}, resultset_size={}, data_size={}, query={}, from={}, to={}",
-                        executionTime, retrievalTime, mongoResults.size(), Translator.size(jsonDocs), mongoQuery,
-                        from, to);
-            }
-
-            ctx.addDocuments(jsonDocs);
-            for (DocCtx doc : ctx.getDocuments()) {
-                doc.setCRUDOperationPerformed(CRUDOperation.FIND);
-                ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_FIND_DOC, ctx, doc);
-            }
-            LOGGER.debug("Translated DBObjects to json");
+                                       executionTime, retrievalTime, mongoResults==null?0:mongoResults.size(),
+                                       jsonDocs==null?0:Translator.size(jsonDocs),
+                                       mongoQuery,
+                                       f, t);
+            }            
             return ret;
         } finally {
             if (cursor != null) {
