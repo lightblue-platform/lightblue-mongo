@@ -30,6 +30,7 @@ public final class MongoCrudConstants {
     public static final String ERR_NO_ACCESS = "mongo-crud:NoAccess";
     public static final String ERR_CONNECTION_ERROR = "mongo-crud:ConnectionError";
     public static final String ERR_MONGO_ERROR = "mongo-crud:DatabaseError";
+    public static final String ERR_MONGO_RESULTSET_MISMATCH = "mongo-crud:ResultsetMismatch";
 
     public static final String ERR_EMPTY_DOCUMENTS = "mongo-crud:EmptyDocuments";
     public static final String ERR_EMPTY_VALUE_LIST = "mongo-crud:EmptyValueList";
