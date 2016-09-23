@@ -109,7 +109,7 @@ public class BasicDocFinder implements DocFinder {
                 f=0;
             if(t>=numMatched)
                 t=numMatched-1;
-            if(t<f||f>=numMatched)
+            if(t<f)
                 nRetrieve=0;
             
             if(nRetrieve>0) {
