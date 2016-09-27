@@ -69,6 +69,24 @@ public class BasicDocSaver implements DocSaver {
     private final String[] mongoIdFields;
     private final ObjectId docver=new ObjectId();
 
+    private static class MongoSafeUpdateProtocolForSave extends MongoSafeUpdateProtocol {
+
+        private final List<DocInfo> batchDocs;
+        
+        public MongoSafeUpdateProtocolForSave(DBCollection collection,
+                                              WriteConcern writeConcern,
+                                              ConcurrentModificationDetectionCfg cfg,
+                                              List<DocInfo> batchDocs) {
+            super(collection,writeConcern,cfg);
+            this.batchDocs=batchDocs;
+        }
+        
+        protected DBObject reapplyChanges(int docIndex,DBObject doc) {
+            // For save operation, there are no changes to reapply. We are overwriting the document
+            return batchDocs.get(docIndex).newDoc;
+        }
+    }
+
     /**
      * Creates a doc saver with the given translator and role evaluator
      */
@@ -310,7 +328,10 @@ public class BasicDocSaver implements DocSaver {
                 }
                 LOGGER.debug("After checks and merge, updating {} docs", updateAttemptList.size());
                 if (!updateAttemptList.isEmpty()) {
-                    MongoSafeUpdateProtocol upd=new MongoSafeUpdateProtocol(collection,writeConcern,concurrentModificationDetection);
+                    MongoSafeUpdateProtocol upd=new MongoSafeUpdateProtocolForSave(collection,
+                                                                                   writeConcern,
+                                                                                   concurrentModificationDetection,
+                                                                                   updateAttemptList);
                     for (DocInfo doc : updateAttemptList) {
                         upd.addDoc(doc.newDoc);
                         doc.inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);

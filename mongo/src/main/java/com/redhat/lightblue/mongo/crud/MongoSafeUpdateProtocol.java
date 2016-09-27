@@ -136,7 +136,7 @@ import com.redhat.lightblue.util.Error;
 
 
 
-public class MongoSafeUpdateProtocol {
+public abstract class MongoSafeUpdateProtocol {
 
     private static final Logger LOGGER=LoggerFactory.getLogger(MongoSafeUpdateProtocol.class);
     
@@ -146,32 +146,66 @@ public class MongoSafeUpdateProtocol {
     public static final String DOCVER_FLD0=Translator.HIDDEN_SUB_PATH.toString()+"."+DOCVER+".0";
 
     private static final long TOO_OLD_MS=1l*60l*1000l; // Any docver older than 1 minute is to old
+
+    private static final class BatchDoc {
+        Object id;
+
+        public BatchDoc(DBObject doc) {
+            id=doc.get("_id");
+        }
+    }
     
     private final DBCollection collection;
     private final WriteConcern writeConcern;
     private ObjectId docVer;
     private BulkWriteOperation bwo;
+    private final DBObject query;
 
-    private List<Object> idsInBatch;
+    private List<BatchDoc> batch;
     private final ConcurrentModificationDetectionCfg cfg;
 
     /**
      * @param collection The DB collection
      * @param writeConcern Write concern to use. Can be null to use the default
-     * @param detectConcurrencyErrors If set to false, turns off
-     * concurrent modification checking. That turns of concurrent
-     * update prevention as well as detection
+     * @param cfg Concurrent modification detection options
      */
-    public MongoSafeUpdateProtocol(DBCollection collection,WriteConcern writeConcern,ConcurrentModificationDetectionCfg cfg) {
+    public MongoSafeUpdateProtocol(DBCollection collection,
+                                   WriteConcern writeConcern,
+                                   ConcurrentModificationDetectionCfg cfg) {
+        this(collection,writeConcern,null,cfg);
+    }
+
+    /**
+     * @param collection The DB collection
+     * @param writeConcern Write concern to use. Can be null to use the default
+     * @param query The update query, if this is an update call
+     * @param cfg Concurrent modification detection options
+     */
+    public MongoSafeUpdateProtocol(DBCollection collection,
+                                   WriteConcern writeConcern,
+                                   DBObject query,
+                                   ConcurrentModificationDetectionCfg cfg) {
         this.collection=collection;
         this.writeConcern=writeConcern;
         this.cfg=cfg==null?new ConcurrentModificationDetectionCfg(null):cfg;
+        this.query=query;
         reset();
     }
 
-    public MongoSafeUpdateProtocol(DBCollection collection,WriteConcern writeConcern) {
-        this(collection,writeConcern,null);
+    public ConcurrentModificationDetectionCfg getCfg() {
+        return cfg;
     }
+
+
+    /**
+     * Override this method to define how to deal with retries
+     *
+     * This is called when a concurrent modification is detected, and
+     * the failed document is reloaded. The implementation should
+     * reapply the changes to the new version of the document. 
+     */
+    protected abstract DBObject reapplyChanges(int docIndex,DBObject doc);
+
 
     /**
      * Adds a document to the current batch. The document should
@@ -182,15 +216,15 @@ public class MongoSafeUpdateProtocol {
         cleanupOldDocVer(doc);
         setDocVer(doc,docVer);
         LOGGER.debug("replaceQuery={}",q);
-        bwo.find(q).replaceOne(doc);
-        idsInBatch.add(doc.get("_id"));
+        bwo.find(q).replaceOne(doc);        
+        batch.add(new BatchDoc(doc));
     }
 
     /**
      * Returns the number of queued requests
      */
     public int getSize() {
-        return idsInBatch.size();
+        return batch.size();
     }
 
     /**
@@ -201,9 +235,9 @@ public class MongoSafeUpdateProtocol {
      */
     public Map<Integer,Error> commit() {
         Map<Integer,Error> results=new HashMap<>();
-        if(!idsInBatch.isEmpty()) {
+        if(!batch.isEmpty()) {
             BulkWriteResult writeResult;
-            LOGGER.debug("attemptToUpdate={}",idsInBatch.size());
+            LOGGER.debug("attemptToUpdate={}",batch.size());
             try {
                 if(writeConcern==null) {
                     writeResult=bwo.execute();
@@ -211,10 +245,10 @@ public class MongoSafeUpdateProtocol {
                     writeResult=bwo.execute(writeConcern);
                 }
                 LOGGER.debug("writeResult={}",writeResult);
-                if(idsInBatch.size()==writeResult.getMatchedCount()) {
+                if(batch.size()==writeResult.getMatchedCount()) {
                     LOGGER.debug("Successful update");
                 } else {
-                    LOGGER.debug("notUpdated={}",idsInBatch.size()-writeResult.getMatchedCount());
+                    LOGGER.debug("notUpdated={}",batch.size()-writeResult.getMatchedCount());
                     findConcurrentModifications(results);
                 }
             } catch (BulkWriteException e) {
@@ -233,23 +267,96 @@ public class MongoSafeUpdateProtocol {
                 findConcurrentModifications(results);
             }
         }
+        retry(results);
         reset();
         return results;
     }
 
+    public void retry(Map<Integer,Error> results) {
+        int nRetries=cfg.getFailureRetryCount();
+        while(nRetries-->0) {
+            // Get the documents with concurrent modification errors
+            List<Integer> failedDocs=getFailedDocIndexes(results);
+            if(!failedDocs.isEmpty()) {
+                failedDocs=retryFailedDocs(failedDocs,results);
+            } else {
+                break;
+            }
+        }
+    }
+
+
+    private List<Integer> retryFailedDocs(List<Integer> failedDocs,Map<Integer,Error> results) {
+        List<Integer> newFailedDocs=new ArrayList<>(failedDocs.size());
+        for(Integer index:failedDocs) {            
+            BatchDoc doc=batch.get(index);
+            // Read the doc
+            DBObject findQuery=new BasicDBObject("_id",doc.id);
+            if(cfg.isReevaluateQueryForRetry()) {
+                if(query!=null) {
+                    List<DBObject> list=new ArrayList<>(2);
+                    list.add(findQuery);
+                    list.add(query);
+                    findQuery=new BasicDBObject("$and",list);
+                }
+            }
+            DBObject updatedDoc=collection.findOne(findQuery);
+            DBObject newDoc=reapplyChanges(index,updatedDoc);
+            if(newDoc!=null) {
+                // Update the doc ver to our doc ver. This doc is here
+                // because its docVer is not set to our docver, so
+                // this is ok
+                setDocVer(newDoc,docVer);
+                // Using bulkwrite here with one doc to use the
+                // findAndReplace API, which is lacking in
+                // DBCollection
+                BulkWriteOperation nestedBwo=collection.initializeUnorderedBulkOperation();
+                nestedBwo.find(writeReplaceQuery(updatedDoc)).replaceOne(newDoc);
+                try {
+                    if(nestedBwo.execute().getMatchedCount()==1) {
+                        // Successful update
+                        results.remove(index);
+                    }
+                } catch(Exception e) {
+                    newFailedDocs.add(index);
+                }
+            } else {
+                // reapllyChanges removed the doc from the resultset
+                results.remove(index);
+            }
+        }
+        return newFailedDocs;
+    }
+
+    /**
+     * Returns a list of indexes into the current batch containing the docs that failed because of concurrent update errors
+     */    
+    private List<Integer> getFailedDocIndexes(Map<Integer,Error> results) {
+        List<Integer> ret=new ArrayList<>(results.size());
+        for(Map.Entry<Integer,Error> entry:results.entrySet()) {
+            if(entry.getValue().getErrorCode().equals(MongoCrudConstants.ERR_CONCURRENT_UPDATE)) {
+                ret.add(entry.getKey());
+            }
+        }
+        return ret;
+    }
+
     /**
      * This executes a query to find out documents with concurrent modification errors
+     *
+     * Returns true if there are concurrent modification errors
      */
-    protected void findConcurrentModifications(Map<Integer,Error> results) {
+    protected boolean findConcurrentModifications(Map<Integer,Error> results) {
+        boolean ret=false;
         if(!cfg.isDetect())
-            return;
+            return ret;
         
-        List<Object> updatedIds=new ArrayList<>(idsInBatch.size());
+        List<Object> updatedIds=new ArrayList<>(batch.size());
         // Collect all ids without errors
         int index=0;
-        for(Object id:idsInBatch) {
+        for(BatchDoc doc:batch) {
             if(!results.containsKey(index))
-                updatedIds.add(id);
+                updatedIds.add(doc.id);
             index++;
         }
         LOGGER.debug("checking for concurrent modifications:{}",updatedIds);
@@ -267,17 +374,19 @@ public class MongoSafeUpdateProtocol {
                     successfulIds.add(id);
                 }
                 index=0;
-                for(Object id:idsInBatch) {
+                for(BatchDoc doc:batch) {
                     if(!results.containsKey(index)) { // No other errors for this id
-                        if(!successfulIds.contains(id)) {
+                        if(!successfulIds.contains(doc.id)) {
                             // concurrency errors for this id
-                            results.put(index,Error.get("update",MongoCrudConstants.ERR_CONCURRENT_UPDATE,id.toString()));
+                            results.put(index,Error.get("update",MongoCrudConstants.ERR_CONCURRENT_UPDATE,doc.id.toString()));
+                            ret=true;
                         }
                     }
                     index++;
                 }
             }
         }
+        return ret;
     }
 
     /**
@@ -365,6 +474,6 @@ public class MongoSafeUpdateProtocol {
     private void reset() {
         docVer=new ObjectId();
         bwo=collection.initializeUnorderedBulkOperation();
-        idsInBatch=new ArrayList<>(128);
+        batch=new ArrayList<>(128);
     }
 }

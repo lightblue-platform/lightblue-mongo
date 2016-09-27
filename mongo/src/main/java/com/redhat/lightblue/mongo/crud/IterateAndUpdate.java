@@ -75,6 +75,33 @@ public class IterateAndUpdate implements DocUpdater {
     private final WriteConcern writeConcern;
     private final ConcurrentModificationDetectionCfg concurrentModificationDetection;
 
+    private class MongoSafeUpdateProtocolForUpdate extends MongoSafeUpdateProtocol {
+
+        private final EntityMetadata md;
+        private final Measure measure;
+        private final BsonMerge merge;
+
+        public MongoSafeUpdateProtocolForUpdate(DBCollection collection,
+                                                WriteConcern writeConcern,
+                                                DBObject query,
+                                                ConcurrentModificationDetectionCfg cfg,
+                                                EntityMetadata md,
+                                                Measure measure) {
+            super(collection,writeConcern,query,cfg);
+            this.md=md;
+            this.measure=measure;
+            this.merge=new BsonMerge(md);
+        }
+        
+        protected DBObject reapplyChanges(int docIndex,DBObject doc) {
+            JsonDoc jsonDoc=translator.toJson(doc);
+            // We are bypassing validation here
+            if(!updateDoc(md,jsonDoc,measure))
+                return null;
+            return  translate(md,jsonDoc,doc,merge,measure);
+        }
+    }
+    
     public IterateAndUpdate(JsonNodeFactory nodeFactory,
                             ConstraintValidator validator,
                             FieldAccessRoleEvaluator roleEval,
@@ -105,8 +132,13 @@ public class IterateAndUpdate implements DocUpdater {
                        DBObject query) {
         LOGGER.debug("iterateUpdate: start");
         LOGGER.debug("Computing the result set for {}", query);
-        MongoSafeUpdateProtocol sup=new MongoSafeUpdateProtocol(collection,writeConcern,concurrentModificationDetection);
         Measure measure=new Measure();
+        MongoSafeUpdateProtocol sup=new MongoSafeUpdateProtocolForUpdate(collection,
+                                                                         writeConcern,
+                                                                         query,
+                                                                         concurrentModificationDetection,
+                                                                         md,
+                                                                         measure);
         DBCursor cursor = null;
         int docIndex = 0;
         int numMatched = 0;
@@ -136,15 +168,10 @@ public class IterateAndUpdate implements DocUpdater {
                 doc.startModifications();
                 measure.end("ctx.addDocument");
                 // From now on: doc contains the working copy, and doc.originalDoc contains the original copy
-                if (updater.update(doc, md.getFieldTreeRoot(), Path.EMPTY)) {
-                    // Remove any nulls from the document
-                    JsonDoc.filterNulls(doc.getRoot());
+                if (updateDoc(md,doc,measure)) {
                     LOGGER.debug("Document {} modified, updating", docIndex);
-                    measure.begin("updateArraySizes");
-                    PredefinedFields.updateArraySizes(md, nodeFactory, doc);
-                    measure.end("updateArraySizes");
-                    LOGGER.debug("Running constraint validations");
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC_VALIDATION, ctx, doc);
+                    LOGGER.debug("Running constraint validations");
                     measure.begin("validation");
                     validator.clearErrors();
                     validator.validateDoc(doc);
@@ -162,25 +189,12 @@ public class IterateAndUpdate implements DocUpdater {
                         LOGGER.debug("Doc has data errors");
                     }
                     if (!hasErrors) {
-                        measure.begin("accessCheck");
-                        Set<Path> paths = roleEval.getInaccessibleFields_Update(doc, doc.getOriginalDocument());
-                        measure.end("accessCheck");
-                        LOGGER.debug("Inaccesible fields during update={}" + paths);
-                        if (paths != null && !paths.isEmpty()) {
-                            doc.addError(Error.get("update", CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
-                            hasErrors = true;
-                        }
+                        hasErrors=accessCheck(doc,measure);
                     }
                     if (!hasErrors) {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc);
-                            measure.begin("toBsonAndMerge");
-                            DBObject updatedObject = translator.toBson(doc);
-                            merge.merge(document, updatedObject);
-                            measure.end("toBsonAndMerge");
-                            measure.begin("populateHiddenFields");
-                            Translator.populateDocHiddenFields(updatedObject, md);
-                            measure.end("populateHiddenFields");
+                            DBObject updatedObject=translate(md,doc,document,merge,measure);
 
                             sup.addDoc(updatedObject);
                             docUpdateAttempts.add(doc);
@@ -246,4 +260,43 @@ public class IterateAndUpdate implements DocUpdater {
         METRICS.info("IterateAndUpdate:\n{}",measure);
     }
 
+
+    private boolean updateDoc(EntityMetadata md,
+                              JsonDoc doc,
+                              Measure measure) {
+        if (updater.update(doc, md.getFieldTreeRoot(), Path.EMPTY)) {
+            // Remove any nulls from the document
+            JsonDoc.filterNulls(doc.getRoot());
+            measure.begin("updateArraySizes");
+            PredefinedFields.updateArraySizes(md, nodeFactory, doc);
+            measure.end("updateArraySizes");
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private DBObject translate(EntityMetadata md,JsonDoc doc,DBObject document,BsonMerge merge,Measure measure) {
+        measure.begin("toBsonAndMerge");
+        DBObject updatedObject = translator.toBson(doc);
+        merge.merge(document, updatedObject);
+        measure.end("toBsonAndMerge");
+        measure.begin("populateHiddenFields");
+        Translator.populateDocHiddenFields(updatedObject, md);
+        measure.end("populateHiddenFields");
+        return updatedObject;
+    }
+
+    // Returns true if there is access check error
+    private boolean accessCheck(DocCtx doc, Measure measure) {
+        measure.begin("accessCheck");
+        Set<Path> paths = roleEval.getInaccessibleFields_Update(doc, doc.getOriginalDocument());
+        measure.end("accessCheck");
+        LOGGER.debug("Inaccesible fields during update={}" + paths);
+        if (paths != null && !paths.isEmpty()) {
+            doc.addError(Error.get("update", CrudConstants.ERR_NO_FIELD_UPDATE_ACCESS, paths.toString()));
+            return true;
+        }
+        return false;
+    }
 }

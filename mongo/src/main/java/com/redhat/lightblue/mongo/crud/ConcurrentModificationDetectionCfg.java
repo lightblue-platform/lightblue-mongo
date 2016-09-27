@@ -70,11 +70,19 @@ public class ConcurrentModificationDetectionCfg {
         return detect;
     }
 
+    public void setDetect(boolean b) {
+        detect=b;
+    }
+
     /**
      * Number of times to retry failed updates
      */
     public int getFailureRetryCount() {
         return failureRetryCount;
+    }
+
+    public void setFailureRetryCount(int n) {
+        failureRetryCount=n;
     }
 
     /**
@@ -83,5 +91,9 @@ public class ConcurrentModificationDetectionCfg {
      */
     public boolean isReevaluateQueryForRetry() {
         return reevaluateQueryForRetry;
+    }
+
+    public void setReevaluateQueryForRetry(boolean b) {
+        reevaluateQueryForRetry=b;
     }
 }

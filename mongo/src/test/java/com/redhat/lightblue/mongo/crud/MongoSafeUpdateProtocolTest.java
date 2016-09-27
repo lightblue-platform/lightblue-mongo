@@ -42,6 +42,21 @@ import com.redhat.lightblue.util.Error;
 public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
 
     private MongoSafeUpdateProtocol updater;
+
+    private class TestUpdater extends MongoSafeUpdateProtocol {
+
+        int numRetries=0;
+        
+        public TestUpdater(DBCollection coll) {
+            super(coll,null,null);
+        }
+        
+        protected DBObject reapplyChanges(int docIndex,DBObject doc) {
+            numRetries++;
+            System.out.println("Retrying");
+            return doc;
+        }
+  }
     
     @Override
     @Before
@@ -51,7 +66,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         db.getCollection(COLL_NAME).drop();
         db.createCollection(COLL_NAME, null);
         coll=db.getCollection(COLL_NAME);
-        updater=new MongoSafeUpdateProtocol(coll,null);
+        updater=new TestUpdater(coll);
     }
 
     private void insertDoc(String id,String value) {
@@ -70,6 +85,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
     @Test
     public void successfulUpdateTest() throws Exception {
         insert50();
+        updater.getCfg().setFailureRetryCount(0);
         DBCursor cursor=coll.find();
         while(cursor.hasNext()) {
             DBObject doc=cursor.next();
@@ -97,6 +113,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         // unique index on field
         coll.createIndex(new BasicDBObject("field",1),"fieldindex",true);
         insert50();
+        updater.getCfg().setFailureRetryCount(0);
         DBCursor cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","19")));
         while(cursor.hasNext()) {
             DBObject doc=cursor.next();
@@ -116,6 +133,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
     public void concurrentUpdateTest() throws Exception {
         insert50();
 
+        updater.getCfg().setFailureRetryCount(0);
         // Thread1 reads first 10 docs
         DBCursor cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","19")));
         while(cursor.hasNext()) {
@@ -126,7 +144,8 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         cursor.close();
 
         // Thread2 reads first 5 docs
-        MongoSafeUpdateProtocol updater2=new MongoSafeUpdateProtocol(coll,null);
+        MongoSafeUpdateProtocol updater2=new TestUpdater(coll);
+        updater2.getCfg().setFailureRetryCount(0);
         cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","15")));
         while(cursor.hasNext()) {
             DBObject doc=cursor.next();
@@ -154,6 +173,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         // unique index on field
         coll.createIndex(new BasicDBObject("field",1),"fieldindex",true);
         insert50();
+        updater.getCfg().setFailureRetryCount(0);
 
         // Thread1 reads first 10 docs
         DBCursor cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","19")));
@@ -169,7 +189,8 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         cursor.close();
 
         // Thread2 reads first 5 docs
-        MongoSafeUpdateProtocol updater2=new MongoSafeUpdateProtocol(coll,null);
+        MongoSafeUpdateProtocol updater2=new TestUpdater(coll);
+        updater2.getCfg().setFailureRetryCount(0);
         cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","15")));
         while(cursor.hasNext()) {
             DBObject doc=cursor.next();
@@ -194,10 +215,64 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void retryTest() throws Exception {
+        insert50();
+        TestUpdater updater=new TestUpdater(coll) {
+                protected DBObject reapplyChanges(int docIndex,DBObject doc) {
+                    numRetries++;
+                    System.out.println("Retrying");
+                    BasicDBObject newDoc=new BasicDBObject();
+                    newDoc.putAll(doc);
+                    newDoc.removeField("@mongoHidden");
+                    newDoc.put("field","updated1"+doc.get("_id").toString());                    
+                    return newDoc;
+                }
+            };
+        updater.getCfg().setFailureRetryCount(1);
+
+        // Thread1 reads first 10 docs
+        DBCursor cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","19")));
+        while(cursor.hasNext()) {
+            DBObject doc=cursor.next();
+            // Create a dup value
+            doc.put("field","updated1"+doc.get("_id").toString());
+            updater.addDoc(doc);
+        }
+        cursor.close();
+
+        // Thread2 reads first 5 docs
+        MongoSafeUpdateProtocol updater2=new TestUpdater(coll);
+        updater2.getCfg().setFailureRetryCount(0);
+        cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","15")));
+        while(cursor.hasNext()) {
+            DBObject doc=cursor.next();
+            doc.put("field","updated2"+doc.get("_id").toString());            
+            updater2.addDoc(doc);
+        }
+        cursor.close();
+        
+
+        // Thread2 updates first 5 docs
+        Map<Integer,Error> err=updater2.commit();
+        Assert.assertTrue(err.isEmpty());
+        System.out.println("All docs:");
+        cursor=coll.find();
+        while(cursor.hasNext()) {
+            DBObject doc=cursor.next();
+            System.out.println(doc);
+        }
+        cursor.close();
+
+        err=updater.commit();
+        Assert.assertEquals(0,err.size());
+    }
+
+    @Test
     public void dupAndConcurrentUpdateTest2() throws Exception {
         // unique index on field
         coll.createIndex(new BasicDBObject("field",1),"fieldindex",true);
         insert50();
+        updater.getCfg().setFailureRetryCount(0);
 
         // Thread1 reads first 10 docs
         DBCursor cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","19")));
@@ -213,7 +288,8 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         cursor.close();
 
         // Thread2 reads first 5 docs
-        MongoSafeUpdateProtocol updater2=new MongoSafeUpdateProtocol(coll,null);
+        MongoSafeUpdateProtocol updater2=new TestUpdater(coll);
+        updater2.getCfg().setFailureRetryCount(0);
         cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","15")));
         while(cursor.hasNext()) {
             DBObject doc=cursor.next();
@@ -237,14 +313,14 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
     }
 
 
-    private abstract class Updater extends MongoSafeUpdateProtocol {
+    private abstract class Updater extends TestUpdater {
         public Updater() {
-            super(coll,null);
+            super(coll);
         }
 
-        protected void findConcurrentModifications(Map<Integer,Error> results) {
+        protected boolean findConcurrentModifications(Map<Integer,Error> results) {
             intercept();
-            super.findConcurrentModifications(results);
+            return super.findConcurrentModifications(results);
         }
 
         public abstract void intercept();
@@ -260,7 +336,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         Updater u=new Updater() {
                 @Override public void intercept() {
                     // Thread2 reads first 5 docs
-                    MongoSafeUpdateProtocol updater2=new MongoSafeUpdateProtocol(coll,null);
+                    MongoSafeUpdateProtocol updater2=new TestUpdater(coll);
                     DBCursor cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","15")));
                     while(cursor.hasNext()) {
                         DBObject doc=cursor.next();
@@ -270,6 +346,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
                     cursor.close();                   
                 }
             }; 
+        updater.getCfg().setFailureRetryCount(0);
 
         // Thread1 reads first 10 docs
         DBCursor cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","19")));
