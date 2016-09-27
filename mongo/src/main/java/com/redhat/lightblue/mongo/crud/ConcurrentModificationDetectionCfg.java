@@ -86,8 +86,9 @@ public class ConcurrentModificationDetectionCfg {
     }
 
     /**
-     * If true, updater validates that the document still matches the
-     * query before attempting a retry
+     * If true, during the retry phase of failed concurrent
+     * modifications, updater validates that the failed document still
+     * matches the query before retrying the update.
      */
     public boolean isReevaluateQueryForRetry() {
         return reevaluateQueryForRetry;

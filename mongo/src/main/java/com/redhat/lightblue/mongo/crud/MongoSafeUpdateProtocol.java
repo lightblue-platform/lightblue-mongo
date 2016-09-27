@@ -248,7 +248,7 @@ public abstract class MongoSafeUpdateProtocol {
                 if(batch.size()==writeResult.getMatchedCount()) {
                     LOGGER.debug("Successful update");
                 } else {
-                    LOGGER.debug("notUpdated={}",batch.size()-writeResult.getMatchedCount());
+                    LOGGER.warn("notUpdated={}",batch.size()-writeResult.getMatchedCount());
                     findConcurrentModifications(results);
                 }
             } catch (BulkWriteException e) {
@@ -267,12 +267,12 @@ public abstract class MongoSafeUpdateProtocol {
                 findConcurrentModifications(results);
             }
         }
-        retry(results);
+        retryConcurrentUpdateErrorsIfNeeded(results);
         reset();
         return results;
     }
 
-    public void retry(Map<Integer,Error> results) {
+    public void retryConcurrentUpdateErrorsIfNeeded(Map<Integer,Error> results) {
         int nRetries=cfg.getFailureRetryCount();
         while(nRetries-->0) {
             // Get the documents with concurrent modification errors
