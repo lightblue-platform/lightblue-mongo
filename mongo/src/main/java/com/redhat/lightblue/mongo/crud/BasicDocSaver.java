@@ -62,7 +62,7 @@ public class BasicDocSaver implements DocSaver {
     private final Translator translator;
     private final EntityMetadata md;
     private final WriteConcern writeConcern;
-    private final boolean concurrentModificationDetection;
+    private final ConcurrentModificationDetectionCfg concurrentModificationDetection;
 
     private final Field[] idFields;
     private final Path[] idPaths;
@@ -77,7 +77,7 @@ public class BasicDocSaver implements DocSaver {
                          EntityMetadata md,
                          WriteConcern writeConcern,
                          int batchSize,
-                         boolean concurrentModificationDetection) {
+                         ConcurrentModificationDetectionCfg concurrentModificationDetection) {
         this.translator = translator;
         this.roleEval = roleEval;
         this.md = md;

@@ -73,7 +73,7 @@ public class IterateAndUpdate implements DocUpdater {
     private final Projector projector;
     private final Projector errorProjector;
     private final WriteConcern writeConcern;
-    private final boolean concurrentModificationDetection;
+    private final ConcurrentModificationDetectionCfg concurrentModificationDetection;
 
     public IterateAndUpdate(JsonNodeFactory nodeFactory,
                             ConstraintValidator validator,
@@ -84,7 +84,7 @@ public class IterateAndUpdate implements DocUpdater {
                             Projector errorProjector,
                             WriteConcern writeConcern,
                             int batchSize,
-                            boolean concurrentModificationDetection) {
+                            ConcurrentModificationDetectionCfg concurrentModificationDetection) {
         this.nodeFactory = nodeFactory;
         this.validator = validator;
         this.roleEval = roleEval;

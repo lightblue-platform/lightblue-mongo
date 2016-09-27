@@ -153,7 +153,7 @@ public class MongoSafeUpdateProtocol {
     private BulkWriteOperation bwo;
 
     private List<Object> idsInBatch;
-    private final boolean detectConcurrencyErrors;
+    private final ConcurrentModificationDetectionCfg cfg;
 
     /**
      * @param collection The DB collection
@@ -162,15 +162,15 @@ public class MongoSafeUpdateProtocol {
      * concurrent modification checking. That turns of concurrent
      * update prevention as well as detection
      */
-    public MongoSafeUpdateProtocol(DBCollection collection,WriteConcern writeConcern,boolean detectConcurrencyErrors) {
+    public MongoSafeUpdateProtocol(DBCollection collection,WriteConcern writeConcern,ConcurrentModificationDetectionCfg cfg) {
         this.collection=collection;
         this.writeConcern=writeConcern;
-        this.detectConcurrencyErrors=detectConcurrencyErrors;
+        this.cfg=cfg==null?new ConcurrentModificationDetectionCfg(null):cfg;
         reset();
     }
 
     public MongoSafeUpdateProtocol(DBCollection collection,WriteConcern writeConcern) {
-        this(collection,writeConcern,true);
+        this(collection,writeConcern,null);
     }
 
     /**
@@ -241,7 +241,7 @@ public class MongoSafeUpdateProtocol {
      * This executes a query to find out documents with concurrent modification errors
      */
     protected void findConcurrentModifications(Map<Integer,Error> results) {
-        if(!detectConcurrencyErrors)
+        if(!cfg.isDetect())
             return;
         
         List<Object> updatedIds=new ArrayList<>(idsInBatch.size());
@@ -295,7 +295,7 @@ public class MongoSafeUpdateProtocol {
                 top=list.get(0);
         }
         BasicDBObject query=new BasicDBObject("_id",doc.get("_id"));
-        if(detectConcurrencyErrors)
+        if(cfg.isDetect())
             query.append(DOCVER_FLD0,top);
         return query;
     }
