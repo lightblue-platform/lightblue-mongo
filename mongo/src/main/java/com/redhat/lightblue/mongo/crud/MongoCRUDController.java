@@ -137,15 +137,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private final ControllerConfiguration controllerCfg;
 
     private final int batchSize;
-    private final boolean concurrentModificationDetection;
+    private final ConcurrentModificationDetectionCfg concurrentModificationDetection;
 
     public MongoCRUDController(ControllerConfiguration controllerCfg, DBResolver dbResolver) {        
         this.dbResolver = dbResolver;
         this.controllerCfg = controllerCfg;
         this.batchSize=getIntOption("updateBatchSize",64);
-        this.concurrentModificationDetection=getBooleanOption("concurrentModificationDetection",true);
+        this.concurrentModificationDetection=new ConcurrentModificationDetectionCfg(controllerCfg);
     }
-
+    
     private String getOption(String optionName,String defaultValue) {
         if(controllerCfg!=null) {
             ObjectNode node=controllerCfg.getOptions();
