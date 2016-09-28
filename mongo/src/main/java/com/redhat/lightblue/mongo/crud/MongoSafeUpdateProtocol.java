@@ -301,28 +301,31 @@ public abstract class MongoSafeUpdateProtocol {
                 }
             }
             DBObject updatedDoc=collection.findOne(findQuery);
-            DBObject newDoc=reapplyChanges(index,updatedDoc);
-            if(newDoc!=null) {
-                // Update the doc ver to our doc ver. This doc is here
-                // because its docVer is not set to our docver, so
-                // this is ok
-                setDocVer(newDoc,docVer);
-                // Using bulkwrite here with one doc to use the
-                // findAndReplace API, which is lacking in
-                // DBCollection
-                BulkWriteOperation nestedBwo=collection.initializeUnorderedBulkOperation();
-                nestedBwo.find(writeReplaceQuery(updatedDoc)).replaceOne(newDoc);
-                try {
-                    if(nestedBwo.execute().getMatchedCount()==1) {
-                        // Successful update
-                        results.remove(index);
+            if(updatedDoc!=null) {
+                // if updatedDoc is null, doc is lost. Error remains
+                DBObject newDoc=reapplyChanges(index,updatedDoc);
+                if(newDoc!=null) {
+                    // Update the doc ver to our doc ver. This doc is here
+                    // because its docVer is not set to our docver, so
+                    // this is ok
+                    setDocVer(newDoc,docVer);
+                    // Using bulkwrite here with one doc to use the
+                    // findAndReplace API, which is lacking in
+                    // DBCollection
+                    BulkWriteOperation nestedBwo=collection.initializeUnorderedBulkOperation();
+                    nestedBwo.find(writeReplaceQuery(updatedDoc)).replaceOne(newDoc);
+                    try {
+                        if(nestedBwo.execute().getMatchedCount()==1) {
+                            // Successful update
+                            results.remove(index);
+                        }
+                    } catch(Exception e) {
+                        newFailedDocs.add(index);
                     }
-                } catch(Exception e) {
-                    newFailedDocs.add(index);
+                } else {
+                    // reapllyChanges removed the doc from the resultset
+                    results.remove(index);
                 }
-            } else {
-                // reapllyChanges removed the doc from the resultset
-                results.remove(index);
             }
         }
         return newFailedDocs;
