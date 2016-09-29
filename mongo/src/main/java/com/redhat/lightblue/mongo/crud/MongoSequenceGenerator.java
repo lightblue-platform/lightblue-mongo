@@ -57,6 +57,9 @@ public class MongoSequenceGenerator {
         coll.createIndex(keys, options);
     }
 
+    // true when sequance collection is initialized and indexes created
+    private static boolean initialized = false;
+
     /**
      * Atomically increments and returns the sequence value. If this is the
      * first use of the sequence, the sequence is created
@@ -84,8 +87,14 @@ public class MongoSequenceGenerator {
             if (inc == 0) {
                 inc = 1;
             }
-            // Here, we also make sure we have the indexes setup properly
-            initIndex();
+
+            if (!initialized) {
+                // Here, we also make sure we have the indexes setup properly
+                initIndex();
+                initialized = true;
+                LOGGER.info("Initialized sequances collection");
+            }
+
             BasicDBObject u = new BasicDBObject().
                     append(NAME, name).
                     append(INIT, init).

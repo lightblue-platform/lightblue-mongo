@@ -29,7 +29,7 @@ public class MongoLockingTest extends AbstractMongoCrudTest {
     @Test
     public void acquireExclusionTest() throws Exception {
         // Make sure only one caller can lock
-        MongoLocking locking = new MongoLocking(coll);
+        MongoLocking locking = new MongoLocking(coll, true);
         Assert.assertTrue(locking.acquire("1", "rsc1", null));
         Assert.assertFalse(locking.acquire("2", "rsc1", null));
         Assert.assertTrue(locking.release("1", "rsc1"));
@@ -39,7 +39,7 @@ public class MongoLockingTest extends AbstractMongoCrudTest {
 
     @Test
     public void acquireLockCountingTest() throws Exception {
-        MongoLocking locking = new MongoLocking(coll);
+        MongoLocking locking = new MongoLocking(coll, true);
         Assert.assertTrue(locking.acquire("1", "rsc1", null));
         Assert.assertFalse(locking.acquire("2", "rsc1", null));
         Assert.assertEquals(1, locking.getLockCount("1", "rsc1"));
@@ -61,7 +61,7 @@ public class MongoLockingTest extends AbstractMongoCrudTest {
 
     @Test
     public void expireTest() throws Exception {
-        MongoLocking locking = new MongoLocking(coll);
+        MongoLocking locking = new MongoLocking(coll, true);
         Assert.assertTrue(locking.acquire("1", "rsc1", 100l));
         Thread.sleep(110);
         try {
@@ -75,7 +75,7 @@ public class MongoLockingTest extends AbstractMongoCrudTest {
 
     @Test
     public void pingTest() throws Exception {
-        MongoLocking locking = new MongoLocking(coll);
+        MongoLocking locking = new MongoLocking(coll, true);
         Assert.assertTrue(locking.acquire("1", "rsc1", 100l));
         locking.ping("1", "rsc1");
         Thread.sleep(50);
