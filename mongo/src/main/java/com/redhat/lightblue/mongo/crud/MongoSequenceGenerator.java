@@ -18,6 +18,9 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,8 +48,18 @@ public class MongoSequenceGenerator {
 
     private final DBCollection coll;
 
+    // a set of sequances collections which were already initialized
+    private static Set<String> initializedCollections = new HashSet<>();
+
     public MongoSequenceGenerator(DBCollection coll) {
         this.coll = coll;
+
+        if (!initializedCollections.contains(coll.getFullName())) {
+            // Here, we also make sure we have the indexes setup properly
+            initIndex();
+            initializedCollections.add(coll.getFullName());
+            LOGGER.info("Initialized sequances collection {}", coll.getFullName());
+        }
     }
 
     private void initIndex() {
@@ -56,9 +69,6 @@ public class MongoSequenceGenerator {
         // ensureIndex was deprecated, changed to an alias of createIndex, and removed in a more recent version
         coll.createIndex(keys, options);
     }
-
-    // true when sequance collection is initialized and indexes created
-    private static boolean initialized = false;
 
     /**
      * Atomically increments and returns the sequence value. If this is the
@@ -86,13 +96,6 @@ public class MongoSequenceGenerator {
             LOGGER.debug("inserting sequence record name={}, init={}, inc={}", name, init, inc);
             if (inc == 0) {
                 inc = 1;
-            }
-
-            if (!initialized) {
-                // Here, we also make sure we have the indexes setup properly
-                initIndex();
-                initialized = true;
-                LOGGER.info("Initialized sequances collection");
             }
 
             BasicDBObject u = new BasicDBObject().
