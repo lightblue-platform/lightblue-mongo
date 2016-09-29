@@ -20,8 +20,8 @@ package com.redhat.lightblue.mongo.crud;
 
 import java.util.Arrays;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +52,7 @@ public class MongoLocking implements Locking {
     private long defaultTTL = 60l * 60l * 1000l;// 1 hr
 
     // a set of locking collections which were already initialized
-    private static Set<String> initializedCollections = new HashSet<>();
+    private static Set<String> initializedCollections = new CopyOnWriteArraySet<>();
 
     public MongoLocking(DBCollection coll) {
         this(coll, false);

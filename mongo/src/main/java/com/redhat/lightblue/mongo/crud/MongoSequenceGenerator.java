@@ -18,8 +18,8 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
-import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,8 +27,8 @@ import org.slf4j.LoggerFactory;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
-import com.mongodb.WriteConcern;
 import com.mongodb.ReadPreference;
+import com.mongodb.WriteConcern;
 
 /**
  * Sequence generation using a MongoDB collection.
@@ -49,7 +49,7 @@ public class MongoSequenceGenerator {
     private final DBCollection coll;
 
     // a set of sequances collections which were already initialized
-    private static Set<String> initializedCollections = new HashSet<>();
+    private static Set<String> initializedCollections = new CopyOnWriteArraySet<>();
 
     public MongoSequenceGenerator(DBCollection coll) {
         this.coll = coll;
