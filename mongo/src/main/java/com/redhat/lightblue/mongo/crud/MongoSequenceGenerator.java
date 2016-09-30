@@ -18,14 +18,17 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
-import com.mongodb.WriteConcern;
 import com.mongodb.ReadPreference;
+import com.mongodb.WriteConcern;
 
 /**
  * Sequence generation using a MongoDB collection.
@@ -45,8 +48,18 @@ public class MongoSequenceGenerator {
 
     private final DBCollection coll;
 
+    // a set of sequances collections which were already initialized
+    private static Set<String> initializedCollections = new CopyOnWriteArraySet<>();
+
     public MongoSequenceGenerator(DBCollection coll) {
         this.coll = coll;
+
+        if (!initializedCollections.contains(coll.getFullName())) {
+            // Here, we also make sure we have the indexes setup properly
+            initIndex();
+            initializedCollections.add(coll.getFullName());
+            LOGGER.info("Initialized sequances collection {}", coll.getFullName());
+        }
     }
 
     private void initIndex() {
@@ -84,8 +97,7 @@ public class MongoSequenceGenerator {
             if (inc == 0) {
                 inc = 1;
             }
-            // Here, we also make sure we have the indexes setup properly
-            initIndex();
+
             BasicDBObject u = new BasicDBObject().
                     append(NAME, name).
                     append(INIT, init).

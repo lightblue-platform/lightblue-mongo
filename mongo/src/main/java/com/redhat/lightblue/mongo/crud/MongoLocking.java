@@ -18,19 +18,21 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
-import java.util.Date;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.mongodb.WriteConcern;
-import com.mongodb.ReadPreference;
-import com.mongodb.WriteResult;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.DuplicateKeyException;
+import com.mongodb.ReadPreference;
+import com.mongodb.WriteConcern;
+import com.mongodb.WriteResult;
 import com.redhat.lightblue.extensions.synch.InvalidLockException;
 import com.redhat.lightblue.extensions.synch.Locking;
 
@@ -49,8 +51,24 @@ public class MongoLocking implements Locking {
     private DBCollection coll;
     private long defaultTTL = 60l * 60l * 1000l;// 1 hr
 
+    // a set of locking collections which were already initialized
+    private static Set<String> initializedCollections = new CopyOnWriteArraySet<>();
+
     public MongoLocking(DBCollection coll) {
-        init(coll);
+        this(coll, false);
+    }
+
+    /**
+     *
+     * @param coll
+     * @param forceCollectionInit set to true in unit tests, where collections are wiped out between the tests
+     */
+    public MongoLocking(DBCollection coll, boolean forceCollectionInit) {
+        if (forceCollectionInit || !initializedCollections.contains(coll.getFullName())) {
+            init(coll);
+            initializedCollections.add(coll.getFullName());
+            LOGGER.info("Initialized locking collection {}", coll.getFullName());
+        }
     }
 
     public void init(DBCollection coll) {
