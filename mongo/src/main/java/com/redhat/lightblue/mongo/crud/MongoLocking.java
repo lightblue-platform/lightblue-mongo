@@ -64,20 +64,20 @@ public class MongoLocking implements Locking {
      * @param forceCollectionInit set to true in unit tests, where collections are wiped out between the tests
      */
     public MongoLocking(DBCollection coll, boolean forceCollectionInit) {
+        this.coll = coll;
+        init(forceCollectionInit);
+    }
+
+    public void init(boolean forceCollectionInit) {
+        // Make sure we have a unique index on resourceid
+        // ensureIndex was deprecated, changed to an alias of createIndex, and removed in a more recent version
         if (forceCollectionInit || !initializedCollections.contains(coll.getFullName())) {
-            init(coll);
+            BasicDBObject keys = new BasicDBObject(RESOURCEID, 1);
+            BasicDBObject options = new BasicDBObject("unique", 1);
+            this.coll.createIndex(keys, options);
             initializedCollections.add(coll.getFullName());
             LOGGER.info("Initialized locking collection {}", coll.getFullName());
         }
-    }
-
-    public void init(DBCollection coll) {
-        // Make sure we have a unique index on resourceid
-        this.coll = coll;
-        BasicDBObject keys = new BasicDBObject(RESOURCEID, 1);
-        BasicDBObject options = new BasicDBObject("unique", 1);
-        // ensureIndex was deprecated, changed to an alias of createIndex, and removed in a more recent version
-        this.coll.createIndex(keys, options);
     }
 
     public void setDefaultTTL(long l) {
