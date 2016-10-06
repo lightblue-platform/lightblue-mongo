@@ -71,7 +71,7 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
             Object[] nodes = new Object[fields.length];
             for (int i = 0; i < fields.length; i++) {
                 nodes[i] = Translator.getDBObject((DBObject) element, fields[i]);
-            }
+            }            
             return new DefaultIdentity(nodes);
         }
     }
@@ -150,11 +150,19 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
 
     @Override
     public IdentityExtractor getArrayIdentityExtractor(Path arrayField) {
-        Path array=getArray(arrayField);
-        if(ignoredIdentities.contains(array))
+        MutablePath p = new MutablePath();
+        int n = arrayField.numSegments();
+        for (int i = 0; i < n; i++) {
+            if (arrayField.isIndex(i)) {
+                p.push(Path.ANY);
+            } else {
+                p.push(arrayField.head(i));
+            }
+        }
+        if(ignoredIdentities.contains(p))
             return null;
         else {
-            ArrayIdentityFields fields = getArrayIdentities().get(array);
+            ArrayIdentityFields fields = getArrayIdentities().get(p);
             if (fields != null) {
                 return getArrayIdentityExtractorImpl(fields);
             }
@@ -254,6 +262,7 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
                 }
             }
         } catch (Exception e) {
+            LOGGER.error("Error in merge:{}",e,e);
             throw new RuntimeException(e);
         }
         return ret;
