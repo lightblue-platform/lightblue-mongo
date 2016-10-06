@@ -194,12 +194,12 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
             try {
                 return compareNodes(oldDoc,newDoc);
             } catch(DocComparator.DuplicateArrayIdentity dai) {
-                LOGGER.warn("Duplicate ID:{}");
+                LOGGER.warn("Duplicate array element id for doc._id:{}, field:{}",oldDoc.get("_id"),dai.getPath());
                 Path p=dai.getPath();
                 ignoredIdentities.add(getArray(p));
                 LOGGER.debug("Ignored paths:{}",ignoredIdentities);
             } catch(DocComparator.InvalidArrayIdentity iai) {
-                LOGGER.warn("Invalid ID:{}");
+                LOGGER.warn("Invalid array element id for doc._id:{}, field:{}",oldDoc.get("_id"),iai.getPath());
                 Path p=iai.getPath();
                 ignoredIdentities.add(getArray(p));
                 LOGGER.debug("Ignored paths:{}",ignoredIdentities);
