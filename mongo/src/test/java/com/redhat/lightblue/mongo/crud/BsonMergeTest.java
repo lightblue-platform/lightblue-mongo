@@ -148,4 +148,16 @@ public class BsonMergeTest extends AbstractJsonSchemaTest {
         merge6.merge(oldDoc, newDoc);
         Assert.assertEquals("val1", ((List<DBObject>) newDoc.get("field7")).get(0).get("inv1"));
     }
+
+    @Test
+    public void merge_duplicate_arrayid() throws Exception {
+        Translator translator = new Translator(new Resolver(md6), nodeFactory);
+        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata6.json")));
+        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata6.json")));
+        // Create a duplicate ID
+        ((List<DBObject>) oldDoc.get("field7")).get(1).put("id", "1");
+        merge6.merge(oldDoc, newDoc);
+        Assert.assertEquals("1",  ((List<DBObject>) oldDoc.get("field7")).get(0).get("id"));
+        Assert.assertEquals("2",  ((List<DBObject>) newDoc.get("field7")).get(1).get("id"));
+    }
 }

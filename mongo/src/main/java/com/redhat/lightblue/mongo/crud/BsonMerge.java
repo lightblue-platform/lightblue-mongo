@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Iterator;
 import java.util.Collection;
+import java.util.HashSet;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,6 +49,7 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
     private static final Logger LOGGER = LoggerFactory.getLogger(BsonMerge.class);
 
     private final EntityMetadata md;
+    private final HashSet<Path> ignoredIdentities=new HashSet<>();
 
     public BsonMerge(EntityMetadata md) {
         this.md = md;
@@ -146,6 +148,66 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
         return value.size();
     }
 
+    @Override
+    public IdentityExtractor getArrayIdentityExtractor(Path arrayField) {
+        Path array=getArray(arrayField);
+        if(ignoredIdentities.contains(array))
+            return null;
+        else {
+            ArrayIdentityFields fields = getArrayIdentities().get(array);
+            if (fields != null) {
+                return getArrayIdentityExtractorImpl(fields);
+            }
+        }
+        return null;
+    }
+    
+        /**
+     * Input is a path to an array element
+     * Output is the array containing that element, and all indexes replaced with *
+     */
+    private Path getArray(Path p) {
+        int lastIndex=p.numSegments()-1;
+        while(lastIndex>0) {
+            if(p.isIndex(lastIndex))
+                break;
+            lastIndex--;
+        }
+        MutablePath mp=new MutablePath();
+        for(int i=0;i<lastIndex;i++) {
+            if(p.isIndex(i))
+                mp.push(Path.ANY);
+            else
+                mp.push(p.head(i));
+        }
+        return mp.immutableCopy();
+    }
+
+    public DocComparator.Difference<Object> compareNodesWithFallback(DBObject oldDoc,DBObject newDoc) throws Exception {
+        // Compare two docs. If we get a duplicate array identity exception, remove that array identity from
+        // the identity map, and compare again. This is to deal with docs that contain duplicate array identities either
+        // because the identity constraint is added after data is screwed up, or becase we forgot to validate it
+
+        int n=getArrayIdentities().size()+1;
+        // This can loop at most the number of array identities times + 1 (if there are none, it should do it once)
+        for(int i=0;i<n;i++) {
+            try {
+                return compareNodes(oldDoc,newDoc);
+            } catch(DocComparator.DuplicateArrayIdentity dai) {
+                LOGGER.warn("Duplicate array element id for doc._id:{}, field:{}",oldDoc.get("_id"),dai.getPath());
+                Path p=dai.getPath();
+                ignoredIdentities.add(getArray(p));
+                LOGGER.debug("Ignored paths:{}",ignoredIdentities);
+            } catch(DocComparator.InvalidArrayIdentity iai) {
+                LOGGER.warn("Invalid array element id for doc._id:{}, field:{}",oldDoc.get("_id"),iai.getPath());
+                Path p=iai.getPath();
+                ignoredIdentities.add(getArray(p));
+                LOGGER.debug("Ignored paths:{}",ignoredIdentities);
+            }
+        }
+        throw new RuntimeException("Cannot compute document diffs even with ignored identities:"+ignoredIdentities);
+    }
+
     /**
      * Copies all fields in oldDoc that are not in metadata into newDoc
      *
@@ -155,7 +217,7 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
         boolean ret = false;
         try {
             LOGGER.debug("Merge start");
-            DocComparator.Difference<Object> diff = compareNodes(oldDoc, newDoc);
+            DocComparator.Difference<Object> diff = compareNodesWithFallback(oldDoc, newDoc);
             LOGGER.debug("Diff:{}" + diff);
             // We look for things removed in the new document
             for (DocComparator.Delta<Object> delta : diff.getDelta()) {
