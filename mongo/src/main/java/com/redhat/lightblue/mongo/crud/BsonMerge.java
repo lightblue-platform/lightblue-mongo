@@ -187,21 +187,25 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
         // Compare two docs. If we get a duplicate array identity exception, remove that array identity from
         // the identity map, and compare again. This is to deal with docs that contain duplicate array identities either
         // because the identity constraint is added after data is screwed up, or becase we forgot to validate it
-        while(true) {
+
+        int n=getArrayIdentities().size()+1;
+        // This can loop at most the number of array identities times + 1 (if there are none, it should do it once)
+        for(int i=0;i<n;i++) {
             try {
                 return compareNodes(oldDoc,newDoc);
             } catch(DocComparator.DuplicateArrayIdentity dai) {
-                LOGGER.debug("Duplicate ID:{}");
+                LOGGER.warn("Duplicate ID:{}");
                 Path p=dai.getPath();
                 ignoredIdentities.add(getArray(p));
                 LOGGER.debug("Ignored paths:{}",ignoredIdentities);
             } catch(DocComparator.InvalidArrayIdentity iai) {
-                LOGGER.debug("Invalid ID:{}");
+                LOGGER.warn("Invalid ID:{}");
                 Path p=iai.getPath();
                 ignoredIdentities.add(getArray(p));
                 LOGGER.debug("Ignored paths:{}",ignoredIdentities);
             }
-        } 
+        }
+        throw new RuntimeException("Cannot compute document diffs even with ignored identities:"+ignoredIdentities);
     }
 
     /**
