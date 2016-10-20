@@ -44,6 +44,7 @@ import com.mongodb.MongoException;
 import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
+import com.mongodb.util.JSON;
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.CRUDController;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
@@ -56,8 +57,8 @@ import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.ConstraintValidator;
 import com.redhat.lightblue.crud.CrudConstants;
 import com.redhat.lightblue.crud.DocCtx;
-import com.redhat.lightblue.crud.MetadataResolver;
 import com.redhat.lightblue.crud.ExplainQuerySupport;
+import com.redhat.lightblue.crud.MetadataResolver;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
@@ -693,6 +694,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("ensureIdIndex: end");
     }
 
+    public static final String PARTIAL_FILTER_EXPRESSION_OPTION_NAME = "partialFilterExpression";
+
     private void createUpdateEntityInfoIndexes(EntityInfo ei, Metadata md) {
         LOGGER.debug("createUpdateEntityInfoIndexes: begin");
 
@@ -815,12 +818,17 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     newIndex.put(Translator.translatePath(field), p.isDesc() ? -1 : 1);
                 }
                 BasicDBObject options = new BasicDBObject("unique", index.isUnique());
-                // if index is unique also make it a sparse index, so we can have non-required unique fields
-                options.append("sparse", index.isUnique());
+                // if index is unique and non-partial, also make it a sparse index, so we can have non-required unique fields
+                options.append("sparse", index.isUnique() && !index.getProperties().containsKey(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
                 if (index.getName() != null && index.getName().trim().length() > 0) {
                     options.append("name", index.getName().trim());
                 }
                 options.append("background", true);
+                // partial index
+                if (index.getProperties().containsKey(PARTIAL_FILTER_EXPRESSION_OPTION_NAME)) {
+                    DBObject filter = (DBObject) JSON.parse(index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME).toString());
+                    options.append(PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter);
+                }
                 LOGGER.debug("Creating index {} with options {}", newIndex, options);
                 LOGGER.warn("Creating index {} with fields={}, options={}", index.getName(), index.getFields(), options);
                 entityCollection.createIndex(newIndex, options);

@@ -414,6 +414,55 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void createPartialIndex_CI() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+
+        Index index = new Index();
+        index.setName("testPartialIndex");
+        List<IndexSortKey> indexFields1 = new ArrayList<>();
+        indexFields1.add(new IndexSortKey(new Path("field1"), true));
+        index.setFields(indexFields1);
+        index.setUnique(true);
+        // only index documents where field3 > 5
+        index.getProperties().put("partialFilterExpression", "{ field3: { $gt: 5 } }");
+
+        md.getEntityInfo().getIndexes().add(index);
+
+        // save metadata
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(), true);
+
+        DBCollection entityCollection = db.getCollection("data");
+        DBObject indexCreated = entityCollection.getIndexInfo().get(1);
+        Assert.assertEquals("testPartialIndex", indexCreated.get("name"));
+        Assert.assertEquals("{ \"field3\" : { \"$gt\" : 5}}", indexCreated.get("partialFilterExpression").toString());
+
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+
+        JsonNode node = loadJsonNode("./testdata_partial_index.json");
+
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(new JsonDoc(node.get(0))); // field3: 1, partial unique index does not include it
+        ctx.addDocument(new JsonDoc(node.get(1))); // field3: 6, partial unique index does include it
+
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        // this would fail for a non-partial unique index
+        Assert.assertEquals("Partial unique index should allow both docs to be inserted", 2, response.getNumInserted());
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        ctx.addDocument(new JsonDoc(node.get(2)));
+        response = controller.insert(ctx, projection);
+
+        // this would fail if there was no index
+        Assert.assertEquals("Partial unique index should prevent document from being inserted", 0, response.getNumInserted());
+        Assert.assertEquals(1, ctx.getDocuments().get(0).getErrors().size());
+        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE, ctx.getDocuments().get(0).getErrors().get(0).getErrorCode());
+
+    }
+
+    @Test
     public void dropExistingIndex_CI() {
         EntityMetadata e = addCIIndexes(createMetadata());
         controller.afterUpdateEntityInfo(null, e.getEntityInfo(), false);
