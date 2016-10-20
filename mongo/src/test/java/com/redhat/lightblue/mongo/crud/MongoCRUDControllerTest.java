@@ -415,18 +415,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     @Test
     public void createPartialIndex_CI() throws Exception {
-        EntityMetadata md = getMd("./testMetadata.json");
-
-        Index index = new Index();
-        index.setName("testPartialIndex");
-        List<IndexSortKey> indexFields1 = new ArrayList<>();
-        indexFields1.add(new IndexSortKey(new Path("field1"), true));
-        index.setFields(indexFields1);
-        index.setUnique(true);
-        // only index documents where field3 > 5
-        index.getProperties().put("partialFilterExpression", "{ field3: { $gt: 5 } }");
-
-        md.getEntityInfo().getIndexes().add(index);
+        EntityMetadata md = getMd("./testMetadata_partialIndex.json");
 
         // save metadata
         controller.afterUpdateEntityInfo(null, md.getEntityInfo(), true);
