@@ -361,7 +361,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
             default:
                 throw new IllegalArgumentException("invalid mechanism:" + mech + ", must be one of "
                                                    + "GSSAPI_MECHANISM, MONGODB_CR_MECHANISM, "
-                                                   + "MONGODB_X5090_MECHANISM, or PLAIN_MECHANISM");
+                                                   + "MONGODB_X5090_MECHANISM, SCRAM_SHA_1_MECHANISM or PLAIN_MECHANISM");
             }
         }
         return cr;
