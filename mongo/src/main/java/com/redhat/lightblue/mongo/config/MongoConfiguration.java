@@ -340,24 +340,28 @@ public class MongoConfiguration implements DataSourceConfiguration {
         MongoCredential cr = null;
         if (null != mech) {
             switch (mech) {
-                case "GSSAPI_MECHANISM":
-                    cr = MongoCredential.createGSSAPICredential(userName);
-                    break;
-                case "MONGODB_CR_MECHANISM":
-                    cr = MongoCredential.createMongoCRCredential(userName, source,
-                            password == null ? null : password.toCharArray());
-                    break;
-                case "MONGODB_X509_MECHANISM":
-                    cr = MongoCredential.createMongoX509Credential(userName);
-                    break;
-                case "PLAIN_MECHANISM":
-                    cr = MongoCredential.createPlainCredential(userName, source,
-                            password == null ? null : password.toCharArray());
-                    break;
-                default:
-                    throw new IllegalArgumentException("invalid mechanism:" + mech + ", must be one of "
-                            + "GSSAPI_MECHANISM, MONGODB_CR_MECHANISM, "
-                            + "MONGODB_X5090_MECHANISM, or PLAIN_MECHANISM");
+            case "GSSAPI_MECHANISM":
+                cr = MongoCredential.createGSSAPICredential(userName);
+                break;
+            case "MONGODB_CR_MECHANISM":
+                cr = MongoCredential.createMongoCRCredential(userName, source,
+                                                             password == null ? null : password.toCharArray());
+                break;
+            case "MONGODB_X509_MECHANISM":
+                cr = MongoCredential.createMongoX509Credential(userName);
+                break;
+            case "PLAIN_MECHANISM":
+                cr = MongoCredential.createPlainCredential(userName, source,
+                                                           password == null ? null : password.toCharArray());
+                break;
+            case "SCRAM_SHA_1_MECHANISM":
+                cr = MongoCredential.createScramSha1Credential(userName,source,
+                                                               password==null?null:password.toCharArray());
+                break;
+            default:
+                throw new IllegalArgumentException("invalid mechanism:" + mech + ", must be one of "
+                                                   + "GSSAPI_MECHANISM, MONGODB_CR_MECHANISM, "
+                                                   + "MONGODB_X5090_MECHANISM, or PLAIN_MECHANISM");
             }
         }
         return cr;
