@@ -15,7 +15,7 @@
 		         ],
 		         "name": "testPartialIndex",
 		         "unique": true,
-		         "partialFilterExpression": "{ \"field3\": { \"$gt\": 5 } }"
+		         "partialFilterExpression": { "field3": { "$gt": 5 } }
             }
         ]
     },
