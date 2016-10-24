@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.junit.Assert;
@@ -467,13 +468,27 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         dbI.append("foo", "bar2");
         Assert.assertTrue("Property foo should be ignored, indexes equal", MongoCRUDController.indexOptionsMatch(i, dbI));
+    }
 
-        DBObject filter1 = (DBObject) JSON.parse("{\"$and\": [{\"field3\": { \"$gt\": 5 }},{\"field3\": { \"$lt\": 100 }}]}");
-        DBObject filter2 = (DBObject) JSON.parse("{\"$and\": [{\"field3\": { \"$gt\": 5 }},{\"field3\": { \"$lt\": 101 }}]}");
+    @Test
+    public void indexOptionMatchTest_partialFilterExpression() {
+        EntityMetadata md = getMd("./testMetadata_partialIndex.json");
 
-        i.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter1);
-        dbI.append(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter2);
-        Assert.assertFalse("Different partialFilterExpression means indexes are not equal", MongoCRUDController.indexOptionsMatch(i, dbI));
+        // save metadata
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(), true);
+
+        DBCollection entityCollection = db.getCollection("data");
+        DBObject indexFromDb = entityCollection.getIndexInfo().get(1);
+        Assert.assertEquals("testPartialIndex", indexFromDb.get("name"));
+
+        Index metadataIndex = md.getEntityInfo().getIndexes().getIndexes().get(0);
+
+        Assert.assertTrue("partialFilterExpression index option is the same, indexes should match", MongoCRUDController.indexOptionsMatch(metadataIndex, indexFromDb));
+
+        // remove one element from the filter expression
+        ((ArrayList)((java.util.HashMap)metadataIndex.getProperties().get(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME)).get("$and")).remove(1);
+
+        Assert.assertFalse("partialFilterExpression index option is different, indexes should not match", MongoCRUDController.indexOptionsMatch(metadataIndex, indexFromDb));
     }
 
     @Test
