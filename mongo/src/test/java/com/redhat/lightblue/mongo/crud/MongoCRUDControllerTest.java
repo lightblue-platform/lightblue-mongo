@@ -481,18 +481,14 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         DBObject indexFromDb = entityCollection.getIndexInfo().get(1);
         Assert.assertEquals("testPartialIndex", indexFromDb.get("name"));
 
-        Map<String,Object> filter = (Map<String,Object>) JSON.parse("{\"$and\": [{\"field3\": { \"$gt\": 5 }},{\"field3\": { \"$lt\": 100 }}]}");
+        Index metadataIndex = md.getEntityInfo().getIndexes().getIndexes().get(0);
 
-        Index i = new Index();
-        i.setUnique(true);
-        i.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter);
+        Assert.assertTrue("partialFilterExpression index option is the same, indexes should match", MongoCRUDController.indexOptionsMatch(metadataIndex, indexFromDb));
 
-        Assert.assertTrue("partialFilterExpression index option is the same, indexes should match", MongoCRUDController.indexOptionsMatch(i, indexFromDb));
+        // remove one element from the filter expression
+        ((ArrayList)((java.util.HashMap)metadataIndex.getProperties().get(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME)).get("$and")).remove(1);
 
-        Map<String,Object> filter2 = (Map<String,Object>) JSON.parse("{\"$and\": [{\"field3\": { \"$gt\": 5 }},{\"field3\": { \"$lt\": 101 }}]}");
-        i.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter2);
-
-        Assert.assertFalse("partialFilterExpression index option is different, indexes should not match", MongoCRUDController.indexOptionsMatch(i, indexFromDb));
+        Assert.assertFalse("partialFilterExpression index option is different, indexes should not match", MongoCRUDController.indexOptionsMatch(metadataIndex, indexFromDb));
     }
 
     @Test
