@@ -1011,17 +1011,28 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         return false;
     }
 
-    private boolean indexOptionsMatch(Index index, DBObject existingIndex) {
+    /**
+     * Compare index options in metadata with existing indexes in mongo. The only 2 options
+     * that matter are 'unique' and 'partialIndexExpression'.
+     *
+     * @param index
+     * @param existingIndex
+     * @return true if all index options recognized by Lightblue match, false otherwise
+     */
+    public static boolean indexOptionsMatch(Index index, DBObject existingIndex) {
         Boolean unique = (Boolean) existingIndex.get("unique");
-        if (unique != null) {
-            if ((unique && index.isUnique())
-                    || (!unique && !index.isUnique())) {
-                return true;
-            }
-        } else if (!index.isUnique()) {
-            return true;
+
+        if (!new Boolean(index.isUnique()).equals(unique)) {
+            LOGGER.debug("Index unique flag changed to {}",unique);
+            return false;
         }
-        return false;
+
+        if (index.getProperties().containsKey(PARTIAL_FILTER_EXPRESSION_OPTION_NAME)) {
+            LOGGER.debug("Index partialFilterExpression option changed from {} to {}", existingIndex.get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME), index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
+            return index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME).equals(existingIndex.get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
+        }
+
+        return true;
     }
 
     /**

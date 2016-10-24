@@ -27,10 +27,12 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -41,6 +43,7 @@ import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
+import com.mongodb.util.JSON;
 import com.redhat.lightblue.ExecutionOptions;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDFindResponse;
@@ -449,6 +452,28 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(1, ctx.getDocuments().get(0).getErrors().size());
         Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE, ctx.getDocuments().get(0).getErrors().get(0).getErrorCode());
 
+    }
+
+    @Test
+    public void indexOptionMatchTest() {
+        Index i = new Index();
+        i.setUnique(true);
+        i.getProperties().put("foo", "bar");
+
+        BasicDBObject dbI = new BasicDBObject();
+        dbI.append("unique", true);
+
+        Assert.assertTrue(MongoCRUDController.indexOptionsMatch(i, dbI));
+
+        dbI.append("foo", "bar2");
+        Assert.assertTrue("Property foo should be ignored, indexes equal", MongoCRUDController.indexOptionsMatch(i, dbI));
+
+        DBObject filter1 = (DBObject) JSON.parse("{\"$and\": [{\"field3\": { \"$gt\": 5 }},{\"field3\": { \"$lt\": 100 }}]}");
+        DBObject filter2 = (DBObject) JSON.parse("{\"$and\": [{\"field3\": { \"$gt\": 5 }},{\"field3\": { \"$lt\": 101 }}]}");
+
+        i.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter1);
+        dbI.append(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter2);
+        Assert.assertFalse("Different partialFilterExpression means indexes are not equal", MongoCRUDController.indexOptionsMatch(i, dbI));
     }
 
     @Test
