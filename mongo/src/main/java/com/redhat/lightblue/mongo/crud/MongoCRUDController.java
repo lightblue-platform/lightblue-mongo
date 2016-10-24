@@ -44,6 +44,7 @@ import com.mongodb.MongoException;
 import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
+import com.mongodb.util.JSON;
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.CRUDController;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
@@ -56,8 +57,8 @@ import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.ConstraintValidator;
 import com.redhat.lightblue.crud.CrudConstants;
 import com.redhat.lightblue.crud.DocCtx;
-import com.redhat.lightblue.crud.MetadataResolver;
 import com.redhat.lightblue.crud.ExplainQuerySupport;
+import com.redhat.lightblue.crud.MetadataResolver;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
@@ -693,6 +694,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("ensureIdIndex: end");
     }
 
+    public static final String PARTIAL_FILTER_EXPRESSION_OPTION_NAME = "partialFilterExpression";
+
     private void createUpdateEntityInfoIndexes(EntityInfo ei, Metadata md) {
         LOGGER.debug("createUpdateEntityInfoIndexes: begin");
 
@@ -815,12 +818,22 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     newIndex.put(Translator.translatePath(field), p.isDesc() ? -1 : 1);
                 }
                 BasicDBObject options = new BasicDBObject("unique", index.isUnique());
-                // if index is unique also make it a sparse index, so we can have non-required unique fields
-                options.append("sparse", index.isUnique());
+                // if index is unique and non-partial, also make it a sparse index, so we can have non-required unique fields
+                options.append("sparse", index.isUnique() && !index.getProperties().containsKey(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
                 if (index.getName() != null && index.getName().trim().length() > 0) {
                     options.append("name", index.getName().trim());
                 }
                 options.append("background", true);
+                // partial index
+                if (index.getProperties().containsKey(PARTIAL_FILTER_EXPRESSION_OPTION_NAME)) {
+                    try {
+                        @SuppressWarnings("unchecked")
+                        DBObject filter = new BasicDBObject((Map<String,Object>)index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
+                        options.append(PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter);
+                    } catch (ClassCastException e) {
+                        throw new RuntimeException("Index property "+PARTIAL_FILTER_EXPRESSION_OPTION_NAME +" needs to be a mongo query in json format", e);
+                    }
+                }
                 LOGGER.debug("Creating index {} with options {}", newIndex, options);
                 LOGGER.warn("Creating index {} with fields={}, options={}", index.getName(), index.getFields(), options);
                 entityCollection.createIndex(newIndex, options);
@@ -998,17 +1011,28 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         return false;
     }
 
-    private boolean indexOptionsMatch(Index index, DBObject existingIndex) {
+    /**
+     * Compare index options in metadata with existing indexes in mongo. The only 2 options
+     * that matter are 'unique' and 'partialIndexExpression'.
+     *
+     * @param index
+     * @param existingIndex
+     * @return true if all index options recognized by Lightblue match, false otherwise
+     */
+    public static boolean indexOptionsMatch(Index index, DBObject existingIndex) {
         Boolean unique = (Boolean) existingIndex.get("unique");
-        if (unique != null) {
-            if ((unique && index.isUnique())
-                    || (!unique && !index.isUnique())) {
-                return true;
-            }
-        } else if (!index.isUnique()) {
-            return true;
+
+        if (!new Boolean(index.isUnique()).equals(unique)) {
+            LOGGER.debug("Index unique flag changed to {}",unique);
+            return false;
         }
-        return false;
+
+        if (index.getProperties().containsKey(PARTIAL_FILTER_EXPRESSION_OPTION_NAME)) {
+            LOGGER.debug("Index partialFilterExpression option changed from {} to {}", existingIndex.get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME), index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
+            return index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME).equals(existingIndex.get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
+        }
+
+        return true;
     }
 
     /**

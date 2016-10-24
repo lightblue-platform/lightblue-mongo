@@ -26,11 +26,14 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
+
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -41,6 +44,7 @@ import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
+import com.mongodb.util.JSON;
 import com.redhat.lightblue.ExecutionOptions;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDFindResponse;
@@ -411,6 +415,84 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         assertTrue(indexInfo.toString().contains("field2.@mongoHidden.x"));
         assertTrue(indexInfo.toString().contains("field2.@mongoHidden.subArrayField"));
         assertTrue(indexInfo.toString().contains("arrayObj.arraySubObj2.@mongoHidden.y"));
+    }
+
+    @Test
+    public void createPartialIndex_CI() throws Exception {
+        EntityMetadata md = getMd("./testMetadata_partialIndex.json");
+
+        // save metadata
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(), true);
+
+        DBCollection entityCollection = db.getCollection("data");
+        DBObject indexCreated = entityCollection.getIndexInfo().get(1);
+        Assert.assertEquals("testPartialIndex", indexCreated.get("name"));
+        Assert.assertEquals("{ \"$and\" : [ { \"field3\" : { \"$gt\" : 5}} , { \"field3\" : { \"$lt\" : 100}}]}", indexCreated.get("partialFilterExpression").toString());
+
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+
+        JsonNode node = loadJsonNode("./testdata_partial_index.json");
+
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(new JsonDoc(node.get(0))); // field3: 1, partial unique index does not include it
+        ctx.addDocument(new JsonDoc(node.get(1))); // field3: 6, partial unique index does include it
+
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        // this would fail for a non-partial unique index
+        Assert.assertEquals("Partial unique index should allow both docs to be inserted", 2, response.getNumInserted());
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        ctx.addDocument(new JsonDoc(node.get(2)));
+        response = controller.insert(ctx, projection);
+
+        // this would fail if there was no index
+        Assert.assertEquals("Partial unique index should prevent document from being inserted", 0, response.getNumInserted());
+        Assert.assertEquals(1, ctx.getDocuments().get(0).getErrors().size());
+        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE, ctx.getDocuments().get(0).getErrors().get(0).getErrorCode());
+
+    }
+
+    @Test
+    public void indexOptionMatchTest() {
+        Index i = new Index();
+        i.setUnique(true);
+        i.getProperties().put("foo", "bar");
+
+        BasicDBObject dbI = new BasicDBObject();
+        dbI.append("unique", true);
+
+        Assert.assertTrue(MongoCRUDController.indexOptionsMatch(i, dbI));
+
+        dbI.append("foo", "bar2");
+        Assert.assertTrue("Property foo should be ignored, indexes equal", MongoCRUDController.indexOptionsMatch(i, dbI));
+    }
+
+    @Test
+    public void indexOptionMatchTest_partialFilterExpression() {
+        EntityMetadata md = getMd("./testMetadata_partialIndex.json");
+
+        // save metadata
+        controller.afterUpdateEntityInfo(null, md.getEntityInfo(), true);
+
+        DBCollection entityCollection = db.getCollection("data");
+        DBObject indexFromDb = entityCollection.getIndexInfo().get(1);
+        Assert.assertEquals("testPartialIndex", indexFromDb.get("name"));
+
+        Map<String,Object> filter = (Map<String,Object>) JSON.parse("{\"$and\": [{\"field3\": { \"$gt\": 5 }},{\"field3\": { \"$lt\": 100 }}]}");
+
+        Index i = new Index();
+        i.setUnique(true);
+        i.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter);
+
+        Assert.assertTrue("partialFilterExpression index option is the same, indexes should match", MongoCRUDController.indexOptionsMatch(i, indexFromDb));
+
+        Map<String,Object> filter2 = (Map<String,Object>) JSON.parse("{\"$and\": [{\"field3\": { \"$gt\": 5 }},{\"field3\": { \"$lt\": 101 }}]}");
+        i.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter2);
+
+        Assert.assertFalse("partialFilterExpression index option is different, indexes should not match", MongoCRUDController.indexOptionsMatch(i, indexFromDb));
     }
 
     @Test

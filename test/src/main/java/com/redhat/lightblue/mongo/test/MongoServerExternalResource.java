@@ -72,7 +72,7 @@ import de.flapdoodle.embed.process.runtime.Network;
 public class MongoServerExternalResource extends ExternalResource {
 
     public static final int DEFAULT_PORT = 27777;
-    public static final Version DEFAULT_VERSION = Version.V2_6_8;
+    public static final Version DEFAULT_VERSION = Version.V3_1_6;
 
     @Retention(RetentionPolicy.RUNTIME)
     @Target({ElementType.METHOD, ElementType.TYPE})
@@ -87,7 +87,7 @@ public class MongoServerExternalResource extends ExternalResource {
         /**
          * Version of Mongo to use.
          */
-        Version version() default Version.V2_6_8;
+        Version version() default Version.V3_1_6;
     }
 
     private InMemoryMongoServer immsAnnotation = null;
