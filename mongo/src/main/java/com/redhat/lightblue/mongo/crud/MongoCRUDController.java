@@ -1022,8 +1022,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     public static boolean indexOptionsMatch(Index index, DBObject existingIndex) {
         Boolean unique = (Boolean) existingIndex.get("unique");
 
-        if (!new Boolean(index.isUnique()).equals(unique)) {
-            LOGGER.debug("Index unique flag changed to {}",unique);
+        // existing unique can be null, that's the same as false
+        if (unique == null && index.isUnique() || unique != null && !new Boolean(index.isUnique()).equals(unique)) {
+            LOGGER.debug("Index unique flag changed to {}",index.isUnique());
             return false;
         }
 
