@@ -492,10 +492,17 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         Assert.assertTrue("partialFilterExpression index option is the same, indexes should match", MongoCRUDController.indexOptionsMatch(metadataIndex, indexFromDb));
 
-        // remove one element from the filter expression
-        ((ArrayList)((java.util.HashMap)metadataIndex.getProperties().get(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME)).get("$and")).remove(1);
+        // change filter expression
+        metadataIndex.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, "{\"field3\": { \"$gt\": 5 }}");
 
         Assert.assertFalse("partialFilterExpression index option is different, indexes should not match", MongoCRUDController.indexOptionsMatch(metadataIndex, indexFromDb));
+
+        // change filter expression to invalid
+        metadataIndex.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, "{\"field3\": \"$gt\": 5 }}");
+        try {
+            MongoCRUDController.indexOptionsMatch(metadataIndex, indexFromDb);
+            Assert.fail("Invalid partialFilterExpression should result in an exception");
+        } catch (RuntimeException e) {}
     }
 
     @Test
