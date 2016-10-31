@@ -45,6 +45,7 @@ import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
 import com.mongodb.util.JSON;
+import com.mongodb.util.JSONParseException;
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.CRUDController;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
@@ -826,12 +827,12 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 options.append("background", true);
                 // partial index
                 if (index.getProperties().containsKey(PARTIAL_FILTER_EXPRESSION_OPTION_NAME)) {
+                    // reading partialFilterExpression as a string b/c of https://github.com/lightblue-platform/lightblue-mongo/issues/329
                     try {
-                        @SuppressWarnings("unchecked")
-                        DBObject filter = new BasicDBObject((Map<String,Object>)index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
+                        DBObject filter = (DBObject) JSON.parse(index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME).toString());
                         options.append(PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter);
-                    } catch (ClassCastException e) {
-                        throw new RuntimeException("Index property "+PARTIAL_FILTER_EXPRESSION_OPTION_NAME +" needs to be a mongo query in json format", e);
+                    } catch (JSONParseException e) {
+                        throw new RuntimeException("Index property "+PARTIAL_FILTER_EXPRESSION_OPTION_NAME +" needs to be a mongo query in string format (json with double quotes escaped)", e);
                     }
                 }
                 LOGGER.debug("Creating index {} with options {}", newIndex, options);
@@ -1033,8 +1034,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         }
 
         if (index.getProperties().containsKey(PARTIAL_FILTER_EXPRESSION_OPTION_NAME)) {
-            LOGGER.debug("Index partialFilterExpression option changed from {} to {}", existingIndex.get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME), index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
-            return index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME).equals(existingIndex.get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
+            try {
+                boolean optionsMatch = JSON.parse(index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME).toString()).equals(existingIndex.get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
+                if (!optionsMatch) {
+                    LOGGER.debug("Index partialFilterExpression option changed from {} to {}", existingIndex.get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME), index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
+                }
+                return optionsMatch;
+            } catch (JSONParseException e) {
+                throw new RuntimeException("Index property "+PARTIAL_FILTER_EXPRESSION_OPTION_NAME +" needs to be a mongo query in string format (json with double quotes escaped)", e);
+            }
         }
 
         return true;
