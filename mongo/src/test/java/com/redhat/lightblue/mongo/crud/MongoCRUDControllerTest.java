@@ -466,7 +466,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         i.setUnique(true);
 
-        Assert.assertFalse("unique: true should be different than existing unique: null",MongoCRUDController.indexOptionsMatch(i, dbI));
+        Assert.assertFalse("unique: true should be different than existing unique: null", MongoCRUDController.indexOptionsMatch(i, dbI));
 
         dbI = new BasicDBObject();
         dbI.append("unique", true);
