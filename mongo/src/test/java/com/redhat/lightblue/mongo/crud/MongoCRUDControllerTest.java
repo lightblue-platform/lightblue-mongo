@@ -26,7 +26,6 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.junit.Assert;
@@ -44,7 +43,6 @@ import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
-import com.mongodb.util.JSON;
 import com.redhat.lightblue.ExecutionOptions;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDFindResponse;
@@ -458,10 +456,19 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     @Test
     public void indexOptionMatchTest() {
         Index i = new Index();
-        i.setUnique(true);
         i.getProperties().put("foo", "bar");
+        Assert.assertFalse(i.isUnique());
 
         BasicDBObject dbI = new BasicDBObject();
+        Assert.assertNull(dbI.get("unique"));
+
+        Assert.assertTrue("unique: false should be the same as existing unique: null", MongoCRUDController.indexOptionsMatch(i, dbI));
+
+        i.setUnique(true);
+
+        Assert.assertFalse("unique: true should be different than existing unique: null", MongoCRUDController.indexOptionsMatch(i, dbI));
+
+        dbI = new BasicDBObject();
         dbI.append("unique", true);
 
         Assert.assertTrue(MongoCRUDController.indexOptionsMatch(i, dbI));
