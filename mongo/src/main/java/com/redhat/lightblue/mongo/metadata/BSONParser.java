@@ -19,9 +19,8 @@
 package com.redhat.lightblue.mongo.metadata;
 
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.bson.BSONObject;
@@ -29,21 +28,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.BigIntegerNode;
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.DecimalNode;
-import com.fasterxml.jackson.databind.node.DoubleNode;
-import com.fasterxml.jackson.databind.node.FloatNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.LongNode;
-import com.fasterxml.jackson.databind.node.ShortNode;
 import com.mongodb.BasicDBObject;
+import com.mongodb.DBObject;
+import com.mongodb.util.JSON;
 import com.redhat.lightblue.metadata.EntityInfo;
 import com.redhat.lightblue.metadata.EntitySchema;
 import com.redhat.lightblue.metadata.MetadataConstants;
 import com.redhat.lightblue.metadata.TypeResolver;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.parser.MetadataParser;
+import com.redhat.lightblue.mongo.crud.MongoCRUDController;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
@@ -132,13 +126,51 @@ public class BSONParser extends MetadataParser<Object> {
     }
 
     /**
-     * Override to set _id appropriately.
+     * Override to convert partialFilterExpression index property from string to map.
+     *
+     */
+    @Override
+    public EntityInfo parseEntityInfo(Object object) {
+
+        List<DBObject> indexes = (List<DBObject>) getMapProperty(object, "indexes");
+
+        if (indexes != null) {
+            for (DBObject index: indexes) {
+                String partialFilterExpression = (String) index.get(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME);
+
+                if (partialFilterExpression != null) {
+                    // convert string to json
+                    // https://github.com/lightblue-platform/lightblue-mongo/issues/329
+                    index.put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, (Map<String,Object>)JSON.parse(partialFilterExpression));
+                }
+            }
+        }
+
+        return super.parseEntityInfo(object);
+    }
+
+    /**
+     * Override to set _id appropriately and convert partialFilterExpression index property to string.
      */
     @Override
     public BSONObject convert(EntityInfo info) {
         Error.push("convert[info|bson]");
         try {
             BSONObject doc = (BSONObject) super.convert(info);
+
+            List<DBObject> indexes = (List<DBObject>) getMapProperty(doc, "indexes");
+
+            if (indexes != null) {
+                for (DBObject index: indexes) {
+                    DBObject partialFilterExpression = (DBObject) index.get(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME);
+
+                    if (partialFilterExpression != null) {
+                        // convert to string to support dots in field names
+                        // https://github.com/lightblue-platform/lightblue-mongo/issues/329
+                        index.put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, partialFilterExpression.toString());
+                    }
+                }
+            }
 
             // entityInfo._id = {entityInfo.name}|
             putValue(doc, "_id", getStringProperty(doc, "name") + DELIMITER_ID);
