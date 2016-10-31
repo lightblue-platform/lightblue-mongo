@@ -15,14 +15,14 @@
 		         ],
 		         "name": "testPartialIndex",
 		         "unique": true,
-		         "partialFilterExpression": { "$and": [{"field3": { "$gt": 5 }},{"field3": { "$lt": 100 }}]}
+		         "partialFilterExpression": { "$and": [{"field6.nf7.nnf2": { "$gt": 5 }},{"field6.nf7.nnf2": { "$lt": 100 }}]}
             }
         ]
     },
     "schema": {
         "name": "test",
         "version": {
-            "value": "1.0",
+            "value": "1.0.0",
             "changelog": "blahblah"
         },
         "status": {

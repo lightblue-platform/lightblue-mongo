@@ -425,7 +425,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         DBCollection entityCollection = db.getCollection("data");
         DBObject indexCreated = entityCollection.getIndexInfo().get(1);
         Assert.assertEquals("testPartialIndex", indexCreated.get("name"));
-        Assert.assertEquals("{ \"$and\" : [ { \"field3\" : { \"$gt\" : 5}} , { \"field3\" : { \"$lt\" : 100}}]}", indexCreated.get("partialFilterExpression").toString());
+        Assert.assertEquals("{ \"$and\" : [ { \"field6.nf7.nnf2\" : { \"$gt\" : 5}} , { \"field6.nf7.nnf2\" : { \"$lt\" : 100}}]}", indexCreated.get("partialFilterExpression").toString());
 
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
         ctx.add(md);

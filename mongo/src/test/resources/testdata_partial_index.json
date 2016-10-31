@@ -14,7 +14,7 @@
       "nf6":["one","two"],
       "nf7": {
   "nnf1":"value1",
-  "nnf2": 3
+  "nnf2": 1
       }
   },
   "field7": [
@@ -41,7 +41,7 @@
       "nf6":["one","two"],
       "nf7": {
   "nnf1":"value1",
-  "nnf2": 3
+  "nnf2": 6
       }
   },
   "field7": [
@@ -68,7 +68,7 @@
       "nf6":["one","two"],
       "nf7": {
   "nnf1":"value1",
-  "nnf2": 3
+  "nnf2": 10
       }
   },
   "field7": [

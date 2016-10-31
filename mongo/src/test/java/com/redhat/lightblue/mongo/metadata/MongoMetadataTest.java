@@ -18,28 +18,57 @@
  */
 package com.redhat.lightblue.mongo.metadata;
 
-import java.util.Set;
-import java.util.HashSet;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
+
+import org.json.JSONException;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Test;
+import org.skyscreamer.jsonassert.JSONAssert;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.mongodb.BasicDBObject;
+import com.mongodb.DB;
+import com.mongodb.util.JSON;
 import com.redhat.lightblue.OperationStatus;
 import com.redhat.lightblue.Response;
-import com.redhat.lightblue.mongo.common.MongoDataStore;
-import com.redhat.lightblue.crud.*;
+import com.redhat.lightblue.crud.CRUDController;
+import com.redhat.lightblue.crud.CRUDDeleteResponse;
+import com.redhat.lightblue.crud.CRUDFindResponse;
+import com.redhat.lightblue.crud.CRUDInsertionResponse;
+import com.redhat.lightblue.crud.CRUDOperationContext;
+import com.redhat.lightblue.crud.CRUDSaveResponse;
+import com.redhat.lightblue.crud.CRUDUpdateResponse;
+import com.redhat.lightblue.crud.Factory;
+import com.redhat.lightblue.metadata.ArrayField;
+import com.redhat.lightblue.metadata.EntityInfo;
+import com.redhat.lightblue.metadata.EntityMetadata;
+import com.redhat.lightblue.metadata.FieldConstraint;
+import com.redhat.lightblue.metadata.Index;
+import com.redhat.lightblue.metadata.IndexSortKey;
+import com.redhat.lightblue.metadata.MetadataConstants;
+import com.redhat.lightblue.metadata.MetadataListener;
+import com.redhat.lightblue.metadata.MetadataStatus;
+import com.redhat.lightblue.metadata.ObjectField;
+import com.redhat.lightblue.metadata.SimpleArrayElement;
+import com.redhat.lightblue.metadata.SimpleField;
+import com.redhat.lightblue.metadata.Version;
 import com.redhat.lightblue.metadata.constraints.EnumConstraint;
-import com.redhat.lightblue.metadata.*;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.parser.JSONMetadataParser;
 import com.redhat.lightblue.metadata.types.DefaultTypes;
 import com.redhat.lightblue.metadata.types.IntegerType;
 import com.redhat.lightblue.metadata.types.StringType;
-import com.redhat.lightblue.mongo.metadata.MongoDataStoreParser;
-import com.redhat.lightblue.mongo.metadata.MongoMetadata;
-import com.redhat.lightblue.mongo.metadata.MongoMetadataConstants;
+import com.redhat.lightblue.mongo.common.MongoDataStore;
+import com.redhat.lightblue.mongo.test.MongoServerExternalResource;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
@@ -48,24 +77,6 @@ import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.test.AbstractJsonNodeTest;
-
-import org.json.JSONException;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.ClassRule;
-import com.mongodb.DB;
-import org.skyscreamer.jsonassert.JSONAssert;
-
-import com.redhat.lightblue.mongo.test.MongoServerExternalResource;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.Charset;
-import java.util.Iterator;
 
 public class MongoMetadataTest {
 
@@ -191,6 +202,28 @@ public class MongoMetadataTest {
         String[] names = md.getEntityNames();
         Assert.assertEquals(1, names.length);
         Assert.assertEquals("testEntity", names[0]);
+    }
+
+    @Test
+    public void createMetadataWithPartialFilterExpression_CanPersistFieldNamesWithDots() throws Exception {
+        Extensions<JsonNode> extensions = new Extensions<>();
+        extensions.addDefaultExtensions();
+        extensions.registerDataStoreParser("mongo", new MongoDataStoreParser<JsonNode>());
+        JSONMetadataParser parser = new JSONMetadataParser(extensions, new DefaultTypes(), new JsonNodeFactory(true));
+
+        EntityMetadata m = parser.parseEntityMetadata(AbstractJsonNodeTest.loadJsonNode("./testMetadata_partialIndex.json"));
+
+        Index partialIndex = m.getEntityInfo().getIndexes().getIndexes().get(0);
+        Assert.assertEquals("{$and=[{field6.nf7.nnf2={$gt=5}}, {field6.nf7.nnf2={$lt=100}}]}", partialIndex.getProperties().get("partialFilterExpression").toString());
+
+        // persist
+        md.createNewMetadata(m);
+        // read
+        m = md.getEntityMetadata("test", "1.0.0");
+
+        Assert.assertNotNull(m);
+        partialIndex = m.getEntityInfo().getIndexes().getIndexes().get(0);
+        Assert.assertEquals("{ \"$and\" : [ { \"field6.nf7.nnf2\" : { \"$gt\" : 5}} , { \"field6.nf7.nnf2\" : { \"$lt\" : 100}}]}", partialIndex.getProperties().get("partialFilterExpression").toString());
     }
 
     @Test

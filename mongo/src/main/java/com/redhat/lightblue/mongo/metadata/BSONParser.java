@@ -19,9 +19,8 @@
 package com.redhat.lightblue.mongo.metadata;
 
 import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.bson.BSONObject;
@@ -29,21 +28,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.BigIntegerNode;
-import com.fasterxml.jackson.databind.node.BooleanNode;
-import com.fasterxml.jackson.databind.node.DecimalNode;
-import com.fasterxml.jackson.databind.node.DoubleNode;
-import com.fasterxml.jackson.databind.node.FloatNode;
-import com.fasterxml.jackson.databind.node.IntNode;
-import com.fasterxml.jackson.databind.node.LongNode;
-import com.fasterxml.jackson.databind.node.ShortNode;
 import com.mongodb.BasicDBObject;
+import com.mongodb.DBObject;
+import com.mongodb.util.JSON;
 import com.redhat.lightblue.metadata.EntityInfo;
 import com.redhat.lightblue.metadata.EntitySchema;
+import com.redhat.lightblue.metadata.Index;
+import com.redhat.lightblue.metadata.Indexes;
 import com.redhat.lightblue.metadata.MetadataConstants;
 import com.redhat.lightblue.metadata.TypeResolver;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.parser.MetadataParser;
+import com.redhat.lightblue.mongo.crud.MongoCRUDController;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
@@ -128,6 +124,48 @@ public class BSONParser extends MetadataParser<Object> {
             return MetadataParser.PropertyType.NULL;
         } else {
             return MetadataParser.PropertyType.VALUE;
+        }
+    }
+
+    /**
+     * Override to convert partialFilterExpression index property from string to map.
+     *
+     */
+    @Override
+    public Index parseIndex(Object object) {
+        Index index = super.parseIndex(object);
+
+        String partialFilterExpression = (String) index.getProperties().get(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME);
+
+        if (partialFilterExpression != null) {
+            // convert string to json
+            // https://github.com/lightblue-platform/lightblue-mongo/issues/329
+            index.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, (Map<String,Object>)JSON.parse(partialFilterExpression));
+        }
+
+        return index;
+    }
+
+    /**
+     * Override to convert partialFilterExpression index property to string.
+     *
+     */
+    @Override
+    public void convertIndexes(Object parent, Indexes indexes) {
+        super.convertIndexes(parent, indexes);
+
+        List<DBObject> dbIndexes = (List<DBObject>) getMapProperty(parent, "indexes");
+
+        if (dbIndexes != null) {
+            for (DBObject index: dbIndexes) {
+                DBObject partialFilterExpression = (DBObject) index.get(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME);
+
+                if (partialFilterExpression != null) {
+                    // convert to string to support dots in field names
+                    // https://github.com/lightblue-platform/lightblue-mongo/issues/329
+                    index.put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, partialFilterExpression.toString());
+                }
+            }
         }
     }
 
