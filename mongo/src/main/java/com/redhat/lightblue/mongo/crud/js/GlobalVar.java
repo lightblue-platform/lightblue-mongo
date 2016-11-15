@@ -35,10 +35,15 @@ public class GlobalVar implements Str {
     }
     
     @Override
-    public StringBuilder appendStr(StringBuilder bld) {
+    public StringBuilder appendToStr(StringBuilder bld) {
         if(init==null)
             return bld.append(String.format("var %1$s;",name));
         else
             return bld.append(String.format("var %1$s=%2$s;",name,init));
+    }
+
+    @Override
+    public String toString() {
+        return appendToStr(new StringBuilder()).toString();
     }
 }

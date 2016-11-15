@@ -36,6 +36,6 @@ public class ForLoop extends Block {
         test.appendToStr(bld).append(';');
         term.appendToStr(bld).append(')');
         return super.appendToStr(bld);
-
     }
     
+}

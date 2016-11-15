@@ -36,26 +36,26 @@ public class Function extends Statement {
         globals.add(new GlobalVar(name,initExpr));
     }
     
-    public String newGlobal(String initExpr) {
-        String name=newName("r");
+    public String newGlobal(Context ctx,String initExpr) {
+        String name=ctx.newName("r");
         global(name,initExpr);
         return name;
     }
     
-    public String newGlobalBoolean() {
-        String name=newName("r");
+    public String newGlobalBoolean(Context ctx) {
+        String name=ctx.newName("r");
         global(name,"false");
         return name;
     }
     
-    public String newGlobalInt() {
-        String name=newName("r");
+    public String newGlobalInt(Context ctx) {
+        String name=ctx.newName("r");
         global(name,"0");
         return name;
     }
     
     @Override
-    public StringBuilder appendToStr(StringBuilder str) {
+    public StringBuilder appendToStr(StringBuilder bld) {
         bld.append("function() {");
         for(GlobalVar g:globals) {
             bld.append(g.toString());
@@ -63,7 +63,7 @@ public class Function extends Statement {
         bld.append(block.toString());
         bld.append("return ").append(block.resultVar).append(';');
         bld.append("}");
-        return bld.toString();
+        return bld;
     }
 }
 

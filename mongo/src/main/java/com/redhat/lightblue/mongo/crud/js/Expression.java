@@ -19,5 +19,9 @@
 package com.redhat.lightblue.mongo.crud.js;
 
 public abstract class Expression implements Str {
+    @Override
+    public String toString() {
+        return appendToStr(new StringBuilder()).toString();
+    }
 }
 

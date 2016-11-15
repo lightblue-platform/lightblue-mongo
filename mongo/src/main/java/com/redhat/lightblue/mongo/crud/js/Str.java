@@ -26,8 +26,4 @@ public interface Str {
      */
     StringBuilder appendToStr(StringBuilder bld);
 
-    @Override
-    default public String toString() {
-        return appendToStr(new StringBuilder()).toString();
-    }
 }

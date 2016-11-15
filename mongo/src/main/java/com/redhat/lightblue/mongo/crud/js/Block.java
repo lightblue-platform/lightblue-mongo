@@ -18,9 +18,11 @@
  */
 package com.redhat.lightblue.mongo.crud.js;
 
+import java.util.ArrayList;
+
 public class Block extends Statement {
-    protected List<Statement> statements=new ArrayList<>();
-    protected final String resultVar;
+    protected ArrayList<Statement> statements=new ArrayList<>();
+    protected String resultVar;
 
     public Block(String resultVar,Statement...x) {
         this.resultVar=resultVar;
@@ -37,13 +39,9 @@ public class Block extends Statement {
     }
     
     public Block() {
-        this(null);
+        this((String)null);
     }
 
-    public Name getDocumentLoopVarAsPrefix() {
-        return parent==null?new Name():parent.getDocumentLoopVarAsPrefix();
-    }
-    
     public void add(Statement x) {
         statements.add(x);
         x.parent=this;

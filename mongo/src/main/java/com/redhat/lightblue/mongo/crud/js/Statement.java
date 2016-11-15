@@ -20,5 +20,14 @@ package com.redhat.lightblue.mongo.crud.js;
 
 public abstract class Statement extends Expression {
     public Statement parent;
+
+    public Name getDocumentLoopVarAsPrefix() {
+        return parent==null?new Name():parent.getDocumentLoopVarAsPrefix();
+    }
+    
+        @Override
+    public String toString() {
+        return appendToStr(new StringBuilder()).toString();
+    }
 }
 

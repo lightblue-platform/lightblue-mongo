@@ -41,9 +41,9 @@ public class IfStatement extends Statement {
     @Override
     public StringBuilder appendToStr(StringBuilder bld) {
         if(elseBlock==null) {
-            return String.format("if(%1$s) { %2$s }",test.toString(),trueBlock.toString());
+            return bld.append(String.format("if(%1$s) %2$s ",test.toString(),trueBlock.toString()));
         } else {
-            return String.format("if(%1$s) { %2$s } else { %3$s }",test.toString(),trueBlock.toString(),elseBlock.toString());
+            return bld.append(String.format("if(%1$s) %2$s else %3$s ",test.toString(),trueBlock.toString(),elseBlock.toString()));
         }
     }
 }
