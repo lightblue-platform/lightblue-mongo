@@ -18,15 +18,6 @@
  */
 package com.redhat.lightblue.mongo.crud.js;
 
-public abstract class Expression {
-
-    public abstract void toString(StringBuilder bld);
-
-    @Override
-    public String toString() {
-        StringBuilder bld=new StringBuilder();
-        toString(bld);
-        return bld.toString();
-    }
+public abstract class Expression implements Str {
 }
 

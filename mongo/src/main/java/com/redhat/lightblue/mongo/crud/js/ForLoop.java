@@ -19,26 +19,23 @@
 package com.redhat.lightblue.mongo.crud.js;
 
 /**
- * A global variable. Defines the variable name and initialization
- *
+ * Represents a for loop
  * <pre>
- *    var name=init;
+ *   for (init;test;term) { block }
  * </pre>
  */
-public class GlobalVar implements Str {
-    protected final String name;
-    protected final String init;
-    
-    public GlobalVar(String name,String init) {
-        this.name=name;
-        this.init=init;
-    }
+public class ForLoop extends Block {
+    protected Expression init;
+    protected Expression test;
+    protected Expression term;
     
     @Override
-    public StringBuilder appendStr(StringBuilder bld) {
-        if(init==null)
-            return bld.append(String.format("var %1$s;",name));
-        else
-            return bld.append(String.format("var %1$s=%2$s;",name,init));
+    public StringBuilder appendToStr(StringBuilder bld) {
+        bld.append("for(");
+        init.appendToStr(bld).append(';');
+        test.appendToStr(bld).append(';');
+        term.appendToStr(bld).append(')');
+        return super.appendToStr(bld);
+
     }
-}
+    

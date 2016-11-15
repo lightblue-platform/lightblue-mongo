@@ -18,27 +18,22 @@
  */
 package com.redhat.lightblue.mongo.crud.js;
 
-/**
- * A global variable. Defines the variable name and initialization
- *
- * <pre>
- *    var name=init;
- * </pre>
- */
-public class GlobalVar implements Str {
-    protected final String name;
-    protected final String init;
+public class ArrForLoop extends ForLoop {
+    private final String loopVar;
+    private final Name absoluteArrayFieldName;
     
-    public GlobalVar(String name,String init) {
-        this.name=name;
-        this.init=init;
+    public ArrForLoop(String loopVar,Name absoluteArrayFieldName) {
+        this.loopVar=loopVar;
+        this.absoluteArrayFieldName=absoluteArrayFieldName;
+        init=new SimpleExpression("var %1$s=0",loopVar);
+        test=new SimpleExpression("%1$s<%2$s.length",loopVar,absoluteArrayFieldName.toString());
+        term=new SimpleExpression("%1$s++",loopVar);
     }
     
     @Override
-    public StringBuilder appendStr(StringBuilder bld) {
-        if(init==null)
-            return bld.append(String.format("var %1$s;",name));
-        else
-            return bld.append(String.format("var %1$s=%2$s;",name,init));
+    public Name getDocumentLoopVarAsPrefix() {
+        Name n=new Name(absoluteArrayFieldName);
+        n.add(loopVar,true);
+        return n;
     }
 }

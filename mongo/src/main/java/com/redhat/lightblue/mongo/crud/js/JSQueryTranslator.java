@@ -66,15 +66,15 @@ public class JSQueryTranslator {
     
     private static class Context {
         FieldTreeNode contextNode;
-        JavascriptBlock contextBlock;
+        Block contextBlock;
         Function topLevel;
 
-        public Context(FieldTreeNode contextNode,JavascriptBlock contextBlock) {
+        public Context(FieldTreeNode contextNode,Block contextBlock) {
             this.contextNode=contextNode;
             this.contextBlock=contextBlock;
         }
 
-        public Context enter(FieldTreeNode node,JavascriptBlock parent) {
+        public Context enter(FieldTreeNode node,Block parent) {
             Context ctx=new Context(node,parent);
             ctx.topLevel=topLevel;
             return ctx;
@@ -99,176 +99,6 @@ public class JSQueryTranslator {
         }
     }
 
-    public class Function extends Expression {
-
-        protected JavascriptBlock block;
-        protected final List<GlobalVar> globals=new ArrayList<>();
-
-        public Function(JavascriptBlock block) {
-            this.block=block;
-        }
-
-        public Function() {
-        }
-
-        public void global(String name,String initExpr) {
-            globals.add(new GlobalVar(name,initExpr));
-        }
-
-        public String newGlobal(String initExpr) {
-            String name=newName("r");
-            global(name,initExpr);
-            return name;
-        }
-
-        public String newGlobalBoolean() {
-            String name=newName("r");
-            global(name,"false");
-            return name;
-        }
-
-        public String newGlobalInt() {
-            String name=newName("r");
-            global(name,"0");
-            return name;
-        }
-        
-        @Override
-        public String toString() {
-            StringBuilder bld=new StringBuilder();
-            bld.append("function() {");
-            for(GlobalVar g:globals) {
-                bld.append(g.toString());
-            }
-            bld.append(block.toString());
-            bld.append("return ").append(block.resultVar).append(';');
-            bld.append("}");
-            return bld.toString();
-        }
-    }
-
-    public class SimpleExpression extends Expression {
-        private String s;
-
-        public SimpleExpression(String format,Object...args) {
-            this.s=String.format(format,args);
-        }
-
-        @Override
-        public String toString() {
-            return s;
-        }
-    }
-    
-
-    public class JavascriptBlock extends Expression {
-        protected List<Expression> expressions=new ArrayList<>();
-        protected JavascriptBlock parent;
-        protected final String resultVar;
-
-        public JavascriptBlock(String resultVar,Expression...x) {
-            this.resultVar=resultVar;
-            for(Expression e:x)
-                add(e);
-        }
-
-        public JavascriptBlock(String resultVar) {
-            this.resultVar=resultVar;
-        }
-
-        public Name getDocumentLoopVarAsPrefix() {
-            return parent==null?new Name():parent.getDocumentLoopVarAsPrefix();
-        }
-        
-        public void add(Expression x) {
-            expressions.add(x);
-            if(x instanceof JavascriptBlock)
-                ((JavascriptBlock)x).parent=this;
-        }
-
-        @Override
-        public String toString() {
-            StringBuilder bld=new StringBuilder();
-            bld.append("{");
-            for(Expression x:expressions) {
-                bld.append(x.toString());
-                if(!(x instanceof JavascriptBlock)) {
-                    bld.append(';');
-                }
-            }
-            bld.append("}");
-            return bld.toString();
-        }
-    }
-
-    public class ForLoop extends Expression {
-        protected Expression init;
-        protected Expression test;
-        protected Expression term;
-        protected JavascriptBlock block;
-        
-        public ForLoop() {
-        }
-
-        @Override
-        public String toString() {
-            StringBuilder bld=new StringBuilder();
-            bld.append("for(").append(init.toString()).append(';').
-                append(test.toString()).append(';').
-                append(term.toString()).append(')');
-            bld.append(super.toString());
-            return bld.toString();
-        }
-    }
-    
-    public class ArrForLoop extends ForLoop {
-        private final String loopVar;
-        private final Name absoluteArrayFieldName;
-
-        public ArrForLoop(String loopVar,Name absoluteArrayFieldName) {
-            this.loopVar=loopVar;
-            this.absoluteArrayFieldName=absoluteArrayFieldName;
-            init=new SimpleExpression("var %1$s=0",loopVar);
-            test=new SimpleExpression("%1$s<%2$s.length",loopVar,absoluteArrayFieldName.toString());
-            term=new SimpleExpression("%1$s++",loopVar);
-        }
-
-        @Override
-        public Name getDocumentLoopVarAsPrefix() {
-            Name n=new Name(absoluteArrayFieldName);
-            n.add(loopVar,true);
-            return n;
-        }
-    }
-
-    public class IfExpression extends JavascriptBlock {
-
-        protected Expression test;
-        protected JavascriptBlock trueBlock;
-        protected JavascriptBlock elseBlock;
-        
-        public IfExpression(String resultVar,Expression test,JavascriptBlock trueBlock,JavascriptBlock elseBlock) {
-            super(resultVar);
-            this.test=test;
-            this.trueBlock=trueBlock;
-            this.elseBlock=elseBlock;
-        }
-
-        public IfExpression(String resultVar,Expression test,JavascriptBlock trueBlock) {
-            this(resultVar,test,trueBlock,null);
-        }
-
-        @Override
-        public String toString() {
-            if(elseBlock==null) {
-                return String.format("if(%1$s) { %2$s }",test.toString(),trueBlock.toString());
-            } else {
-                return String.format("if(%1$s) { %2$s } else { %3$s }",test.toString(),trueBlock.toString(),elseBlock.toString());
-            }
-        }
-    }
-
-
     public JSQueryTranslator(EntityMetadata md) {
         this.md=md;
     }
@@ -280,8 +110,8 @@ public class JSQueryTranslator {
         return ctx.topLevel;
     }
 
-    private JavascriptBlock translateQuery(Context context,QueryExpression query) {
-        JavascriptBlock ret=null;
+    private Block translateQuery(Context context,QueryExpression query) {
+        Block ret=null;
         if (query instanceof ArrayContainsExpression) {
             //            ret = translateArrayContains(context, (ArrayContainsExpression) query);
         } else if (query instanceof ArrayMatchExpression) {
@@ -304,7 +134,7 @@ public class JSQueryTranslator {
         return ret;
     }
 
-    private JavascriptBlock translateNaryValueRelationalExpression(Context ctx,NaryValueRelationalExpression query) {
+    private Block translateNaryValueRelationalExpression(Context ctx,NaryValueRelationalExpression query) {
         FieldTreeNode fieldMd=ctx.contextNode.resolve(query.getField());
         List<Value> values=query.getValues();
         StringBuilder arr=new StringBuilder();
@@ -329,38 +159,42 @@ public class JSQueryTranslator {
         }
         arr.append(']');
         String globalArr=ctx.topLevel.newGlobal(arr.toString());
-        JavascriptBlock block=new JavascriptBlock(ctx.topLevel.newGlobal(query.getOp()==NaryRelationalOperator._in?"false":"true"));
+        Block block=new Block(ctx.topLevel.newGlobal(query.getOp()==NaryRelationalOperator._in?"false":"true"));
         ForLoop forLoop=new ForLoop(null);
         block.add(forLoop);
         String loopVar=newName("i");
         forLoop.init=new SimpleExpression("var %1$s=0",loopVar);
         forLoop.test=new SimpleExpression("%1$s<%2$s.length",loopVar,globalArr);
         forLoop.term=new SimpleExpression("%1$s++",loopVar);
-        forLoop.block=new JavascriptBlock(null);
+        forLoop.block=new Block(null);
         String tmpCmp=ctx.topLevel.newGlobal(null);
         if(fieldMd.getType() instanceof DateType) {
             forLoop.add(new SimpleExpression("%1$s=this.%2$s-%3$s[%4$s]",tmpCmp,ctx.varName(new Name(query.getField())),globalArr,loopVar));
             if(query.getOp()==NaryRelationalOperator._in) {
-                forLoop.block.add(new IfExpression(null,new SimpleExpression("%1$s==0",tmpCmp),
-                                                   new JavascriptBlock(null,new SimpleExpression("%1$s=true;break",block.resultVar))));
+                forLoop.block.add(new IfStatement(null,new SimpleExpression("%1$s==0",tmpCmp),
+                                                   new Block(null,new SimpleStatement("%1$s=true",block.resultVar),
+                                                                       SimpleStatement.S_BREAK)));
             } else {
-                forLoop.block.add(new IfExpression(null,new SimpleExpression("%1$s==0",tmpCmp),
-                                                   new JavascriptBlock(null,new SimpleExpression("%1$s=false;break",block.resultVar))));
+                forLoop.block.add(new IfStatement(null,new SimpleExpression("%1$s==0",tmpCmp),
+                                                   new Block(null,new SimpleStatement("%1$s=false",block.resultVar),
+                                                                       SimpleStatement.S_BREAK)));
             }
         } else {
             if(query.getOp()==NaryRelationalOperator._in) {
-                forLoop.block.add(new IfExpression(null,new SimpleExpression("this.%1$s==%2$s[%3$s]",ctx.varName(new Name(query.getField())),globalArr,loopVar),
-                                                   new JavascriptBlock(null,new SimpleExpression("%1$s=true;break",block.resultVar))));
+                forLoop.block.add(new IfStatement(null,new SimpleExpression("this.%1$s==%2$s[%3$s]",ctx.varName(new Name(query.getField())),globalArr,loopVar),
+                                                   new Block(null,new SimpleStatement("%1$s=true",block.resultVar),
+                                                                       SimpleStatement.S_BREAK)));
             } else {
-                forLoop.block.add(new IfExpression(null,new SimpleExpression("this.%1$s==%2$s[%3$s]",ctx.varName(new Name(query.getField())),globalArr,loopVar),
-                                           new JavascriptBlock(null,new SimpleExpression("%1$s=false;break",block.resultVar))));
+                forLoop.block.add(new IfStatement(null,new SimpleExpression("this.%1$s==%2$s[%3$s]",ctx.varName(new Name(query.getField())),globalArr,loopVar),
+                                                   new Block(null,new SimpleStatement("%1$s=false",block.resultVar),
+                                                                       SimpleStatement.S_BREAK)));
             }
         }        
         
         return block;
     }
 
-    private JavascriptBlock translateRegexMatchExpression(Context ctx,RegexMatchExpression query) {
+    private Block translateRegexMatchExpression(Context ctx,RegexMatchExpression query) {
         FieldTreeNode fieldMd=ctx.contextNode.resolve(query.getField());
         if(fieldMd.getType() instanceof StringType) {
             Name fieldName=ctx.varName(new Name(query.getField()));
@@ -368,8 +202,8 @@ public class JSQueryTranslator {
                                                                  query.getRegex().replaceAll("\"","\\\""),
                                                                  regexFlags(query)));
             
-            JavascriptBlock block=new JavascriptBlock(ctx.topLevel.newGlobalBoolean());
-            block.add(new SimpleExpression("%1$s=%2$s.test(this.%3$s)",
+            Block block=new Block(ctx.topLevel.newGlobalBoolean());
+            block.add(new SimpleStatement("%1$s=%2$s.test(this.%3$s)",
                                            block.resultVar,
                                            regexVar,
                                            fieldName.toString()));
@@ -387,7 +221,7 @@ public class JSQueryTranslator {
         return bld.toString();
     }
 
-    private JavascriptBlock translateValueComparisonExpression(Context ctx,ValueComparisonExpression query) {
+    private Block translateValueComparisonExpression(Context ctx,ValueComparisonExpression query) {
         FieldTreeNode fieldMd=ctx.contextNode.resolve(query.getField());
         Object value = query.getRvalue().getValue();
         if (query.getOp() == BinaryComparisonOperator._eq
@@ -401,12 +235,12 @@ public class JSQueryTranslator {
         Object valueObject = filterBigNumbers(fieldMd.getType().cast(value));
         Name fieldName=ctx.varName(new Name(query.getField()));
         
-        JavascriptBlock block=new JavascriptBlock(ctx.topLevel.newGlobalBoolean());
+        Block block=new Block(ctx.topLevel.newGlobalBoolean());
         if(valueObject!=null&&fieldMd.getType() instanceof DateType) {
-            block.add(new SimpleExpression("%1$s=this.%2$s-ISODate('%3$s')%4$s 0",block.resultVar,fieldName.toString(),
+            block.add(new SimpleStatement("%1$s=this.%2$s-ISODate('%3$s')%4$s 0",block.resultVar,fieldName.toString(),
                                            toISODate((Date)valueObject),BINARY_COMPARISON_OPERATOR_JS_MAP.get(query.getOp())));
         } else {
-            block.add(new SimpleExpression("%1$s=this.%2$s %3$s %4$s",block.resultVar,
+            block.add(new SimpleStatement("%1$s=this.%2$s %3$s %4$s",block.resultVar,
                                            fieldName.toString(),
                                            BINARY_COMPARISON_OPERATOR_JS_MAP.get(query.getOp()),
                                            valueObject==null?"null":quote(fieldMd.getType(),valueObject.toString())));
@@ -414,40 +248,40 @@ public class JSQueryTranslator {
         return block;
     }
     
-    private JavascriptBlock translateArrayElemMatch(Context ctx,ArrayMatchExpression query) {
+    private Block translateArrayElemMatch(Context ctx,ArrayMatchExpression query) {
         // An elemMatch expression is a for-loop
-        JavascriptBlock block=new JavascriptBlock(ctx.topLevel.newGlobalBoolean());
+        Block block=new Block(ctx.topLevel.newGlobalBoolean());
         ArrForLoop loop=new ArrForLoop(null,newName("i"),ctx.varName(new Name(query.getArray())));
         Context newCtx=ctx.enter(ctx.contextNode.resolve(new Path(query.getArray(),Path.ANYPATH)),loop);
         loop.block=translateQuery(newCtx,query.getElemMatch());
-        loop.block.add(new IfExpression(null,
+        loop.block.add(new IfStatement(null,
                                         new SimpleExpression(loop.block.resultVar),
-                                        new JavascriptBlock(null,
-                                                            new SimpleExpression("%1$s=true",block.resultVar),
-                                                            new SimpleExpression("break"))));
+                                        new Block(null,
+                                                            new SimpleStatement("%1$s=true",block.resultVar),
+                                                            new SimpleStatement("break"))));
         block.add(loop);
         return block;
     }
 
-    private JavascriptBlock translateNaryLogicalExpression(Context ctx,NaryLogicalExpression query) {
-        JavascriptBlock block=new JavascriptBlock(ctx.topLevel.newGlobalBoolean());
+    private Block translateNaryLogicalExpression(Context ctx,NaryLogicalExpression query) {
+        Block block=new Block(ctx.topLevel.newGlobalBoolean());
         List<String> vars=new ArrayList();
         for(QueryExpression x:query.getQueries()) {
-            JavascriptBlock nested=translateQuery(ctx,x);
+            Block nested=translateQuery(ctx,x);
             vars.add(nested.resultVar);
             block.add(nested);            
         }
         String op=query.getOp()==NaryLogicalOperator._and?"&&":"||";
-        block.add(new SimpleExpression("%1$s=%2$s",block.resultVar,String.join(op,vars)));
+        block.add(new SimpleStatement("%1$s=%2$s",block.resultVar,String.join(op,vars)));
         return block;
     }    
     
-    private JavascriptBlock translateUnaryLogicalExpression(Context ctx,UnaryLogicalExpression query) {
+    private Block translateUnaryLogicalExpression(Context ctx,UnaryLogicalExpression query) {
         // Only NOT is a unary operator
-        JavascriptBlock block=new JavascriptBlock(ctx.topLevel.newGlobalBoolean());
-        JavascriptBlock nested=translateQuery(ctx,query.getQuery());
+        Block block=new Block(ctx.topLevel.newGlobalBoolean());
+        Block nested=translateQuery(ctx,query.getQuery());
         block.add(nested);
-        block.add(new SimpleExpression("%1$s=!%2$s",block.resultVar,nested.resultVar));
+        block.add(new SimpleStatement("%1$s=!%2$s",block.resultVar,nested.resultVar));
         return block;
     }
 

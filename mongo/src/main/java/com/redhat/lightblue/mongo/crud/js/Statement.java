@@ -18,11 +18,7 @@
  */
 package com.redhat.lightblue.mongo.crud.js;
 
-public class Statement extends Expression {
-
-    @Pverride
-    public void toString(StringBuilder bld) {
-        
-    }
+public abstract class Statement extends Expression {
+    public Statement parent;
 }
 

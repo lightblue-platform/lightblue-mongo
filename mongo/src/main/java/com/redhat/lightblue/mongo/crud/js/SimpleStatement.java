@@ -18,27 +18,18 @@
  */
 package com.redhat.lightblue.mongo.crud.js;
 
-/**
- * A global variable. Defines the variable name and initialization
- *
- * <pre>
- *    var name=init;
- * </pre>
- */
-public class GlobalVar implements Str {
-    protected final String name;
-    protected final String init;
+public class SimpleStatement extends Statement {
+
+    public static final SimpleStatement S_BREAK=new SimpleStatement("break");
     
-    public GlobalVar(String name,String init) {
-        this.name=name;
-        this.init=init;
+    private SimpleExpression x;
+    
+    public SimpleStatement(String format,Object...args) {
+        x=new SimpleExpression(format,args);
     }
     
     @Override
-    public StringBuilder appendStr(StringBuilder bld) {
-        if(init==null)
-            return bld.append(String.format("var %1$s;",name));
-        else
-            return bld.append(String.format("var %1$s=%2$s;",name,init));
+    public StringBuilder appendToStr(StringBuilder bld) {
+        return x.appendToStr(bld).append(';');
     }
 }
