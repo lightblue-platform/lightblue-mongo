@@ -80,7 +80,7 @@ public class JSQueryTranslator {
         } else if (query instanceof ArrayMatchExpression) {
             ret = translateArrayElemMatch(context, (ArrayMatchExpression) query);
         } else if (query instanceof FieldComparisonExpression) {
-            //            ret = translateFieldComparison(context, (FieldComparisonExpression) query);
+            ret = translateFieldComparison(context, (FieldComparisonExpression) query);
         } else if (query instanceof NaryLogicalExpression) {
             ret = translateNaryLogicalExpression(context, (NaryLogicalExpression) query);
         } else if (query instanceof NaryValueRelationalExpression) {
@@ -95,6 +95,95 @@ public class JSQueryTranslator {
             ret = translateValueComparisonExpression(context, (ValueComparisonExpression) query);
         }
         return ret;
+    }
+
+    /**
+     * If field1 and field2 are both non-arrays:
+     * <pre>
+     *    result=field1 op field2
+     * </pre>
+     *
+     * If field1 is an array and field2 is not:
+     * <pre>
+     *    result=false;
+     *    for(i=0;i<this.field1.length;i++) {
+     *      if(this.field1[i]==field2) {
+     *        result=true;
+     *        break;
+     *      }
+     *   }
+     * </pre>
+     *
+     * If both field1 and field2 are arrays:
+     * <pre>
+     *    op=cmp:
+     *  result=false;
+     *  if(this.field1.length==this.field2.length) {
+     *     result=true;
+     *     for(int i=0;i<this.field1.length;i++) {
+     *        if(this.field1[i]!=this.field2[i]) {
+     *           result=false;
+     *           break;
+     *        }
+     *     }
+     *  } 
+     *
+     *  op=ne
+     *  result=true;
+     *  if(this.field1.length==this.field2.length) {
+     *     result=false;
+     *     for(int i=0;i<this.field1.length;i++) {
+     *        if(!(this.field1[i] cmp this.field2[i])) {
+     *           result=true;
+     *           break;
+     *        }
+     *     }
+     *  } 
+     * </pre>
+     *
+     * If field1 has n ANYs and field2 has none:
+     * <pre>
+     *    for(var i1=0;i1<this.field1.blah.length;i1++) {
+     *       for(var i2=0;i2<this.field1.blah[i1].yada.length;i2++) {
+     *          CMP
+     *          if(CMP) return true
+     *       }
+     *    }
+     * </pre>
+     *
+     * If field1 has n ANYs and field2 has m anys:
+     * <pre>
+     *    for(var i1=0;i1<this.field1.blah.length;i1++) {
+     *       for(var i2=0;i2<this.field1.blah[i1].yada.length;i2++) {
+     *         for(var i3=0;i3<this.field2.blah.length;i3++) {
+     *           for(var i4=0;i4<this.field2.blah[i3].yada.length;i4++) {
+     *             CMP
+     *             if(CMP) return true
+     *           }
+     *         }
+     *       }
+     *    }
+     * </pre>
+     */
+    private Block translateFieldComparison(Context ctx,FieldComparisonExpression query) {
+        Path rField = query.getRfield();
+        FieldTreeNode rFieldMd = ctx.contextNode.resolve(rField);
+        boolean rIsArray = rFieldMd instanceof ArrayField;
+        Path lField = query.getField();
+        FieldTreeNode lFieldMd = ctx.contextNode.resolve(lField);
+        boolean lIsArray = lFieldMd instanceof ArrayField;
+        int rn = rField.nAnys();
+        int ln = lField.nAnys();
+
+        if(rIsArray&&lIsArray) {
+        } else if(rIsArray||lIsArray) {
+        } else {
+        }
+        
+        if(rn>0) {
+        }
+        if(ln>0) {
+        }
     }
 
 
