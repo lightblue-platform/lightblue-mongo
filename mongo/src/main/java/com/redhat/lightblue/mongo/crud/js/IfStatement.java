@@ -18,33 +18,21 @@
  */
 package com.redhat.lightblue.mongo.crud.js;
 
-public class IfStatement extends Statement {
+public class IfStatement extends Block {
     
     protected Expression test;
-    protected Block trueBlock;
-    protected Block elseBlock;
     
-    public IfStatement(Expression test,Block trueBlock,Block elseBlock) {
+    public IfStatement(Expression test,Statement...s) {
+        super(s);
         this.test=test;
-        this.trueBlock=trueBlock;
-        this.elseBlock=elseBlock;
-        if(trueBlock!=null)
-            trueBlock.parent=this;
-        if(elseBlock!=null)
-            elseBlock.parent=this;
-    }
-    
-    public IfStatement(Expression test,Block trueBlock) {
-        this(test,trueBlock,null);
     }
     
     @Override
     public StringBuilder appendToStr(StringBuilder bld) {
-        if(elseBlock==null) {
-            return bld.append(String.format("if(%1$s) %2$s ",test.toString(),trueBlock.toString()));
-        } else {
-            return bld.append(String.format("if(%1$s) %2$s else %3$s ",test.toString(),trueBlock.toString(),elseBlock.toString()));
-        }
+        bld.append("if(");
+        test.appendToStr(bld);
+        bld.append(")");
+        return super.appendToStr(bld);
     }
 }
 

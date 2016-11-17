@@ -25,16 +25,33 @@ package com.redhat.lightblue.mongo.crud.js;
  * </pre>
  */
 public class ForLoop extends Block {
-    protected Expression init;
-    protected Expression test;
-    protected Expression term;
+    protected Expression loopExpression;
+
+    public ForLoop() {}
+
+    public ForLoop(Expression loopExpression,Statement...s) {
+        this.loopExpression=loopExpression;
+        if(s!=null)
+            for(Statement x:s)
+                add(x);
+    }
+
+    public ForLoop(String loopVar,String length,Statement...s) {
+        this(loopVar,false,length,s);
+    }
+
+    public ForLoop(String loopVar,boolean addThis,String length,Statement...s) {
+        this.loopExpression=new SimpleExpression(addThis?"var %s=0;%s<this.%s;%s++":"var %s=0;%s<%s;%s++",loopVar,loopVar,length,loopVar);
+        if(s!=null)
+            for(Statement x:s)
+                add(x);
+    }
     
     @Override
     public StringBuilder appendToStr(StringBuilder bld) {
         bld.append("for(");
-        init.appendToStr(bld).append(';');
-        test.appendToStr(bld).append(';');
-        term.appendToStr(bld).append(')');
+        loopExpression.appendToStr(bld);
+        bld.append(')');
         return super.appendToStr(bld);
     }
     

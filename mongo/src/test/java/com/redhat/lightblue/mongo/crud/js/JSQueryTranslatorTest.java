@@ -54,7 +54,7 @@ public class JSQueryTranslatorTest extends AbstractMongoCrudTest {
     @Before
     public void setup() throws Exception {
         super.setup();
-        md = getMd("./testMetadata.json");
+        md = getMd("./testMetadata-deep.json");
         translator = new JSQueryTranslator(md);
     }
 
@@ -125,6 +125,39 @@ public class JSQueryTranslatorTest extends AbstractMongoCrudTest {
     public void testArrayMatchValueComparisonWithThis() throws Exception {
         cmpjs("function() { var r0=false; var r2=false; {for(var i1=0;i1<this.field6.nf5.length;i1++) {{r2=this.field6.nf5[i1]==1;}if(r2){r0=true;break;}}} return r0;}",
               translator.translateQuery(query("{'array':'field6.nf5','elemMatch':{'field':'$this','op':'=','rvalue':1}}")).toString());
+    }
+
+    @Test
+    public void testArrayArrayComparison1() throws Exception {
+        cmpjs("function(){"+
+              "var r0=false;"+
+              "{"+
+              "for(var ri1=0;ri1<this.field8.length;ri1++){"+
+              "for(var ri2=0;ri2<this.field8[ri1].arr1.length;ri2++){"+
+              "if(this.field8[ri1].arr1[ri2].arr2.length==this.field6.nf5.length){"+
+              "r0=true;"+
+              "for(var i3=0;i3<this.field8[ri1].arr1[ri2].arr2;i3++){"+
+              "{"+
+              "if(!(this.field8[ri1].arr1[ri2].arr2[i3]==this.field6.nf5[i3])){"+
+              "r0=false;break;"+
+              "}"+
+              "}"+
+              "}"+
+              "}"+
+              "if(r0){break;}"+
+              "}"+
+              "if(r0){break;}"+
+              "}"+
+              "}"+
+              "return r0;"+
+              "}",
+              translator.translateQuery(query("{'field':'field8.*.arr1.*.arr2','op':'=','rfield':'field6.nf5'}")).toString());
+    }
+
+    @Test
+    public void testFieldCommparison() throws Exception {
+        cmpjs("function(){var r0=false;{r0=field1==field2;}return r0;}",
+              translator.translateQuery(query("{'field':'field1','op':'=','rfield':'field2'}")).toString());
     }
     
 

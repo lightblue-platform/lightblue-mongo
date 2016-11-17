@@ -22,6 +22,9 @@ import java.math.BigInteger;
 import java.math.BigDecimal;
 
 import java.util.Map;
+
+import org.bson.FieldNameValidator;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
@@ -37,6 +40,7 @@ import com.redhat.lightblue.metadata.types.*;
 import com.redhat.lightblue.query.*;
 
 import com.redhat.lightblue.util.Error;
+import com.redhat.lightblue.util.MutablePath;
 import com.redhat.lightblue.util.Path;
 
 /**
@@ -121,7 +125,7 @@ public class JSQueryTranslator {
      *  if(this.field1.length==this.field2.length) {
      *     result=true;
      *     for(int i=0;i<this.field1.length;i++) {
-     *        if(this.field1[i]!=this.field2[i]) {
+     *        if(!(this.field1[i] cmp this.field2[i])) {
      *           result=false;
      *           break;
      *        }
@@ -133,7 +137,7 @@ public class JSQueryTranslator {
      *  if(this.field1.length==this.field2.length) {
      *     result=false;
      *     for(int i=0;i<this.field1.length;i++) {
-     *        if(!(this.field1[i] cmp this.field2[i])) {
+     *        if(this.field1[i] != this.field2[i]) {
      *           result=true;
      *           break;
      *        }
@@ -168,24 +172,100 @@ public class JSQueryTranslator {
     private Block translateFieldComparison(Context ctx,FieldComparisonExpression query) {
         Path rField = query.getRfield();
         FieldTreeNode rFieldMd = ctx.contextNode.resolve(rField);
-        boolean rIsArray = rFieldMd instanceof ArrayField;
         Path lField = query.getField();
         FieldTreeNode lFieldMd = ctx.contextNode.resolve(lField);
-        boolean lIsArray = lFieldMd instanceof ArrayField;
-        int rn = rField.nAnys();
-        int ln = lField.nAnys();
 
-        if(rIsArray&&lIsArray) {
-        } else if(rIsArray||lIsArray) {
+        Block comparisonBlock=new Block(ctx.topLevel.newGlobalBoolean(ctx));
+        Block parentBlock=comparisonBlock;
+
+        Name lfieldLocalName=new Name();
+        // First deal with the nested arrays of lField
+        parentBlock=processNestedArrays(ctx,lField,parentBlock,lfieldLocalName);
+        
+        // Then deal with the nested arrays of rField
+        Name rfieldLocalName=new Name();
+        parentBlock=processNestedArrays(ctx,rField,parentBlock,rfieldLocalName);
+
+        if(rFieldMd instanceof ArrayField && lFieldMd instanceof ArrayField) {
+            String loopVar=ctx.newName("i");
+            // Both fields are arrays
+            if(query.getOp()==BinaryComparisonOperator._neq) {
+                parentBlock.add(new SimpleStatement("%s=true",comparisonBlock.resultVar));
+                parentBlock.add(new IfStatement(new SimpleExpression("this.%s.length==this.%s.length",ctx.varName(lfieldLocalName),ctx.varName(rfieldLocalName)),
+                                                new SimpleStatement("%s=false",comparisonBlock.resultVar),
+                                                new ForLoop(loopVar,true,ctx.varName(lfieldLocalName).toString(),
+                                                            new Block(new IfStatement(new SimpleExpression("this.%s[%s]!=this.%s[%s]",ctx.varName(lfieldLocalName),loopVar,
+                                                                                                           ctx.varName(rfieldLocalName),loopVar),
+                                                                                      new SimpleStatement("%s=true",comparisonBlock.resultVar),
+                                                                                      SimpleStatement.S_BREAK)))));
+            } else {
+                parentBlock.add(new IfStatement(new SimpleExpression("this.%s.length==this.%s.length",ctx.varName(lfieldLocalName),ctx.varName(rfieldLocalName)),
+                                                new SimpleStatement("%s=true",comparisonBlock.resultVar),
+                                                new ForLoop(loopVar,true,ctx.varName(lfieldLocalName).toString(),
+                                                            new Block(new IfStatement(new SimpleExpression("!(this.%s[%s] %s this.%s[%s])",ctx.varName(lfieldLocalName),loopVar,
+                                                                                                           BINARY_COMPARISON_OPERATOR_JS_MAP.get(query.getOp()),
+                                                                                                           ctx.varName(rfieldLocalName),loopVar),
+                                                                                      new SimpleStatement("%s=false",comparisonBlock.resultVar),
+                                                                                      SimpleStatement.S_BREAK)))));
+            }                                        
+        } else if(rFieldMd instanceof ArrayField || lFieldMd instanceof ArrayField) {
+            // Only one field is an array. If comparison is true for one element, then it is true
+            Name arrayFieldLocalName;
+            Name simpleFieldLocalName;
+            BinaryComparisonOperator op;
+            if(rFieldMd instanceof ArrayField) {
+                arrayFieldLocalName=rfieldLocalName;
+                simpleFieldLocalName=lfieldLocalName;
+                op=query.getOp().invert();
+            } else {
+                arrayFieldLocalName=lfieldLocalName;
+                simpleFieldLocalName=rfieldLocalName;
+                op=query.getOp();
+            }
+            String loopVar=ctx.newName("i");
+            parentBlock.add(new ForLoop(loopVar,true,ctx.varName(arrayFieldLocalName).toString(),
+                                        new Block(new IfStatement(new SimpleExpression("this.%s[%s] %s %s",ctx.varName(arrayFieldLocalName),loopVar,
+                                                                                       BINARY_COMPARISON_OPERATOR_JS_MAP.get(query.getOp()),
+                                                                                       ctx.varName(simpleFieldLocalName)),
+                                                                  new SimpleStatement("%s=true",comparisonBlock.resultVar),
+                                                                  SimpleStatement.S_BREAK))));
         } else {
+            // Simple comparison
+            parentBlock.add(new SimpleStatement("%s=%s %s %s",comparisonBlock.resultVar,ctx.varName(lfieldLocalName),BINARY_COMPARISON_OPERATOR_JS_MAP.get(query.getOp()),ctx.varName(rfieldLocalName)));
+        }
+        // Add breaks to the end of for loops
+        // Trace ctx back to ctx, add breaks to for loops
+        IfStatement breakIfNecessary=new IfStatement(new SimpleExpression(comparisonBlock.resultVar),
+                                                     SimpleStatement.S_BREAK);
+        Statement parentStmt=parentBlock;
+        while(parentStmt!=comparisonBlock) {            
+            if(parentStmt instanceof ForLoop)
+                ((ForLoop)parentStmt).add(breakIfNecessary);
+            parentStmt=((Statement)parentStmt).parent;
         }
         
-        if(rn>0) {
-        }
-        if(ln>0) {
-        }
+        return comparisonBlock;
+        
     }
 
+    private Block processNestedArrays(Context ctx,Path field,Block parent,Name arrayFieldName) {
+        MutablePath pathSegment=new MutablePath();
+        for(int i=0;i<field.numSegments();i++) {
+            String seg=field.head(i);
+            if(Path.ANY.equals(seg)) {
+                ArrForLoop loop=new ArrForLoop(ctx.newName("ri"),ctx.varName(arrayFieldName));
+                parent.add(loop);
+                parent=loop;
+                pathSegment.push(Path.ANY);
+                arrayFieldName.add(loop.loopVar,true);
+            } else {
+                arrayFieldName.add(seg,field.isIndex(i));
+                pathSegment.push(seg);
+            }
+        }
+        return parent;
+    }
+    
 
     /**
      * <pre>
@@ -216,8 +296,8 @@ public class JSQueryTranslator {
         loop.add(new IfStatement(new SimpleExpression("this.%s[%s]==this.%s",ctx.varName(new Name(query.getRfield())),
                                                       loop.loopVar,
                                                       ctx.varName(new Name(query.getField()))),
-                                 new Block(new SimpleStatement("%s=%s",block.resultVar,query.getOp()==NaryRelationalOperator._in?"true":"false"),
-                                           SimpleStatement.S_BREAK)));
+                                 new SimpleStatement("%s=%s",block.resultVar,query.getOp()==NaryRelationalOperator._in?"true":"false"),
+                                 SimpleStatement.S_BREAK));
         return block;
     }
     
@@ -262,10 +342,7 @@ public class JSQueryTranslator {
 
         // for(var i=0;i<r0.length;i++) 
         String arrayLoopIndex=ctx.newName("i");
-        ForLoop arrayLoop=new ForLoop();
-        arrayLoop.init=new SimpleExpression("var %s=0",arrayLoopIndex);
-        arrayLoop.test=new SimpleExpression("%s<%s.length",arrayLoopIndex,valueArr);
-        arrayLoop.term=new SimpleExpression("%s++",arrayLoopIndex);
+        ForLoop arrayLoop=new ForLoop(arrayLoopIndex,valueArr+".length");
         arrayLoop.resultVar=ctx.topLevel.newGlobalBoolean(ctx);
         arrayContainsBlock.add(arrayLoop);
 
@@ -277,24 +354,24 @@ public class JSQueryTranslator {
                                                            innerLoop.loopVar,
                                                            valueArr,
                                                            arrayLoopIndex),
-                                      new Block(new SimpleStatement("%s=true",arrayLoop.resultVar),
-                                                SimpleStatement.S_BREAK)));
+                                      new SimpleStatement("%s=true",arrayLoop.resultVar),
+                                      SimpleStatement.S_BREAK));
 
         switch(query.getOp()) {
         case _any:
             arrayLoop.add(new IfStatement(new SimpleExpression(arrayLoop.resultVar),
-                                          new Block(new SimpleStatement("%s=true",arrayContainsBlock.resultVar),
-                                                    SimpleStatement.S_BREAK)));
+                                          new SimpleStatement("%s=true",arrayContainsBlock.resultVar),
+                                          SimpleStatement.S_BREAK));
             break;
         case _all:
             arrayLoop.add(new IfStatement(new SimpleExpression("!%s",arrayLoop.resultVar),
-                                          new Block(new SimpleStatement("%s=false",arrayContainsBlock.resultVar),
-                                                    SimpleStatement.S_BREAK)));
+                                          new SimpleStatement("%s=false",arrayContainsBlock.resultVar),
+                                          SimpleStatement.S_BREAK));
             break; 
         case _none:
             arrayLoop.add(new IfStatement(new SimpleExpression(arrayLoop.resultVar),
-                                          new Block(new SimpleStatement("%s=false",arrayContainsBlock.resultVar),
-                                                    SimpleStatement.S_BREAK)));
+                                          new SimpleStatement("%s=false",arrayContainsBlock.resultVar),
+                                          SimpleStatement.S_BREAK));
             break; 
         }
         return arrayContainsBlock;
@@ -346,33 +423,30 @@ public class JSQueryTranslator {
         FieldTreeNode fieldMd=ctx.contextNode.resolve(query.getField());
         String globalArr=declareValueArray(ctx,fieldMd,query.getValues());
         Block block=new Block(ctx.topLevel.newGlobal(ctx,query.getOp()==NaryRelationalOperator._in?"false":"true"));
-        ForLoop forLoop=new ForLoop();
-        block.add(forLoop);
         String loopVar=ctx.newName("i");
-        forLoop.init=new SimpleExpression("var %s=0",loopVar);
-        forLoop.test=new SimpleExpression("%s<%s.length",loopVar,globalArr);
-        forLoop.term=new SimpleExpression("%s++",loopVar);
+        ForLoop forLoop=new ForLoop(loopVar,globalArr+".length");
+        block.add(forLoop);
         String tmpCmp=ctx.topLevel.newGlobal(ctx,null);
         if(fieldMd.getType() instanceof DateType) {
             forLoop.add(new SimpleStatement("%s=this.%s-%s[%s]",tmpCmp,ctx.varName(new Name(query.getField())),globalArr,loopVar));
             if(query.getOp()==NaryRelationalOperator._in) {
                 forLoop.add(new IfStatement(new SimpleExpression("%s==0",tmpCmp),
-                                            new Block(new SimpleStatement("%s=true",block.resultVar),
-                                                      SimpleStatement.S_BREAK)));
+                                            new SimpleStatement("%s=true",block.resultVar),
+                                            SimpleStatement.S_BREAK));
             } else {
                 forLoop.add(new IfStatement(new SimpleExpression("%s==0",tmpCmp),
-                                            new Block(new SimpleStatement("%s=false",block.resultVar),
-                                                      SimpleStatement.S_BREAK)));
+                                            new SimpleStatement("%s=false",block.resultVar),
+                                            SimpleStatement.S_BREAK));
             }
         } else {
             if(query.getOp()==NaryRelationalOperator._in) {
                 forLoop.add(new IfStatement(new SimpleExpression("this.%s==%s[%s]",ctx.varName(new Name(query.getField())),globalArr,loopVar),
-                                            new Block(new SimpleStatement("%s=true",block.resultVar),
-                                                      SimpleStatement.S_BREAK)));
+                                            new SimpleStatement("%s=true",block.resultVar),
+                                            SimpleStatement.S_BREAK));
             } else {
                 forLoop.add(new IfStatement(new SimpleExpression("this.%s==%s[%s]",ctx.varName(new Name(query.getField())),globalArr,loopVar),
-                                            new Block(new SimpleStatement("%s=false",block.resultVar),
-                                                      SimpleStatement.S_BREAK)));
+                                            new SimpleStatement("%s=false",block.resultVar),
+                                            SimpleStatement.S_BREAK));
             }
         }        
         
@@ -470,8 +544,8 @@ public class JSQueryTranslator {
         Block queryBlock=translateQuery(newCtx,query.getElemMatch());
         loop.add(queryBlock);
         loop.add(new IfStatement(new SimpleExpression(queryBlock.resultVar),
-                                 new Block(new SimpleStatement("%s=true",block.resultVar),
-                                           new SimpleStatement("break"))));
+                                 new SimpleStatement("%s=true",block.resultVar),
+                                 SimpleStatement.S_BREAK));
         block.add(loop);
         return block;
     }

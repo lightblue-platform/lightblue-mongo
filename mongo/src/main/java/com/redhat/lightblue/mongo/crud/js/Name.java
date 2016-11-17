@@ -82,6 +82,10 @@ public class Name {
         parts.remove(parts.size()-1);
         return this;
     }
+
+    public void clear() {
+        parts.clear();
+    }
     
     @Override
     public String toString() {

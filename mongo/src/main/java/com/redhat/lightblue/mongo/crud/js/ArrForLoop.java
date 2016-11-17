@@ -25,11 +25,9 @@ public class ArrForLoop extends ForLoop {
     public ArrForLoop(String loopVar,Name absoluteArrayFieldName) {
         this.loopVar=loopVar;
         this.absoluteArrayFieldName=absoluteArrayFieldName;
-        init=new SimpleExpression("var %1$s=0",loopVar);
-        test=new SimpleExpression("%1$s<this.%2$s.length",loopVar,absoluteArrayFieldName.toString());
-        term=new SimpleExpression("%1$s++",loopVar);
+        loopExpression=new SimpleExpression("var %s=0;%s<this.%s.length;%s++",loopVar,loopVar,absoluteArrayFieldName.toString(),loopVar);
     }
-    
+
     @Override
     public Name getDocumentLoopVarAsPrefix() {
         Name n=new Name(absoluteArrayFieldName);

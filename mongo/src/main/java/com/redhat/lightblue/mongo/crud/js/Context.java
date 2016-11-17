@@ -27,7 +27,7 @@ class Context {
     Block contextBlock;
     Function topLevel;
     int nameIndex=0;
-    private Context parentCtx;
+    Context parentCtx;
     
     public Context(FieldTreeNode contextNode,Block contextBlock) {
         this.contextNode=contextNode;
@@ -38,6 +38,13 @@ class Context {
         Context ctx=new Context(node,parent);
         ctx.topLevel=topLevel;
         ctx.parentCtx=this;
+        return ctx;
+    }
+
+    public Context copy() {
+        Context ctx=new Context(contextNode,contextBlock);
+        ctx.topLevel=topLevel;
+        ctx.parentCtx=parentCtx;
         return ctx;
     }
     
