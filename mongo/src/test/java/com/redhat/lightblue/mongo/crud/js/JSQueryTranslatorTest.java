@@ -136,7 +136,7 @@ public class JSQueryTranslatorTest extends AbstractMongoCrudTest {
               "for(var ri2=0;ri2<this.field8[ri1].arr1.length;ri2++){"+
               "if(this.field8[ri1].arr1[ri2].arr2.length==this.field6.nf5.length){"+
               "r0=true;"+
-              "for(var i3=0;i3<this.field8[ri1].arr1[ri2].arr2;i3++){"+
+              "for(var i3=0;i3<this.field8[ri1].arr1[ri2].arr2.length;i3++){"+
               "{"+
               "if(!(this.field8[ri1].arr1[ri2].arr2[i3]==this.field6.nf5[i3])){"+
               "r0=false;break;"+

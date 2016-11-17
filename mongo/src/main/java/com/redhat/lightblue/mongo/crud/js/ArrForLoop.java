@@ -18,14 +18,20 @@
  */
 package com.redhat.lightblue.mongo.crud.js;
 
+/**
+ *  <pre>
+ *     for(var loopVar=0;loopVar<this.absoluteArrayFieldName.length;loopVar++) {
+ *     }
+ * </pre>
+ */
 public class ArrForLoop extends ForLoop {
     final String loopVar;
     final Name absoluteArrayFieldName;
     
     public ArrForLoop(String loopVar,Name absoluteArrayFieldName) {
+        super(loopVar,true,absoluteArrayFieldName.toString());
         this.loopVar=loopVar;
         this.absoluteArrayFieldName=absoluteArrayFieldName;
-        loopExpression=new SimpleExpression("var %s=0;%s<this.%s.length;%s++",loopVar,loopVar,absoluteArrayFieldName.toString(),loopVar);
     }
 
     @Override

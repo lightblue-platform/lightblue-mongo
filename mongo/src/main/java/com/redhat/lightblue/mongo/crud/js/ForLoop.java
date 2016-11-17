@@ -21,7 +21,7 @@ package com.redhat.lightblue.mongo.crud.js;
 /**
  * Represents a for loop
  * <pre>
- *   for (init;test;term) { block }
+ *   for (loopExpression) { block }
  * </pre>
  */
 public class ForLoop extends Block {
@@ -41,7 +41,7 @@ public class ForLoop extends Block {
     }
 
     public ForLoop(String loopVar,boolean addThis,String length,Statement...s) {
-        this.loopExpression=new SimpleExpression(addThis?"var %s=0;%s<this.%s;%s++":"var %s=0;%s<%s;%s++",loopVar,loopVar,length,loopVar);
+        this.loopExpression=new SimpleExpression(addThis?"var %s=0;%s<this.%s.length;%s++":"var %s=0;%s<%s.length;%s++",loopVar,loopVar,length,loopVar);
         if(s!=null)
             for(Statement x:s)
                 add(x);

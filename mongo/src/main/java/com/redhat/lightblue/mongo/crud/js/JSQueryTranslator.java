@@ -224,8 +224,8 @@ public class JSQueryTranslator {
             }
             String loopVar=ctx.newName("i");
             parentBlock.add(new ForLoop(loopVar,true,ctx.varName(arrayFieldLocalName).toString(),
-                                        new Block(new IfStatement(new SimpleExpression("this.%s[%s] %s %s",ctx.varName(arrayFieldLocalName),loopVar,
-                                                                                       BINARY_COMPARISON_OPERATOR_JS_MAP.get(query.getOp()),
+                                        new Block(new IfStatement(new SimpleExpression("this.%s[%s] %s this.%s",ctx.varName(arrayFieldLocalName),loopVar,
+                                                                                       BINARY_COMPARISON_OPERATOR_JS_MAP.get(op),
                                                                                        ctx.varName(simpleFieldLocalName)),
                                                                   new SimpleStatement("%s=true",comparisonBlock.resultVar),
                                                                   SimpleStatement.S_BREAK))));
@@ -342,7 +342,7 @@ public class JSQueryTranslator {
 
         // for(var i=0;i<r0.length;i++) 
         String arrayLoopIndex=ctx.newName("i");
-        ForLoop arrayLoop=new ForLoop(arrayLoopIndex,valueArr+".length");
+        ForLoop arrayLoop=new ForLoop(arrayLoopIndex,valueArr);
         arrayLoop.resultVar=ctx.topLevel.newGlobalBoolean(ctx);
         arrayContainsBlock.add(arrayLoop);
 
@@ -424,7 +424,7 @@ public class JSQueryTranslator {
         String globalArr=declareValueArray(ctx,fieldMd,query.getValues());
         Block block=new Block(ctx.topLevel.newGlobal(ctx,query.getOp()==NaryRelationalOperator._in?"false":"true"));
         String loopVar=ctx.newName("i");
-        ForLoop forLoop=new ForLoop(loopVar,globalArr+".length");
+        ForLoop forLoop=new ForLoop(loopVar,globalArr);
         block.add(forLoop);
         String tmpCmp=ctx.topLevel.newGlobal(ctx,null);
         if(fieldMd.getType() instanceof DateType) {
