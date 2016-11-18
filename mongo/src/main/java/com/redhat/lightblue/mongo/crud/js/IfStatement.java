@@ -26,6 +26,14 @@ public class IfStatement extends Block {
         super(s);
         this.test=test;
     }
+
+    public static IfStatement ifDefined(Name var,Statement...s) {
+        return new IfStatement(new SimpleExpression("typeof this.%s != 'undefined'", var),s);
+    }
+
+    public static IfStatement ifDefined(Name var1, Name var2 ,Statement...s) {
+        return new IfStatement(new SimpleExpression("typeof this.%s != 'undefined' && typeof this.%s != 'undefined'", var1,var2),s);
+    }
     
     @Override
     public StringBuilder appendToStr(StringBuilder bld) {

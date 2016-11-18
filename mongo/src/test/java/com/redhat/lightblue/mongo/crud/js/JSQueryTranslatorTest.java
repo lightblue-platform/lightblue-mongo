@@ -60,70 +60,122 @@ public class JSQueryTranslatorTest extends AbstractMongoCrudTest {
 
     @Test
     public void testValueComparison() throws Exception {
-        cmpjs("function() { var r0=false; {r0=this.field1==\"test\";} return r0;}",
+        cmpjs("function() {"+
+              " var r0=false; {"+
+              " if(typeof this.field1!='undefined') {"+
+              "    r0=this.field1==\"test\";}} return r0;}",
               translator.translateQuery(query("{'field':'field1','op':'=','rvalue':'test'}")).toString());
     }
 
     @Test
     public void testAnyComparison() throws Exception {
-        cmpjs("function() {var r0=[1,2,3];var r1=false;varr 3=false;"+
+        cmpjs("function() {var r0=[1,2,3];var r1=false;var r3=false;"+
               "{for(var i2=0;i2<r0.length;i2++){"+
-              "r3=false;"+
-              "for(var j4=0;j4<this.field6.nf5.length;j4++){"+
-              "if(this.field6.nf5[j4]==r0[i2]){r3=true;break;}}"+
-              "if(r3){r1=true;break;}}}return r1;}",
+              " r3=false;"+
+              " if(typeof this.field6.nf5!='undefined'){"+
+              "   for(var j4=0;j4<this.field6.nf5.length;j4++){"+
+              "     if(this.field6.nf5[j4]==r0[i2]){r3=true;break;}}}"+
+              " if(r3){r1=true;break;}}}return r1;}",
               translator.translateQuery(query("{'array':'field6.nf5','contains':'$any','values':[1,2,3]}")).toString());
     }
     @Test
     public void testNoneComparison() throws Exception {
-        cmpjs("function() {var r0=[1,2,3];var r1=true;varr 3=false;"+
+        cmpjs("function() {var r0=[1,2,3];var r1=true;var r3=false;"+
               "{for(var i2=0;i2<r0.length;i2++){"+
-              "r3=false;"+
-              "for(var j4=0;j4<this.field6.nf5.length;j4++){"+
-              "if(this.field6.nf5[j4]==r0[i2]){r3=true;break;}}"+
-              "if(r3){r1=false;break;}}}return r1;}",
+              " r3=false;"+
+              " if(typeof this.field6.nf5!='undefined') {"+
+              "  for(var j4=0;j4<this.field6.nf5.length;j4++){"+
+              "   if(this.field6.nf5[j4]==r0[i2]){r3=true;break;}}}"+
+              " if(r3){r1=false;break;}}}return r1;}",
               translator.translateQuery(query("{'array':'field6.nf5','contains':'$none','values':[1,2,3]}")).toString());
     }
 
     @Test
     public void testIn() throws Exception {
-        cmpjs("function() {var r0=[\"test1\",\"test2\",\"test3\"];var r1=false;var r3;{for(var i2=0;i2<r0.length;i2++){if(this.field1==r0[i2]) {r1=true;break;} }}return r1;}",
+        cmpjs("function() {"+
+              " var r0=[\"test1\",\"test2\",\"test3\"];"+
+              " var r1=false;"+
+              " var r3;{"+
+              " if(typeof this.field1 !='undefined') {"+
+              "  for(var i2=0;i2<r0.length;i2++){"+
+              "   if(this.field1==r0[i2]) {r1=true;break;} }}}return r1;}",
               translator.translateQuery(query("{'field':'field1','op':'$in','values':['test1','test2','test3']}")).toString());
     }
 
     @Test
     public void testInField() throws Exception {
-        cmpjs("function(){var r0=false;{for(var i1=0;i1<this.field6.nf5.length;i1++){if(this.field6.nf5[i1]==this.field1){r0=true;break;}}}return r0;}",
+        cmpjs("function(){"+
+              " var r0=false;{"+
+              " if(typeof this.field6.nf5!='undefined'&&typeof this.field1!='undefined') {"+
+              "  for(var i1=0;i1<this.field6.nf5.length;i1++){"+
+              "    if(this.field6.nf5[i1]==this.field1){r0=true;break;}}}}return r0;}",
               translator.translateQuery(query("{'field':'field1','op':'$in','rfield':'field6.nf5'}")).toString());
     }
 
     @Test
     public void testRegex() throws Exception {
-        cmpjs("function() { var r0=new RegExp(\"test.*\",\"i\");var r1=false;{r1=r0.test(this.field1);}return r1;}",
+        cmpjs("function() {"+
+              " var r0=new RegExp(\"test.*\",\"i\");"+
+              " var r1=false;{"+
+              "  if(typeof this.field1 !='undefined') {"+
+              "  r1=r0.test(this.field1);}}return r1;}",
               translator.translateQuery(query("{'field':'field1','regex':'test.*','caseInsensitive':true}")).toString());
     }
 
     @Test
     public void testNotValueComparison() throws Exception {
-        cmpjs("function() { var r0=false; var r1=false; {{r1=this.field1==\"test\";} r0=!r1;} return r0;}",
+        cmpjs("function() {"+
+              " var r0=false;"+
+              " var r1=false; {"+
+              " {if(typeof this.field1!='undefined') {"+
+              "   r1=this.field1==\"test\";}}"+
+              "  r0=!r1;} return r0;}",
               translator.translateQuery(query("{'$not': {'field':'field1','op':'=','rvalue':'test'}}")).toString());
     }
 
     @Test
     public void testAndValueComparison() throws Exception {
-        cmpjs("function() { var r0=false;var r1=false; var r2=false;{{r1=this.field1==\"test\";} {r2=this.field2==\"test2\";} r0=r1&&r2;} return r0;}",
+        cmpjs("function() {"+
+              " var r0=false;"+
+              " var r1=false;"+
+              " var r2=false;{"+
+              " {if(typeof this.field1 != 'undefined') {"+
+              "  r1=this.field1==\"test\";}}"+
+              " {if(typeof this.field2 != 'undefined') {"+
+              "  r2=this.field2==\"test2\";}}"+
+              " r0=r1&&r2;} return r0;}",
               translator.translateQuery(query("{'$and':[ {'field':'field1','op':'=','rvalue':'test'}, {'field':'field2','op':'=','rvalue':'test2'}]}")).toString());
     }
 
     @Test
     public void testArrayMatchValueComparison() throws Exception {
-        cmpjs("function() { var r0=false; var r2=false; {for(var i1=0;i1<this.field7.length;i1++) {{r2=this.field7[i1].elemf1==\"test\";}if(r2){r0=true;break; }}} return r0;}",
+        cmpjs("function() {"+
+              " var r0=false;"+
+              " var r2=false; {"+
+              " if(typeof this.field7 != 'undefined') {"+
+              "  for(var i1=0;i1<this.field7.length;i1++) {"+
+              "   if(typeof this.field7[i1].elemf1 != 'undefined') {"+
+              "     r2=this.field7[i1].elemf1==\"test\";"+
+              "   }"+
+              "   if(r2){r0=true;break; }"+
+              " }}}"+
+              " return r0;}",
               translator.translateQuery(query("{'array':'field7','elemMatch':{'field':'elemf1','op':'=','rvalue':'test'}}")).toString());
     }
 
     @Test
     public void testArrayMatchValueComparisonWithThis() throws Exception {
-        cmpjs("function() { var r0=false; var r2=false; {for(var i1=0;i1<this.field6.nf5.length;i1++) {{r2=this.field6.nf5[i1]==1;}if(r2){r0=true;break;}}} return r0;}",
+        cmpjs("function() {"+
+              " var r0=false; "+
+              " var r2=false; {"+
+              "  if(typeof this.field6.nf5 != 'undefined') {"+
+              "    for(var i1=0;i1<this.field6.nf5.length;i1++) {"+
+              "     if(typeof this.field6.nf5[i1] != 'undefined') {"+
+              "       r2=this.field6.nf5[i1]==1;"+
+              "     }"+
+              "    if(r2){r0=true;break;}"+
+              "  }}}"+
+              " return r0;}",
               translator.translateQuery(query("{'array':'field6.nf5','elemMatch':{'field':'$this','op':'=','rvalue':1}}")).toString());
     }
 
@@ -132,24 +184,25 @@ public class JSQueryTranslatorTest extends AbstractMongoCrudTest {
         cmpjs("function(){"+
               "var r0=false;"+
               "{"+
-              "for(var ri1=0;ri1<this.field8.length;ri1++){"+
-              "for(var ri2=0;ri2<this.field8[ri1].arr1.length;ri2++){"+
-              "if(this.field8[ri1].arr1[ri2].arr2.length==this.field6.nf5.length){"+
-              "r0=true;"+
-              "for(var i3=0;i3<this.field8[ri1].arr1[ri2].arr2.length;i3++){"+
-              "{"+
-              "if(!(this.field8[ri1].arr1[ri2].arr2[i3]==this.field6.nf5[i3])){"+
-              "r0=false;break;"+
-              "}"+
-              "}"+
-              "}"+
-              "}"+
-              "if(r0){break;}"+
-              "}"+
-              "if(r0){break;}"+
-              "}"+
-              "}"+
-              "return r0;"+
+              "if(typeof this.field8 != 'undefined') {"+
+              " for(var ri1=0;ri1<this.field8.length;ri1++){"+
+              "  if(typeof this.field8[ri1].arr1 != 'undefined') {"+
+              "   for(var ri2=0;ri2<this.field8[ri1].arr1.length;ri2++){"+
+              "    if(typeof this.field8[ri1].arr1[ri2].arr2 != 'undefined' && typeof this.field6.nf5 != 'undefined') {"+ 
+              "      if(this.field8[ri1].arr1[ri2].arr2.length==this.field6.nf5.length){"+
+              "       r0=true;"+
+              "       for(var i3=0;i3<this.field8[ri1].arr1[ri2].arr2.length;i3++){{"+
+              "          if(!(this.field8[ri1].arr1[ri2].arr2[i3]==this.field6.nf5[i3])){"+
+              "            r0=false;break;"+
+              "          }"+
+              "        }}"+
+              "      }}"+
+              "      if(r0){break;}"+
+              "     }}"+
+              "     if(r0){break;}"+
+              "    }"+
+              "   }}"+
+              " return r0;"+
               "}",
               translator.translateQuery(query("{'field':'field8.*.arr1.*.arr2','op':'=','rfield':'field6.nf5'}")).toString());
     }

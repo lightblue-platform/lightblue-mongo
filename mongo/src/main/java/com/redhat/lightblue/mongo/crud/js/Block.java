@@ -46,6 +46,10 @@ public class Block extends Statement {
         statements.add(x);
         x.parent=this;
     }
+
+    public void replace(Block b) {
+        statements.addAll(b.statements);
+    }
     
     @Override
     public StringBuilder appendToStr(StringBuilder bld) {

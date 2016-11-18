@@ -21,6 +21,7 @@ package com.redhat.lightblue.mongo.crud.js;
 import com.redhat.lightblue.metadata.FieldTreeNode;
 
 import com.redhat.lightblue.util.Path;
+import com.redhat.lightblue.util.Error;
 
 class Context {
     FieldTreeNode contextNode;
@@ -49,6 +50,7 @@ class Context {
     }
     
     public Name varName(Name localName) {
+        FieldTreeNode current=contextNode;
         Name p=new Name();
         if(contextBlock!=null)
             p.add(contextBlock.getDocumentLoopVarAsPrefix());
@@ -57,10 +59,18 @@ class Context {
             Name.Part seg=localName.getPart(i);
             if(Path.PARENT.equals(seg.name)) {
                 p.removeLast();
+                current=current.getParent();
+                if(current==null)
+                    throw Error.get(JSQueryTranslator.ERR_INVALID_FIELD,localName.toString());
             } else if(Path.THIS.equals(seg.name)) {
                 ; // Stay here
             } else {
                 p.add(seg);
+                // This will throw an exception if it cannot resolve seg
+                if(seg.index)
+                    current=current.resolve(Path.ANYPATH);
+                else
+                    current=current.resolve(new Path(seg.name));
             }
         }
         return p;
