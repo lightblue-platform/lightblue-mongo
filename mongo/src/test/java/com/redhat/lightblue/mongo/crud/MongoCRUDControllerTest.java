@@ -1510,7 +1510,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
-    public void useThisInArrayTest() throws Exception {
+    public void useThisInSameArrayTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
         ctx.add(md);
@@ -1523,6 +1523,69 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         controller.find(ctx, query("{'array':'field6.nf6','elemMatch':{'field':'$this','op':'$in','rfield':'$parent'}}"),
                         projection("{'field':'*','recursive':1}"), null, null, null);
+        Assert.assertEquals(1, ctx.getDocuments().size());
+    }
+
+    @Test
+    public void useThisInArrayTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadata7.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata7.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'array':'field6.nf6','elemMatch':{'field':'$this','op':'$in','rfield':'$parent.$parent.nf8'}}"),
+                        projection("{'field':'*','recursive':1}"), null, null, null);
+        Assert.assertEquals(1, ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'array':'field6.nf6','elemMatch':{'field':'$this','op':'$in','rfield':'$parent.$parent.nf9'}}"),
+                projection("{'field':'*','recursive':1}"), null, null, null);
+        Assert.assertEquals(0, ctx.getDocuments().size());
+    }
+
+    @Test
+    public void useThisInArrayWithRegexTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadata7.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata7.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'array':'field6.nf6','elemMatch':{'field':'$this','regex':'t.o'}}"),
+                        projection("{'field':'*','recursive':1}"), null, null, null);
+        Assert.assertEquals(1, ctx.getDocuments().size());
+    }
+
+    @Test
+    public void useThisNinArrayTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadata7.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata7.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'array':'field6.nf6','elemMatch':{'field':'$this','op':'$nin','rfield':'$parent.$parent.nf8'}}"),
+                        projection("{'field':'*','recursive':1}"), null, null, null);
+        Assert.assertEquals(0, ctx.getDocuments().size());
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'array':'field6.nf6','elemMatch':{'field':'$this','op':'$nin','rfield':'$parent.$parent.nf9'}}"),
+                projection("{'field':'*','recursive':1}"), null, null, null);
         Assert.assertEquals(1, ctx.getDocuments().size());
     }
 
