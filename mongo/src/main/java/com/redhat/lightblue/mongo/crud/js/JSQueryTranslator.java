@@ -229,20 +229,25 @@ public class JSQueryTranslator {
             Name arrayFieldName;
             Name simpleFieldName;
             BinaryComparisonOperator op;
+            boolean isDate;
             if(rFieldMd instanceof ArrayField) {
                 arrayFieldName=rfieldName;
                 simpleFieldName=lfieldName;
                 op=query.getOp().invert();
+                isDate=((ArrayField)rFieldMd).getElement().getType() instanceof DateType && lFieldMd.getType() instanceof DateType;
             } else {
                 arrayFieldName=lfieldName;
                 simpleFieldName=rfieldName;
                 op=query.getOp();
+                isDate=((ArrayField)lFieldMd).getElement().getType() instanceof DateType && rFieldMd.getType() instanceof DateType;
             }
             String loopVar=ctx.newName("i");
+            SimpleExpression cmp=new SimpleExpression(isDate?"this.%s[%s].valueOf() %s this.%s.valueOf()":"this.%s[%s] %s this.%s",
+                                                      arrayFieldName,loopVar,
+                                                      BINARY_COMPARISON_OPERATOR_JS_MAP.get(op),
+                                                      simpleFieldName);
             parentBlock.add(new ForLoop(loopVar,true,arrayFieldName.toString(),
-                                        new Block(new IfStatement(new SimpleExpression("this.%s[%s] %s this.%s",arrayFieldName,loopVar,
-                                                                                       BINARY_COMPARISON_OPERATOR_JS_MAP.get(op),
-                                                                                       simpleFieldName),
+                                        new Block(new IfStatement(cmp,
                                                                   new SimpleStatement("%s=true",comparisonBlock.resultVar),
                                                                   SimpleStatement.S_BREAK))));
         } else {
