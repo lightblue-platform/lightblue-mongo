@@ -95,6 +95,8 @@ import com.redhat.lightblue.util.MutablePath;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.Util;
 
+import com.redhat.lightblue.mongo.crud.js.JSQueryTranslator;
+
 /**
  * Translations between BSON and JSON. This class is thread-safe, and can be
  * shared between threads
@@ -125,6 +127,14 @@ public class Translator {
     private static final Map<NaryRelationalOperator, String> NARY_RELATIONAL_OPERATOR_MAP;
 
     private static final String LITERAL_THIS_DOT = "this.";
+
+    /**
+     * This is used as flow control. If query translation fails
+     * because the query cannot be translated and a Javascript query
+     * is required, this is thrown. It is caught and handled when it is 
+     * possible to write a JS query
+     */
+    private static final class NeedsJS extends RuntimeException {}
 
     static {
         BINARY_COMPARISON_OPERATOR_JS_MAP = new HashMap<>();
@@ -602,26 +612,42 @@ public class Translator {
         return ret;
     }
 
+    /**
+     * @param context The field tree node for the latest enclosing context (array of elemMatch, or top level node)
+     * @param query The query to translate
+     * @param emd The metadata
+     * @param fullPath Current full path
+     */
     private DBObject translate(FieldTreeNode context, QueryExpression query, EntityMetadata emd, MutablePath fullPath) {
         DBObject ret;
-        if (query instanceof ArrayContainsExpression) {
-            ret = translateArrayContains(context, (ArrayContainsExpression) query);
-        } else if (query instanceof ArrayMatchExpression) {
-            ret = translateArrayElemMatch(context, (ArrayMatchExpression) query, emd, fullPath);
-        } else if (query instanceof FieldComparisonExpression) {
-            ret = translateFieldComparison(context, (FieldComparisonExpression) query);
-        } else if (query instanceof NaryLogicalExpression) {
-            ret = translateNaryLogicalExpression(context, (NaryLogicalExpression) query, emd, fullPath);
-        } else if (query instanceof NaryValueRelationalExpression) {
-            ret = translateNaryValueRelationalExpression(context, (NaryValueRelationalExpression) query);
-        } else if (query instanceof NaryFieldRelationalExpression) {
-            ret = translateNaryFieldRelationalExpression(context, (NaryFieldRelationalExpression) query);
-        } else if (query instanceof RegexMatchExpression) {
-            ret = translateRegexMatchExpression(context, (RegexMatchExpression) query, emd, fullPath);
-        } else if (query instanceof UnaryLogicalExpression) {
-            ret = translateUnaryLogicalExpression(context, (UnaryLogicalExpression) query, emd, fullPath);
-        } else {
-            ret = translateValueComparisonExpression(context, (ValueComparisonExpression) query);
+        try {
+            if (query instanceof ArrayContainsExpression) {
+                ret = translateArrayContains(context, emd, (ArrayContainsExpression) query);
+            } else if (query instanceof ArrayMatchExpression) {
+                ret = translateArrayElemMatch(context, emd, (ArrayMatchExpression) query, emd, fullPath);
+            } else if (query instanceof FieldComparisonExpression) {
+                ret = translateFieldComparison(context, emd, (FieldComparisonExpression) query, fullPath);
+            } else if (query instanceof NaryLogicalExpression) {
+                ret = translateNaryLogicalExpression(context, emd, (NaryLogicalExpression) query, emd, fullPath);
+            } else if (query instanceof NaryValueRelationalExpression) {
+                ret = translateNaryValueRelationalExpression(context, emd, (NaryValueRelationalExpression) query);
+            } else if (query instanceof NaryFieldRelationalExpression) {
+                ret = translateNaryFieldRelationalExpression(context, emd, (NaryFieldRelationalExpression) query,fullPath);
+            } else if (query instanceof RegexMatchExpression) {
+                ret = translateRegexMatchExpression(context, emd, (RegexMatchExpression) query, emd, fullPath);
+            } else if (query instanceof UnaryLogicalExpression) {
+                ret = translateUnaryLogicalExpression(context, emd, (UnaryLogicalExpression) query, emd, fullPath);
+            } else {
+                ret = translateValueComparisonExpression(context, emd, (ValueComparisonExpression) query);
+            }
+        } catch (NeedsJS x) {
+            // We can't translate the query, we have to write a $where query
+            // But we can't do that if we're in an arrayElemMatch
+            if(fullPath.isEmpty()) {
+                JSQueryTranslator tx=new JSQueryTranslator(emd);
+                ret=new BasicDBObject("$where",tx.translateQuery(query).toString());
+            } else
+                throw x; // Continue unroll stack
         }
         return ret;
     }
@@ -655,7 +681,7 @@ public class Translator {
         return ret;
     }
 
-    private DBObject translateValueComparisonExpression(FieldTreeNode context, ValueComparisonExpression expr) {
+    private DBObject translateValueComparisonExpression(FieldTreeNode context, EntityMetadata md, ValueComparisonExpression expr) {
         Type t = resolve(context, expr.getField()).getType();
 
         Object value = expr.getRvalue().getValue();
@@ -679,7 +705,7 @@ public class Translator {
         }
     }
 
-    private DBObject translateRegexMatchExpression(FieldTreeNode context, RegexMatchExpression expr, EntityMetadata emd, MutablePath fullPath) {
+    private DBObject translateRegexMatchExpression(FieldTreeNode context, EntityMetadata md,  RegexMatchExpression expr, EntityMetadata emd, MutablePath fullPath) {
         fullPath.push(expr.getField());
         StringBuilder options = new StringBuilder();
         BasicDBObject regex = new BasicDBObject("$regex", expr.getRegex());
@@ -713,34 +739,7 @@ public class Translator {
         return new BasicDBObject(translatePath(field), regex);
     }
 
-    /**
-     * Get a reference to the path's hidden sub-field.
-     *
-     * This does not guarantee the sub-path exists.
-     *
-     * @param path
-     * @return
-     */
-    public static Path getHiddenForField(Path path) {
-        if (path.getLast().equals(Path.ANY)) {
-            return path.prefix(-2).mutableCopy().push(HIDDEN_SUB_PATH).push(path.suffix(2));
-        }
-        return path.prefix(-1).mutableCopy().push(HIDDEN_SUB_PATH).push(path.getLast());
-    }
-
-    /**
-     * Get a reference to the hidden path's actual field.
-     *
-     * This does not guarantee the sub-path exists.
-     *
-     * @param path
-     * @return
-     */
-    public static Path getFieldForHidden(Path hiddenPath) {
-        return hiddenPath.prefix(-2).mutableCopy().push(hiddenPath.getLast());
-    }
-
-    private DBObject translateNaryValueRelationalExpression(FieldTreeNode context, NaryValueRelationalExpression expr) {
+    private DBObject translateNaryValueRelationalExpression(FieldTreeNode context,  EntityMetadata md, NaryValueRelationalExpression expr) {
         Type t = resolve(context, expr.getField()).getType();
         if (t.supportsEq()) {
             List<Object> values = translateValueList(t, expr.getValues(),expr.getField().equals(ID_PATH));
@@ -752,82 +751,27 @@ public class Translator {
         }
     }
 
-    public static void populateCaseInsensitiveField(Object doc, Path field) {
-        if (doc == null) {
-            return;
-        } else if (field.numSegments() == 1) {
-            DBObject docObj = (DBObject) doc;
-            if (docObj.get(field.head(0)) == null) {
-                // no value, so nothing to populate
-                DBObject dbo = (DBObject) docObj.get(HIDDEN_SUB_PATH.toString());
-                if(dbo != null && dbo.get(field.head(0)) != null) {
-                    dbo.removeField(field.head(0));
-                }
-                return;
-            } else if (docObj.get(field.head(0)) instanceof List) {
-                // primitive list - add hidden field to doc and populate list
-                List<String> objList = (List<String>) docObj.get(field.head(0));
-                BasicDBList hiddenList = new BasicDBList();
-                objList.forEach(s -> hiddenList.add(s.toUpperCase()));
-                DBObject dbo = (DBObject) docObj.get(HIDDEN_SUB_PATH.toString());
-                if (dbo == null) {
-                    docObj.put(HIDDEN_SUB_PATH.toString(), new BasicDBObject(field.head(0), hiddenList));
-                } else {
-                    dbo.put(field.head(0), hiddenList);
-                }
-            } else {
-                // add hidden field to doc, populate field
-                DBObject dbo = (DBObject) docObj.get(HIDDEN_SUB_PATH.toString());
-                if (dbo == null) {
-                    docObj.put(HIDDEN_SUB_PATH.toString(), new BasicDBObject(field.head(0), docObj.get(field.head(0)).toString().toUpperCase()));
-                } else {
-                    dbo.put(field.head(0), docObj.get(field.head(0)).toString().toUpperCase());
-                }
-            }
-        } else if (field.head(0).equals(Path.ANY)) {
-            // doc is a list
-            List<?> docList = ((List<?>) doc);
-            docList.forEach(key -> populateCaseInsensitiveField(key, field.suffix(-1)));
-        } else {
-            DBObject docObj = (DBObject) doc;
-            populateCaseInsensitiveField(docObj.get(field.head(0)), field.suffix(-1));
-        }
-    }
-
-    public static void populateDocHiddenFields(DBObject doc, EntityMetadata md){
-        Stream<IndexSortKey> ciIndexes = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes());
-        ciIndexes.forEach(i -> populateCaseInsensitiveField(doc, i.getField()));
-    }
-
-    public static void populateDocHiddenFields(DBObject doc, List<Path> fields) {
-        fields.forEach(f -> populateCaseInsensitiveField(doc, f));
-    }
-
-    private DBObject translateNaryFieldRelationalExpression(FieldTreeNode context, NaryFieldRelationalExpression expr) {
+    private DBObject translateNaryFieldRelationalExpression(FieldTreeNode context, EntityMetadata md,  NaryFieldRelationalExpression expr,MutablePath fullPath) {        
         Type t = resolve(context, expr.getField()).getType();
         if (t.supportsEq()) {
-            // Call resolve, which will verify the field exists.  Don't need the response.
-            resolve(context, expr.getRfield());
-            boolean in = expr.getOp() == NaryRelationalOperator._in;
-            return new BasicDBObject("$where",
-                    String.format("function() for(var nfr=0;nfr<this.%s.length;nfr++) {if ( %s == %s[nfr] ) return %s;} return %s;}",
-                            translateJsPath(expr.getRfield()),
-                            translateJsPath(expr.getField()),
-                            translateJsPath(expr.getRfield()),
-                            in ? "true" : "false",
-                            in ? "false" : "true"));
+            if(!fullPath.isEmpty()) {
+                // We are in array elemMatch query, and can't use a $where
+                throw new NeedsJS();
+            }
+            JSQueryTranslator jstx=new JSQueryTranslator(md);
+            return new BasicDBObject("$where",jstx.translateQuery(expr).toString());
         } else {
             throw Error.get(ERR_INVALID_FIELD, expr.toString());
         }
     }
 
-    private DBObject translateUnaryLogicalExpression(FieldTreeNode context, UnaryLogicalExpression expr, EntityMetadata emd, MutablePath fullPath) {
+    private DBObject translateUnaryLogicalExpression(FieldTreeNode context,  EntityMetadata md, UnaryLogicalExpression expr, EntityMetadata emd, MutablePath fullPath) {
         List<DBObject> l = new ArrayList<>(1);
         l.add(translate(context, expr.getQuery(), emd, fullPath));
         return new BasicDBObject(UNARY_LOGICAL_OPERATOR_MAP.get(expr.getOp()), l);
     }
 
-    private DBObject translateNaryLogicalExpression(FieldTreeNode context, NaryLogicalExpression expr, EntityMetadata emd, MutablePath fullPath) {
+    private DBObject translateNaryLogicalExpression(FieldTreeNode context, EntityMetadata md,  NaryLogicalExpression expr, EntityMetadata emd, MutablePath fullPath) {
         List<QueryExpression> queries = expr.getQueries();
         List<DBObject> list = new ArrayList<>(queries.size());
         for (QueryExpression query : queries) {
@@ -836,145 +780,16 @@ public class Translator {
         return new BasicDBObject(NARY_LOGICAL_OPERATOR_MAP.get(expr.getOp()), list);
     }
 
-    private String writeJSForLoop(StringBuilder bld, Path p, String varPrefix) {
-        StringBuilder arr = new StringBuilder();
-        int n = p.numSegments();
-        int j = 0;
-        for (int i = 0; i < n; i++) {
-            String seg = p.head(i);
-            if (Path.ANY.equals(seg)) {
-                bld.append(String.format("for(var %s%d=0;%s%d<this.%s.length;%s%d++) {", varPrefix, j, varPrefix, j, arr.toString(), varPrefix, j));
-                arr.append('[').append(varPrefix).append(j).append(']');
-                j++;
-            } else if (p.isIndex(i)) {
-                arr.append('[').append(seg).append(']');
-            } else {
-                if (i > 0) {
-                    arr.append('.');
-                }
-                arr.append(seg);
-            }
+    private DBObject translateFieldComparison(FieldTreeNode context,  EntityMetadata md, FieldComparisonExpression expr,MutablePath fullPath) {
+        if(!fullPath.isEmpty()) {
+            // We are in arrayElemMatch query, and we can't use a $where here
+            throw new NeedsJS();
         }
-        return arr.toString();
+        JSQueryTranslator jstx=new JSQueryTranslator(md);
+        return new BasicDBObject("$where",jstx.translateQuery(expr).toString());
     }
-
-    private static final String ARR_ARR_EQ = "if(this.f1.length==this.f2.length) { "
-            + "  var allEq=true;"
-            + "  for(var i=0;i<this.f1.length;i++) { "
-            + "     if(this.f1[i] != this.f2[i]) { allEq=false; break; } "
-            + "  } "
-            + "  if(allEq) return true;"
-            + "}";
-
-    private static final String ARR_ARR_NEQ = "if(this.f1.length==this.f2.length) { "
-            + "  var allEq=true;"
-            + "  for(var i=0;i<this.f1.length;i++) { "
-            + "     if(this.f1[i] != this.f2[i]) { allEq=false; break; } "
-            + "  } "
-            + "  if(!allEq) return true;"
-            + "} else { return true; }";
-
-    private static final String ARR_ARR_CMP = "if(this.f1.length==this.f2.length) {"
-            + "  var allOk=true;"
-            + "  for(var i=0;i<this.f1.length;i++) {"
-            + "    if(!(this.f1[i] op this.f2[i])) {allOk=false; break;} "
-            + "  }"
-            + " if(allOk) return true;}";
-
-    private String writeArrayArrayComparisonJS(String field1, String field2, BinaryComparisonOperator op) {
-        switch (op) {
-            case _eq:
-                return ARR_ARR_EQ.replaceAll("f1", field1).replaceAll("f2", field2);
-            case _neq:
-                return ARR_ARR_NEQ.replaceAll("f1", field1).replaceAll("f2", field2);
-            default:
-                return ARR_ARR_CMP.replaceAll("f1", field1).replaceAll("f2", field2).replace("op", BINARY_COMPARISON_OPERATOR_JS_MAP.get(op));
-        }
-    }
-
-    private String writeArrayFieldComparisonJS(String field, String array, String op) {
-        return String.format("for(var i=0;i<this.%s.length;i++) { if(!(this.%s %s this.%s[i])) return false; } return true;", array, field, op, array);
-    }
-
-    private String writeComparisonJS(Path field1, boolean field1IsArray,
-                                     Path field2, boolean field2IsArray,
-                                     BinaryComparisonOperator op) {
-        return writeComparisonJS(translateJsPath(field1), field1IsArray, translateJsPath(field2), field2IsArray, op);
-    }
-
-    private String writeComparisonJS(String field1, boolean field1IsArray,
-                                     String field2, boolean field2IsArray,
-                                     BinaryComparisonOperator op) {
-        if (field1IsArray) {
-            if (field2IsArray) {
-                return writeArrayArrayComparisonJS(field1, field2, op);
-            } else {
-                return writeArrayFieldComparisonJS(field2, field1, BINARY_COMPARISON_OPERATOR_JS_MAP.get(op.invert()));
-            }
-        } else if (field2IsArray) {
-            return writeArrayFieldComparisonJS(field1, field2, BINARY_COMPARISON_OPERATOR_JS_MAP.get(op));
-        } else {
-            return String.format("if(this.%s %s this.%s) { return true;}", field1, BINARY_COMPARISON_OPERATOR_JS_MAP.get(op), field2);
-        }
-    }
-
-    private DBObject translateFieldComparison(FieldTreeNode context, FieldComparisonExpression expr) {
-        StringBuilder str = new StringBuilder(256);
-        // We have to deal with array references here
-        Path rField = expr.getRfield();
-        boolean rIsArray = context.resolve(rField) instanceof ArrayField;
-        Path lField = expr.getField();
-        boolean lIsArray = context.resolve(lField) instanceof ArrayField;
-        int rn = rField.nAnys();
-        int ln = lField.nAnys();
-        str.append("function() {");
-        if (rn > 0 && ln > 0) {
-            // Write a function with nested for loops
-            // function() {
-            //   for(var x1=0;x1<a.b.length;x1++) {
-            //     for(var x2=0;x2<a.b[x1].c.d.length;x2++) {
-            //        for(var y1=y1<m.n.length;y1++) {
-            //        ...
-            //       if(this.a.b[x1].x.d[x2] = this.m.n[y1]) return true;
-            //      }
-            //     }
-            //    }
-            // return false; }
-            String rJSField = writeJSForLoop(str, rField, "r");
-            String lJSField = writeJSForLoop(str, lField, "l");
-            str.append(writeComparisonJS(lJSField, lIsArray, rJSField, rIsArray, expr.getOp()));
-            for (int i = 0; i < rn + ln; i++) {
-                str.append('}');
-            }
-            str.append("return false;}");
-        } else if (rn > 0 || ln > 0) {
-            // Only one of them has ANY, write a single for loop
-            // function() {
-            //   for(var x1=0;x1<a.b.length;x1++) {
-            //     for(var x2=0;x2<a.b[x1].c.d.length;x2++) {
-            //      if(this.a.b[x1].c.d[x2]==this.rfield) return true;
-            //     }
-            //   }
-            //  return false; }
-            String jsField = writeJSForLoop(str, rn > 0 ? rField : lField, "i");
-            str.append(writeComparisonJS(ln > 0 ? jsField : translateJsPath(lField), lIsArray,
-                    rn > 0 ? jsField : translateJsPath(rField), rIsArray,
-                    expr.getOp()));
-            for (int i = 0; i < rn + ln; i++) {
-                str.append('}');
-            }
-            str.append("return false;}");
-        } else {
-            // No ANYs, direct comparison
-            //  function() {return this.lfield = this.rfield}
-            str.append(writeComparisonJS(lField, lIsArray, rField, rIsArray, expr.getOp()));
-            str.append("return false;}");
-        }
-
-        return new BasicDBObject("$where", str.toString());
-    }
-
-    private DBObject translateArrayElemMatch(FieldTreeNode context, ArrayMatchExpression expr, EntityMetadata emd, MutablePath fullPath) {
+    
+    private DBObject translateArrayElemMatch(FieldTreeNode context,  EntityMetadata md, ArrayMatchExpression expr, EntityMetadata emd, MutablePath fullPath) {
         FieldTreeNode arrayNode = resolve(context, expr.getArray());
         if (arrayNode instanceof ArrayField) {
             ArrayElement el = ((ArrayField) arrayNode).getElement();
@@ -983,12 +798,14 @@ public class Translator {
                 BasicDBObject obj = new BasicDBObject(translatePath(expr.getArray()), new BasicDBObject("$elemMatch", translate(el, expr.getElemMatch(), emd, fullPath)));
                 fullPath.pop().pop();
                 return obj;
+            } else {
+            	throw new NeedsJS();
             }
         }
         throw Error.get(ERR_INVALID_FIELD, expr.toString());
     }
 
-    private DBObject translateArrayContains(FieldTreeNode context, ArrayContainsExpression expr) {
+    private DBObject translateArrayContains(FieldTreeNode context, EntityMetadata md,  ArrayContainsExpression expr) {
         DBObject ret = null;
         FieldTreeNode arrayNode = resolve(context, expr.getArray());
         if (arrayNode instanceof ArrayField) {
@@ -1042,6 +859,85 @@ public class Translator {
      */
     private DBObject translateArrayContainsNone(Type t, Path array, List<Value> values) {
         return new BasicDBObject("$not", translateArrayContainsAny(t, array, values));
+    }
+
+    /**
+     * Get a reference to the path's hidden sub-field.
+     *
+     * This does not guarantee the sub-path exists.
+     *
+     * @param path
+     * @return
+     */
+    public static Path getHiddenForField(Path path) {
+        if (path.getLast().equals(Path.ANY)) {
+            return path.prefix(-2).mutableCopy().push(HIDDEN_SUB_PATH).push(path.suffix(2));
+        }
+        return path.prefix(-1).mutableCopy().push(HIDDEN_SUB_PATH).push(path.getLast());
+    }
+
+    /**
+     * Get a reference to the hidden path's actual field.
+     *
+     * This does not guarantee the sub-path exists.
+     *
+     * @param path
+     * @return
+     */
+    public static Path getFieldForHidden(Path hiddenPath) {
+        return hiddenPath.prefix(-2).mutableCopy().push(hiddenPath.getLast());
+    }
+
+
+    public static void populateCaseInsensitiveField(Object doc, Path field) {
+        if (doc == null) {
+            return;
+        } else if (field.numSegments() == 1) {
+            DBObject docObj = (DBObject) doc;
+            if (docObj.get(field.head(0)) == null) {
+                // no value, so nothing to populate
+                DBObject dbo = (DBObject) docObj.get(HIDDEN_SUB_PATH.toString());
+                if(dbo != null && dbo.get(field.head(0)) != null) {
+                    dbo.removeField(field.head(0));
+                }
+                return;
+            } else if (docObj.get(field.head(0)) instanceof List) {
+                // primitive list - add hidden field to doc and populate list
+                List<String> objList = (List<String>) docObj.get(field.head(0));
+                BasicDBList hiddenList = new BasicDBList();
+                objList.forEach(s -> hiddenList.add(s.toUpperCase()));
+                DBObject dbo = (DBObject) docObj.get(HIDDEN_SUB_PATH.toString());
+                if (dbo == null) {
+                    docObj.put(HIDDEN_SUB_PATH.toString(), new BasicDBObject(field.head(0), hiddenList));
+                } else {
+                    dbo.put(field.head(0), hiddenList);
+                }
+            } else {
+                // add hidden field to doc, populate field
+                DBObject dbo = (DBObject) docObj.get(HIDDEN_SUB_PATH.toString());
+                if (dbo == null) {
+                    docObj.put(HIDDEN_SUB_PATH.toString(), new BasicDBObject(field.head(0), docObj.get(field.head(0)).toString().toUpperCase()));
+                } else {
+                    dbo.put(field.head(0), docObj.get(field.head(0)).toString().toUpperCase());
+                }
+            }
+        } else if (field.head(0).equals(Path.ANY)) {
+            // doc is a list
+            List<?> docList = ((List<?>) doc);
+            docList.forEach(key -> populateCaseInsensitiveField(key, field.suffix(-1)));
+        } else {
+            DBObject docObj = (DBObject) doc;
+            populateCaseInsensitiveField(docObj.get(field.head(0)), field.suffix(-1));
+        }
+    }
+
+    public static void populateDocHiddenFields(DBObject doc, EntityMetadata md){
+        Stream<IndexSortKey> ciIndexes = Translator.getCaseInsensitiveIndexes(md.getEntityInfo().getIndexes().getIndexes());
+        ciIndexes.forEach(i -> populateCaseInsensitiveField(doc, i.getField()));
+    }
+
+    public static void populateDocHiddenFields(DBObject doc, List<Path> fields) {
+        fields.forEach(f -> populateCaseInsensitiveField(doc, f));
     }
 
     private JsonDoc toJson(DBObject object, EntityMetadata md) {
