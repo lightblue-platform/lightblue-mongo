@@ -130,8 +130,32 @@ public class TranslatorTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void translateThisIdQuery() throws IOException, ProcessingException {
+        String query = "{'field':'$this._id','op':'=','rvalue':'5446c74fe4b02251a5376918'}";
+        BasicDBObject expected = new BasicDBObject("_id",new BasicDBObject("$oid","5446c74fe4b02251a5376918"));
+
+        QueryExpression queryExp = QueryExpression.fromJson(JsonUtils.json(query.replace('\'', '\"')));
+        EntityMetadata md = getMd("./testMetadata.json");
+        BasicDBObject trans = (BasicDBObject) translator.translate(md, queryExp);
+        assertEquals(expected.toString(), trans.toString());
+    }
+
+    @Test
     public void translateIdInQuery() throws IOException, ProcessingException {
         String query = "{'field':'_id','op':'$in','values':['5446c74fe4b02251a5376918']}";
+        ArrayList l=new ArrayList();
+        l.add(new BasicDBObject("$oid","5446c74fe4b02251a5376918"));
+        BasicDBObject expected = new BasicDBObject("_id",new BasicDBObject("$in",l));
+
+        QueryExpression queryExp = QueryExpression.fromJson(JsonUtils.json(query.replace('\'', '\"')));
+        EntityMetadata md = getMd("./testMetadata.json");
+        BasicDBObject trans = (BasicDBObject) translator.translate(md, queryExp);
+        assertEquals(expected.toString(), trans.toString());
+    }
+
+    @Test
+    public void translateThisIdInQuery() throws IOException, ProcessingException {
+        String query = "{'field':'$this._id','op':'$in','values':['5446c74fe4b02251a5376918']}";
         ArrayList l=new ArrayList();
         l.add(new BasicDBObject("$oid","5446c74fe4b02251a5376918"));
         BasicDBObject expected = new BasicDBObject("_id",new BasicDBObject("$in",l));
