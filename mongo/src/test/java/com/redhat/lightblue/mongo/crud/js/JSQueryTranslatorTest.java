@@ -95,7 +95,7 @@ public class JSQueryTranslatorTest extends AbstractMongoCrudTest {
         cmpjs("function() {"+
               " var r0=[\"test1\",\"test2\",\"test3\"];"+
               " var r1=false;"+
-              " var r3;{"+
+              " {"+
               " if(typeof this.field1 !='undefined') {"+
               "  for(var i2=0;i2<r0.length;i2++){"+
               "   if(this.field1==r0[i2]) {r1=true;break;} }}}return r1;}",
