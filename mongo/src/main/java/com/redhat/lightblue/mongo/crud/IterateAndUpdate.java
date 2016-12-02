@@ -257,7 +257,7 @@ public class IterateAndUpdate implements DocUpdater {
         response.setNumUpdated(numUpdated);
         response.setNumFailed(numFailed);
         response.setNumMatched(numMatched);
-        METRICS.info("IterateAndUpdate:\n{}",measure);
+        METRICS.debug("IterateAndUpdate:\n{}",measure);
     }
 
 
