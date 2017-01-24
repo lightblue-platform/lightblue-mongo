@@ -275,7 +275,7 @@ public class DocTranslator {
         ResultMetadata md=new ResultMetadata();
         List<ObjectId> list=MongoSafeUpdateProtocol.getVersionList(obj);
         if(list!=null&&!list.isEmpty())
-            md.setDocumentVersion(list.get(0).toString());
+            md.setDocumentVersion(getDocVer(obj,list.get(0)));
         return md;
     }
 
@@ -299,8 +299,13 @@ public class DocTranslator {
     
     private void injectDocumentVersion(DBObject root,ObjectNode parent,String fieldName) {
         List<ObjectId> list=MongoSafeUpdateProtocol.getVersionList(root);
-        if(list!=null&&!list.isEmpty())
-            parent.set(fieldName,factory.textNode(list.get(0).toString()));
+        if(list!=null&&!list.isEmpty()) {
+            parent.set(fieldName,factory.textNode(getDocVer(root,list.get(0))));
+        }
+    }
+
+    public static String getDocVer(DBObject doc,ObjectId ver) {
+        return String.format("%s:%s",doc.get("_id"),ver);
     }
     
     /**
