@@ -44,7 +44,7 @@ import com.redhat.lightblue.util.JsonUtils;
 public class BasicDocFinderTest extends AbstractMongoCrudTest {
 
     private TestCRUDOperationContext ctx;
-    private Translator translator;
+    private DocTranslator translator;
 
     @Before
     @Override
@@ -57,7 +57,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         // and add it to metadata resolver (the context)
         ctx.add(md);
         // create translator with the context
-        translator = new Translator(ctx, nodeFactory);
+        translator = new DocTranslator(ctx, nodeFactory);
     }
 
     private void insert(String jsonStringFormat, String formatArg) {

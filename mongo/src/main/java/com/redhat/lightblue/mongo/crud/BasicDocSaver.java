@@ -59,7 +59,7 @@ public class BasicDocSaver implements DocSaver {
     private final int batchSize;
 
     private final FieldAccessRoleEvaluator roleEval;
-    private final Translator translator;
+    private final DocTranslator translator;
     private final EntityMetadata md;
     private final WriteConcern writeConcern;
     private final ConcurrentModificationDetectionCfg concurrentModificationDetection;
@@ -90,7 +90,7 @@ public class BasicDocSaver implements DocSaver {
     /**
      * Creates a doc saver with the given translator and role evaluator
      */
-    public BasicDocSaver(Translator translator,
+    public BasicDocSaver(DocTranslator translator,
                          FieldAccessRoleEvaluator roleEval,
                          EntityMetadata md,
                          WriteConcern writeConcern,
@@ -106,7 +106,7 @@ public class BasicDocSaver implements DocSaver {
         Field[] idf = md.getEntitySchema().getIdentityFields();
         if (idf == null || idf.length == 0) {
             // Assume _id is the id
-            idFields = new Field[]{(Field) md.resolve(Translator.ID_PATH)};
+            idFields = new Field[]{(Field) md.resolve(DocTranslator.ID_PATH)};
         } else {
             idFields = idf;
         }
@@ -114,7 +114,7 @@ public class BasicDocSaver implements DocSaver {
         mongoIdFields = new String[idFields.length];
         for (int i = 0; i < mongoIdFields.length; i++) {
             idPaths[i] = md.getEntitySchema().getEntityRelativeFieldName(idFields[i]);
-            mongoIdFields[i] = Translator.translatePath(idPaths[i]);
+            mongoIdFields[i] = ExpressionTranslator.translatePath(idPaths[i]);
         }
     }
 
@@ -249,7 +249,7 @@ public class BasicDocSaver implements DocSaver {
                     Set<Path> paths = roleEval.getInaccessibleFields_Insert(doc.inputDoc);
                     LOGGER.debug("Inaccessible fields:{}", paths);
                     if (paths == null || paths.isEmpty()) {
-                        Translator.populateDocHiddenFields(doc.newDoc, md);
+                        DocTranslator.populateDocHiddenFields(doc.newDoc, md);
                         MongoSafeUpdateProtocol.overwriteDocVer(doc.newDoc,docver);
                         insertionAttemptList.add(doc);
                     } else {
@@ -306,9 +306,9 @@ public class BasicDocSaver implements DocSaver {
                 List<DocInfo> updateAttemptList = new ArrayList<>(list.size());
                 BsonMerge merge = new BsonMerge(md);
                 for (DocInfo doc : list) {
-                    JsonDoc oldDoc = translator.toJson(doc.oldDoc);
-                    doc.inputDoc.setOriginalDocument(oldDoc);
-                    Set<Path> paths = roleEval.getInaccessibleFields_Update(doc.inputDoc, oldDoc);
+                    DocTranslator.TranslatedDoc oldDoc = translator.toJson(doc.oldDoc);
+                    doc.inputDoc.setOriginalDocument(oldDoc.doc);
+                    Set<Path> paths = roleEval.getInaccessibleFields_Update(doc.inputDoc, oldDoc.doc);
                     if (paths == null || paths.isEmpty()) {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc.inputDoc);
@@ -316,7 +316,7 @@ public class BasicDocSaver implements DocSaver {
                             // Copy the _id, newdoc doesn't necessarily have _id
                             doc.newDoc.put("_id",doc.oldDoc.get("_id"));
                             merge.merge(doc.oldDoc, doc.newDoc);
-                            Translator.populateDocHiddenFields(doc.newDoc, md);
+                            DocTranslator.populateDocHiddenFields(doc.newDoc, md);
                             updateAttemptList.add(doc);
                         } catch (Exception e) {
                             doc.inputDoc.addError(Error.get("update", MongoCrudConstants.ERR_TRANSLATION_ERROR, e));
@@ -407,7 +407,7 @@ public class BasicDocSaver implements DocSaver {
     private Object[] getFieldValues(DBObject object, Path[] fields) {
         Object[] ret = new Object[fields.length];
         for (int i = 0; i < ret.length; i++) {
-            ret[i] = Translator.getDBObject(object, fields[i]);
+            ret[i] = DocTranslator.getDBObject(object, fields[i]);
         }
         return ret;
     }

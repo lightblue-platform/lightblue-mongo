@@ -40,7 +40,7 @@ public class BasicDocDeleterTest extends AbstractMongoCrudTest {
 
     private static final int batchSize = 64;
     private TestCRUDOperationContext ctx;
-    private Translator translator;
+    private DocTranslator translator;
     private DBCollection spiedCollection;
 
     @Before
@@ -54,7 +54,7 @@ public class BasicDocDeleterTest extends AbstractMongoCrudTest {
         // and add it to metadata resolver (the context)
         ctx.add(md);
         // create translator with the context
-        translator = new Translator(ctx, nodeFactory);
+        translator = new DocTranslator(ctx, nodeFactory);
 
         spiedCollection = Mockito.spy(this.coll);
     }

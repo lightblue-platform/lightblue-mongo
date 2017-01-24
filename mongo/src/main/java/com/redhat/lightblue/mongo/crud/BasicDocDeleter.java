@@ -51,10 +51,10 @@ public class BasicDocDeleter implements DocDeleter {
     // TODO: move this to a better place
     public final int batchSize;
 
-    private final Translator translator;
+    private final DocTranslator translator;
     private final WriteConcern writeConcern;
 
-    public BasicDocDeleter(Translator translator, WriteConcern writeConcern, int batchSize) {
+    public BasicDocDeleter(DocTranslator translator, WriteConcern writeConcern, int batchSize) {
         super();
         this.translator = translator;
         this.writeConcern = writeConcern;
@@ -64,7 +64,8 @@ public class BasicDocDeleter implements DocDeleter {
     private final class DocInfo {
 
         public DocInfo(DBObject doc, CRUDOperationContext ctx) {
-            DocCtx docCtx = ctx.addDocument(translator.toJson(doc));
+            DocTranslator.TranslatedDoc tdoc=translator.toJson(doc);
+            DocCtx docCtx = ctx.addDocument(tdoc.doc,tdoc.rmd);
             docCtx.setOriginalDocument(docCtx);
             this.docCtx = docCtx;
             this._id = doc.get(MongoCRUDController.ID_STR);

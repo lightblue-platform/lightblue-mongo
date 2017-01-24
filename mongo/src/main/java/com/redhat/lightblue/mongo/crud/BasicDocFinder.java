@@ -45,12 +45,12 @@ public class BasicDocFinder implements DocFinder {
     private static final Logger LOGGER = LoggerFactory.getLogger(BasicDocFinder.class);
     private static final Logger RESULTSET_LOGGER = LoggerFactory.getLogger("com.redhat.lightblue.crud.mongo.slowresults");
 
-    private final Translator translator;
+    private final DocTranslator translator;
     private ReadPreference readPreference;
     private int maxResultSetSize = 0;
     private long maxQueryTimeMS = 0;
 
-    public BasicDocFinder(Translator translator, ReadPreference readPreference) {
+    public BasicDocFinder(DocTranslator translator, ReadPreference readPreference) {
         this.translator = translator;
         this.readPreference = readPreference;
     }
@@ -97,7 +97,7 @@ public class BasicDocFinder implements DocFinder {
             int numMatched = cursor.count();
             int nRetrieve=numMatched;
             List<DBObject> mongoResults=null;            
-            List<JsonDoc> jsonDocs=null;
+            List<DocTranslator.TranslatedDoc> jsonDocs=null;
 
            LOGGER.debug("Applying limits: {} - {}", from, to);
             long retrievalTime=0;
@@ -132,7 +132,9 @@ public class BasicDocFinder implements DocFinder {
                 if(jsonDocs.size()!=nRetrieve)
                     throw Error.get(MongoCrudConstants.ERR_MONGO_RESULTSET_MISMATCH,"Requested="+nRetrieve+" Retrieved="+jsonDocs.size());
                 
-                ctx.addDocuments(jsonDocs);
+                for(DocTranslator.TranslatedDoc d:jsonDocs)
+                    ctx.addDocument(d.doc,d.rmd);
+
                 for (DocCtx doc : ctx.getDocuments()) {
                     doc.setCRUDOperationPerformed(CRUDOperation.FIND);
                     ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_FIND_DOC, ctx, doc);
@@ -142,7 +144,7 @@ public class BasicDocFinder implements DocFinder {
             if (RESULTSET_LOGGER.isDebugEnabled() && (executionTime > 100 || retrievalTime > 100)) {
                 RESULTSET_LOGGER.debug("execution_time={}, retrieval_time={}, resultset_size={}, data_size={}, query={}, from={}, to={}",
                                        executionTime, retrievalTime, mongoResults==null?0:mongoResults.size(),
-                                       jsonDocs==null?0:Translator.size(jsonDocs),
+                                       jsonDocs==null?0:DocTranslator.translatedDocListSize(jsonDocs),
                                        mongoQuery,
                                        f, t);
             }            

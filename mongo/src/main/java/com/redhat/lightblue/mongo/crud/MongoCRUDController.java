@@ -231,7 +231,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         }
         LOGGER.debug("saveOrInsert() start");
         Error.push(operation);
-        Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
+        DocTranslator translator = new DocTranslator(ctx, ctx.getFactory().getNodeFactory());
         try {
             FieldAccessRoleEvaluator roleEval = new FieldAccessRoleEvaluator(ctx.getEntityMetadata(ctx.getEntityName()),
                     ctx.getCallerRoles());
@@ -268,11 +268,12 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
                 for (int docIndex = 0; docIndex < dbObjects.length; docIndex++) {
                     DocCtx inputDoc = documents.get(docIndex);
-                    JsonDoc jsonDoc = translator.toJson(dbObjects[docIndex]);
-                    LOGGER.debug("Translated doc: {}", jsonDoc);
-                    inputDoc.setUpdatedDocument(jsonDoc);
+                    DocTranslator.TranslatedDoc jsonDoc = translator.toJson(dbObjects[docIndex]);
+                    LOGGER.debug("Translated doc: {}", jsonDoc.doc);
+                    inputDoc.setUpdatedDocument(jsonDoc.doc);
+                    inputDoc.setResultMetadata(jsonDoc.rmd);
                     if (projector != null) {
-                        inputDoc.setOutputDocument(projector.project(jsonDoc, ctx.getFactory().getNodeFactory()));
+                        inputDoc.setOutputDocument(projector.project(jsonDoc.doc, ctx.getFactory().getNodeFactory()));
                     } else {
                         inputDoc.setOutputDocument(new JsonDoc(new ObjectNode(ctx.getFactory().getNodeFactory())));
                     }
@@ -303,7 +304,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("update start: q:{} u:{} p:{}", query, update, projection);
         Error.push(OP_UPDATE);
         CRUDUpdateResponse response = new CRUDUpdateResponse();
-        Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
+        DocTranslator translator = new DocTranslator(ctx, ctx.getFactory().getNodeFactory());
+        ExpressionTranslator xtranslator = new ExpressionTranslator(ctx, ctx.getFactory().getNodeFactory());
         try {
             if (query == null) {
                 throw Error.get("update", MongoCrudConstants.ERR_NULL_QUERY, "");
@@ -313,7 +315,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             if (md.getAccess().getUpdate().hasAccess(ctx.getCallerRoles())) {
                 ConstraintValidator validator = ctx.getFactory().getConstraintValidator(md);
                 LOGGER.debug("Translating query {}", query);
-                DBObject mongoQuery = translator.translate(md, Translator.appendObjectType(query,ctx.getEntityName()));
+                DBObject mongoQuery = xtranslator.translate(md,
+                                                            ExpressionTranslator.appendObjectType(query,ctx.getEntityName()));
                 LOGGER.debug("Translated query {}", mongoQuery);
                 FieldAccessRoleEvaluator roleEval = new FieldAccessRoleEvaluator(md, ctx.getCallerRoles());
 
@@ -366,7 +369,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("delete start: q:{}", query);
         Error.push(OP_DELETE);
         CRUDDeleteResponse response = new CRUDDeleteResponse();
-        Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
+        DocTranslator translator = new DocTranslator(ctx, ctx.getFactory().getNodeFactory());
+        ExpressionTranslator xtranslator = new ExpressionTranslator(ctx, ctx.getFactory().getNodeFactory());
         try {
             if (query == null) {
                 throw Error.get("delete", MongoCrudConstants.ERR_NULL_QUERY, "");
@@ -375,7 +379,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
             if (md.getAccess().getDelete().hasAccess(ctx.getCallerRoles())) {
                 LOGGER.debug("Translating query {}", query);
-                DBObject mongoQuery = translator.translate(md, Translator.appendObjectType(query,ctx.getEntityName()));
+                DBObject mongoQuery = xtranslator.translate(md, ExpressionTranslator.appendObjectType(query,ctx.getEntityName()));
                 LOGGER.debug("Translated query {}", mongoQuery);
                 DB db = dbResolver.get((MongoDataStore) md.getDataStore());
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
@@ -437,24 +441,25 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         LOGGER.debug("find start: q:{} p:{} sort:{} from:{} to:{}", query, projection, sort, from, to);
         Error.push(OP_FIND);
         CRUDFindResponse response = new CRUDFindResponse();
-        Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
+        DocTranslator translator = new DocTranslator(ctx, ctx.getFactory().getNodeFactory());
+        ExpressionTranslator xtranslator = new ExpressionTranslator(ctx, ctx.getFactory().getNodeFactory());
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_FIND, ctx);
             EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
             if (md.getAccess().getFind().hasAccess(ctx.getCallerRoles())) {
                 FieldAccessRoleEvaluator roleEval = new FieldAccessRoleEvaluator(md, ctx.getCallerRoles());
                 LOGGER.debug("Translating query {}", query);
-                DBObject mongoQuery = translator.translate(md, Translator.appendObjectType(query,ctx.getEntityName()));
+                DBObject mongoQuery = xtranslator.translate(md, ExpressionTranslator.appendObjectType(query,ctx.getEntityName()));
                 LOGGER.debug("Translated query {}", mongoQuery);
                 DBObject mongoSort;
                 if (sort != null) {
                     LOGGER.debug("Translating sort {}", sort);
-                    mongoSort = translator.translate(sort);
+                    mongoSort = xtranslator.translate(sort);
                     LOGGER.debug("Translated sort {}", mongoSort);
                 } else {
                     mongoSort = null;
                 }
-                DBObject mongoProjection = translator.translateProjection(md, getProjectionFields(projection, md), query, sort);
+                DBObject mongoProjection = xtranslator.translateProjection(md, getProjectionFields(projection, md), query, sort);
                 LOGGER.debug("Translated projection {}", mongoProjection);
                 DB db = dbResolver.get((MongoDataStore) md.getDataStore());
                 DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
@@ -502,14 +507,14 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
         LOGGER.debug("explain start: q:{} p:{} sort:{} from:{} to:{}", query, projection, sort, from, to);
         Error.push("explain");
-        Translator translator = new Translator(ctx, ctx.getFactory().getNodeFactory());
+        ExpressionTranslator xtranslator = new ExpressionTranslator(ctx, ctx.getFactory().getNodeFactory());
         try {
             EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
             FieldAccessRoleEvaluator roleEval = new FieldAccessRoleEvaluator(md, ctx.getCallerRoles());
             LOGGER.debug("Translating query {}", query);
-            DBObject mongoQuery = translator.translate(md, Translator.appendObjectType(query,ctx.getEntityName()));
+            DBObject mongoQuery = xtranslator.translate(md, ExpressionTranslator.appendObjectType(query,ctx.getEntityName()));
             LOGGER.debug("Translated query {}", mongoQuery);
-            DBObject mongoProjection = translator.translateProjection(md, getProjectionFields(projection, md), query, sort);
+            DBObject mongoProjection = xtranslator.translateProjection(md, getProjectionFields(projection, md), query, sort);
             LOGGER.debug("Translated projection {}", mongoProjection);
             DB db = dbResolver.get((MongoDataStore) md.getDataStore());
             DBCollection coll = db.getCollection(((MongoDataStore) md.getDataStore()).getCollectionName());
@@ -517,11 +522,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
             try (DBCursor cursor=coll.find(mongoQuery,mongoProjection)) {
                 DBObject plan=cursor.explain();
-                JsonNode jsonPlan=Translator.rawObjectToJson(plan);
+                JsonNode jsonPlan=DocTranslator.rawObjectToJson(plan);
                 if(mongoQuery!=null)
-                    destDoc.modify(new Path("mongo.query"),Translator.rawObjectToJson(mongoQuery),true);
+                    destDoc.modify(new Path("mongo.query"),DocTranslator.rawObjectToJson(mongoQuery),true);
                 if(mongoProjection!=null)
-                    destDoc.modify(new Path("mongo.projection"),Translator.rawObjectToJson(mongoProjection),true);
+                    destDoc.modify(new Path("mongo.projection"),DocTranslator.rawObjectToJson(mongoProjection),true);
                 destDoc.modify(new Path("mongo.plan"),jsonPlan,true);
             }
 
@@ -542,9 +547,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         // If it is a save operation, we rely on _id being passed by client, so we don't auto-generate that
         // If not, it needs to be auto-generated
         if (ctx.getCRUDOperation() != CRUDOperation.SAVE) {
-            JsonNode idNode = doc.get(Translator.ID_PATH);
+            JsonNode idNode = doc.get(DocTranslator.ID_PATH);
             if (idNode == null || idNode instanceof NullNode) {
-                doc.modify(Translator.ID_PATH,
+                doc.modify(DocTranslator.ID_PATH,
                         ctx.getFactory().getNodeFactory().textNode(ObjectId.get().toString()),
                         false);
             }
@@ -602,7 +607,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private void validateNoHiddenInMetaData(EntityMetadata emd) {
         FieldCursor cursor = emd.getFieldCursor();
         while (cursor.next()) {
-            if (cursor.getCurrentPath().getLast().equals(Translator.HIDDEN_SUB_PATH.getLast())) {
+            if (cursor.getCurrentPath().getLast().equals(DocTranslator.HIDDEN_SUB_PATH.getLast())) {
                 throw Error.get(MongoCrudConstants.ERR_RESERVED_FIELD);
             }
         }
@@ -649,7 +654,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
         FieldTreeNode field;
         try {
-            field = schema.resolve(Translator.ID_PATH);
+            field = schema.resolve(DocTranslator.ID_PATH);
         } catch (Error e) {
             field = null;
         }
@@ -672,7 +677,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         boolean found = false;
         for (Index ix : indexes.getIndexes()) {
             List<IndexSortKey> fields = ix.getFields();
-            if (fields.size() == 1 && fields.get(0).getField().equals(Translator.ID_PATH)
+            if (fields.size() == 1 && fields.get(0).getField().equals(DocTranslator.ID_PATH)
                     && ix.isUnique()) {
                 found = true;
                 break;
@@ -683,7 +688,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             Index idIndex = new Index();
             idIndex.setUnique(true);
             List<IndexSortKey> fields = new ArrayList<>();
-            fields.add(new IndexSortKey(Translator.ID_PATH, false));
+            fields.add(new IndexSortKey(DocTranslator.ID_PATH, false));
             idIndex.setFields(fields);
             List<Index> ix = indexes.getIndexes();
             ix.add(idIndex);
@@ -811,11 +816,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     Path field = p.getField();
                     if (p.isCaseInsensitive()) {
                         fields.add(p.getField());
-                        field = Translator.getHiddenForField(field);
+                        field = DocTranslator.getHiddenForField(field);
                         // if we have a case insensitive index, we want the index creation operation to be blocking
                         hidden = true;
                     }
-                    newIndex.put(Translator.translatePath(field), p.isDesc() ? -1 : 1);
+                    newIndex.put(ExpressionTranslator.translatePath(field), p.isDesc() ? -1 : 1);
                 }
                 BasicDBObject options = new BasicDBObject("unique", index.isUnique());
                 // if index is unique and non-partial, also make it a sparse index, so we can have non-required unique fields
@@ -879,9 +884,9 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     }
 
     public void reindex(EntityInfo ei, Metadata md, String version, QueryExpression query) throws IOException {
-        Map<String, String> fieldMap = Translator.getCaseInsensitiveIndexes(ei.getIndexes().getIndexes()).collect(Collectors.toMap(i -> i.getField().toString(), i -> Translator
+        Map<String, String> fieldMap = DocTranslator.getCaseInsensitiveIndexes(ei.getIndexes().getIndexes()).collect(Collectors.toMap(i -> i.getField().toString(), i -> DocTranslator
                 .getHiddenForField(i.getField()).toString()));
-        List<Path> fields = Translator.getCaseInsensitiveIndexes(ei.getIndexes().getIndexes()).map(i -> i.getField()).collect(Collectors.toList());
+        List<Path> fields = DocTranslator.getCaseInsensitiveIndexes(ei.getIndexes().getIndexes()).map(i -> i.getField()).collect(Collectors.toList());
         if (!fieldMap.keySet().isEmpty()) {
             populateHiddenFields(ei, md, version, fields, query);
         }
@@ -922,7 +927,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                         return md.getEntityMetadata(entityName, v);
                     }
                 };
-                Translator trans = new Translator(mdResolver, JsonNodeFactory.instance);
+                ExpressionTranslator trans = new ExpressionTranslator(mdResolver, JsonNodeFactory.instance);
                 DBObject mongoQuery = trans.translate(mdResolver.getEntityMetadata(ei.getName()), query);
                 cursor = coll.find(mongoQuery);
             } else {
@@ -932,7 +937,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 DBObject doc = cursor.next();
                 DBObject original = (DBObject) ((BasicDBObject) doc).copy();
                 try {
-                    Translator.populateDocHiddenFields(doc, fields);
+                    DocTranslator.populateDocHiddenFields(doc, fields);
                     LOGGER.debug("Original doc:{}, new doc:{}",original,doc);
                     if (!doc.equals(original)) {
                         coll.save(doc);
@@ -966,7 +971,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private boolean isIdIndex(Index index) {
         List<IndexSortKey> fields = index.getFields();
         return fields.size() == 1
-                && fields.get(0).getField().equals(Translator.ID_PATH);
+                && fields.get(0).getField().equals(DocTranslator.ID_PATH);
     }
 
     private boolean isIdIndex(DBObject index) {
@@ -978,12 +983,12 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         String field;
         if (sortKey.isCaseInsensitive()) {
             // if this is a case insensitive key, we need to change the field to how mongo actually stores the index
-            field = Translator.translatePath(Translator.getHiddenForField(sortKey.getField()));
+            field = ExpressionTranslator.translatePath(DocTranslator.getHiddenForField(sortKey.getField()));
         } else {
             // strip out wild card.
             // this happens because we forget mongo fields != lightblue path
             // especially given case insensitive index requires lightblue path
-            field = Translator.translatePath(sortKey.getField());
+            field = ExpressionTranslator.translatePath(sortKey.getField());
         }
 
         if (field.equals(fieldName)) {
@@ -1058,7 +1063,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 projectFields.add(new FieldProjection(x.getFullPath(), true, false));
             }
         }
-        projectFields.add(new FieldProjection(Translator.OBJECT_TYPE, true, false));
+        projectFields.add(new FieldProjection(DocTranslator.OBJECT_TYPE, true, false));
 
         return new ProjectionList(projectFields);
     }

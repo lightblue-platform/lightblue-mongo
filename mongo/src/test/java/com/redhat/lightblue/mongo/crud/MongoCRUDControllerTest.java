@@ -44,6 +44,7 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.redhat.lightblue.ExecutionOptions;
+import com.redhat.lightblue.ResultMetadata;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDFindResponse;
 import com.redhat.lightblue.crud.CRUDInsertionResponse;
@@ -120,11 +121,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         DBCollection coll = db.getCollection("testCollectionIndex1");
         DBCursor find = coll.find();
         DBObject obj = find.next();
-        assertTrue(((DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString())).containsField("field3"));
+        assertTrue(((DBObject) obj.get(DocTranslator.HIDDEN_SUB_PATH.toString())).containsField("field3"));
 
-        DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
+        DBObject hidden = (DBObject) obj.get(DocTranslator.HIDDEN_SUB_PATH.toString());
         hidden.removeField("field3");
-        obj.put(Translator.HIDDEN_SUB_PATH.toString(), hidden);
+        obj.put(DocTranslator.HIDDEN_SUB_PATH.toString(), hidden);
         coll.save(obj);
         find.close();
 
@@ -132,7 +133,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         coll = db.getCollection("testCollectionIndex1");
         find = coll.find();
         obj = find.next();
-        assertFalse(((DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString())).containsField("field3"));
+        assertFalse(((DBObject) obj.get(DocTranslator.HIDDEN_SUB_PATH.toString())).containsField("field3"));
     }
 
     @Test(expected = Error.class)
@@ -170,6 +171,35 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 projection("{'field':'field2.subArrayField.*'}"), null, null, null);
 
         assertEquals(1, ctx.getDocuments().size());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
+    }
+
+    @Test
+    public void findDocument_CI_docver() throws Exception {
+        db.getCollection("testCollectionIndex1").drop();
+        EntityMetadata emd = addCIIndexes(createMetadataWithDocVer());
+        controller.afterUpdateEntityInfo(null, emd.getEntityInfo(), false);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
+
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
+        ctx.add(emd);
+        ctx.addDocument(doc);
+        controller.insert(ctx, null);
+
+        ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.FIND);
+        ctx.add(emd);
+        controller.find(ctx,
+                query("{'field':'field2.subArrayField.*', 'regex':'fieldTwoSubArrOne', 'options':'i'}"),
+                projection("{'field':'field2.subArrayField.*'}"), null, null, null);
+
+        assertEquals(1, ctx.getDocuments().size());
+        Assert.assertEquals(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion(),
+                            ctx.getDocuments().get(0).get(new Path("docver")).asText());
+        Assert.assertEquals(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion(),
+                            ctx.getDocuments().get(0).get(new Path("resultMetadata.documentVersion")).asText());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -201,6 +231,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 projection("{'field':'_id'}"), null, null, null);
 
         assertEquals(1, ctx.getDocuments().size());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -225,9 +257,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         DBCursor cursor = db.getCollection("testCollectionIndex1").find();
         assertTrue(cursor.hasNext());
         cursor.forEach(obj -> {
-            DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
+            DBObject hidden = (DBObject) obj.get(DocTranslator.HIDDEN_SUB_PATH.toString());
             assertEquals("NEWFIELDTHREE", hidden.get("field3"));
         });
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -256,9 +290,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         cursor = db.getCollection("testCollectionIndex1").find();
         assertTrue(cursor.hasNext());
         cursor.forEach(obj -> {
-            DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
+            DBObject hidden = (DBObject) obj.get(DocTranslator.HIDDEN_SUB_PATH.toString());
             assertEquals("NEWFIELDTHREE", hidden.get("field3"));
-        });
+            });
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -275,11 +311,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         DBCursor cursor = db.getCollection("testCollectionIndex1").find();
         assertTrue(cursor.hasNext());
         cursor.forEach(obj -> {
-            DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
-            DBObject arrayObj0Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
-            DBObject arrayObj1Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(1)).get(Translator.HIDDEN_SUB_PATH.toString());
-            DBObject arrayObj2Hidden = (DBObject) ((DBObject) ((BasicDBList) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(2)).get("arraySubObj2")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
-            DBObject field2Hidden = (DBObject) ((DBObject) obj.get("field2")).get(Translator.HIDDEN_SUB_PATH.toString());
+            DBObject hidden = (DBObject) obj.get(DocTranslator.HIDDEN_SUB_PATH.toString());
+            DBObject arrayObj0Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(0)).get(DocTranslator.HIDDEN_SUB_PATH.toString());
+            DBObject arrayObj1Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(1)).get(DocTranslator.HIDDEN_SUB_PATH.toString());
+            DBObject arrayObj2Hidden = (DBObject) ((DBObject) ((BasicDBList) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(2)).get("arraySubObj2")).get(0)).get(DocTranslator.HIDDEN_SUB_PATH.toString());
+            DBObject field2Hidden = (DBObject) ((DBObject) obj.get("field2")).get(DocTranslator.HIDDEN_SUB_PATH.toString());
 
             assertEquals("FIELDTHREE", hidden.get("field3"));
             assertEquals("ARRAYFIELDONE", ((BasicDBList) hidden.get("arrayField")).get(0));
@@ -316,11 +352,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         DBCursor cursor = db.getCollection("testCollectionIndex1").find();
         assertTrue(cursor.hasNext());
         cursor.forEach(obj -> {
-            DBObject hidden = (DBObject) obj.get(Translator.HIDDEN_SUB_PATH.toString());
-            DBObject arrayObj0Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
-            DBObject arrayObj1Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(1)).get(Translator.HIDDEN_SUB_PATH.toString());
-            DBObject arrayObj2Hidden = (DBObject) ((DBObject) ((BasicDBList) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(2)).get("arraySubObj2")).get(0)).get(Translator.HIDDEN_SUB_PATH.toString());
-            DBObject field2Hidden = (DBObject) ((DBObject) obj.get("field2")).get(Translator.HIDDEN_SUB_PATH.toString());
+            DBObject hidden = (DBObject) obj.get(DocTranslator.HIDDEN_SUB_PATH.toString());
+            DBObject arrayObj0Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(0)).get(DocTranslator.HIDDEN_SUB_PATH.toString());
+            DBObject arrayObj1Hidden = (DBObject) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(1)).get(DocTranslator.HIDDEN_SUB_PATH.toString());
+            DBObject arrayObj2Hidden = (DBObject) ((DBObject) ((BasicDBList) ((DBObject) ((BasicDBList) obj.get("arrayObj")).get(2)).get("arraySubObj2")).get(0)).get(DocTranslator.HIDDEN_SUB_PATH.toString());
+            DBObject field2Hidden = (DBObject) ((DBObject) obj.get("field2")).get(DocTranslator.HIDDEN_SUB_PATH.toString());
 
             assertEquals("FIELDTHREE", hidden.get("field3"));
             assertEquals("ARRAYFIELDONE", ((BasicDBList) hidden.get("arrayField")).get(0));
@@ -582,6 +618,61 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         return e;
     }
+    
+    private EntityMetadata createMetadataWithDocVer() {
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.getFields().put(new SimpleField("_id", StringType.TYPE));
+        e.getFields().put(new SimpleField("objectType", StringType.TYPE));
+
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex1"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        e.getFields().put(new SimpleField("field3", StringType.TYPE));
+
+        SimpleField f=new SimpleField("docver",StringType.TYPE);
+        f.getProperties().put(ResultMetadata.MD_PROPERTY_DOCVER,Boolean.TRUE);        
+        e.getFields().put(f);
+
+        ObjectField x=new ObjectField("resultMetadata");
+        x.getProperties().put(ResultMetadata.MD_PROPERTY_RESULT_METADATA,Boolean.TRUE);        
+        e.getFields().put(x);
+        
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", StringType.TYPE));
+
+        SimpleArrayElement saSub = new SimpleArrayElement(StringType.TYPE);
+        ArrayField afSub = new ArrayField("subArrayField", saSub);
+        o.getFields().put(afSub);
+
+        ObjectArrayElement oaObject = new ObjectArrayElement();
+        oaObject.getFields().put(new SimpleField("x", StringType.TYPE));
+
+        SimpleArrayElement saSubSub = new SimpleArrayElement(StringType.TYPE);
+        ArrayField afSubSub = new ArrayField("arraySubObj", saSubSub);
+        oaObject.getFields().put(afSubSub);
+
+        ObjectArrayElement objSubSub = new ObjectArrayElement();
+        objSubSub.getFields().put(new SimpleField("y", StringType.TYPE));
+        ArrayField objSubSubField = new ArrayField("arraySubObj2", objSubSub);
+        oaObject.getFields().put(objSubSubField);
+
+        ArrayField afObject = new ArrayField("arrayObj", oaObject);
+        e.getFields().put(afObject);
+
+        e.getFields().put(o);
+
+        SimpleArrayElement sa = new SimpleArrayElement(StringType.TYPE);
+        ArrayField af = new ArrayField("arrayField", sa);
+        e.getFields().put(af);
+
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+        e.getEntitySchema().getAccess().getInsert().setRoles("anyone");
+        e.getEntitySchema().getAccess().getFind().setRoles("anyone");
+        e.getEntitySchema().getAccess().getUpdate().setRoles("anyone");
+
+        return e;
+    }
 
     private EntityMetadata addCIIndexes(EntityMetadata e) {
         Index index1 = new Index();
@@ -647,9 +738,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
         String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
-        try (DBCursor c = coll.find(new BasicDBObject("_id", Translator.createIdFrom(id)))) {
+        try (DBCursor c = coll.find(new BasicDBObject("_id", DocTranslator.createIdFrom(id)))) {
             Assert.assertEquals(1, c.count());
         }
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -668,7 +761,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
         String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
-        try (DBCursor c = coll.find(new BasicDBObject("_id", Translator.createIdFrom(id)))) {
+        try (DBCursor c = coll.find(new BasicDBObject("_id", DocTranslator.createIdFrom(id)))) {
             Assert.assertEquals(1, c.count());
         }
     }
@@ -736,6 +829,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         readDoc.modify(new Path("field1"), nodeFactory.textNode("updated"), false);
         readDoc.modify(new Path("field7.0.elemf1"), nodeFactory.textNode("updated too"), false);
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
 
         // Save it back
         ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
@@ -832,7 +927,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         System.out.println("Saved id:" + id);
 
         // Read doc using mongo
-        DBObject dbdoc = coll.findOne(new BasicDBObject("_id", Translator.createIdFrom(id)));
+        DBObject dbdoc = coll.findOne(new BasicDBObject("_id", DocTranslator.createIdFrom(id)));
         Assert.assertNotNull(dbdoc);
         // Add some fields
         dbdoc.put("invisibleField", "invisibleValue");
@@ -856,7 +951,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         controller.save(ctx, false, projection);
 
         // Make sure doc is modified, and invisible field is there
-        dbdoc = coll.findOne(new BasicDBObject("_id", Translator.createIdFrom(id)));
+        dbdoc = coll.findOne(new BasicDBObject("_id", DocTranslator.createIdFrom(id)));
         System.out.println("Loaded doc:" + dbdoc);
         Assert.assertEquals("updated", dbdoc.get("field1"));
         Assert.assertEquals("invisibleValue", dbdoc.get("invisibleField"));
@@ -932,6 +1027,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             Assert.assertEquals(2, c.count());
         }
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), sr.getNumSaved());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -1046,6 +1143,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         assertEquals(1, upd.getNumUpdated());
         assertEquals(20, upd.getNumMatched());
         assertEquals(19, upd.getNumFailed());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -1076,6 +1175,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 projection("{'field':'_id'}"));
         // just make sure all get inserted when we're multi batching.  difficult to spy from here
         assertEquals(batch, upd.getNumUpdated());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
 
     }
 
@@ -1252,6 +1353,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         controller.find(ctx, query("{'field':'field4','op':'=','rvalue':'100'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
         Assert.assertEquals(numDocs, ctx.getDocuments().size());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
+        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
 
     }
 

@@ -32,7 +32,6 @@ import com.mongodb.BasicDBObject;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.mongo.crud.CannotTranslateException;
-import com.redhat.lightblue.mongo.crud.Translator;
 import com.redhat.lightblue.metadata.CompositeMetadata;
 import com.redhat.lightblue.query.*;
 import com.redhat.lightblue.util.Path;

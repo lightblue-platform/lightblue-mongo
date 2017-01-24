@@ -26,18 +26,17 @@ import com.mongodb.DBObject;
 
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.mongo.crud.CannotTranslateException;
-import com.redhat.lightblue.mongo.crud.Translator;
 import com.redhat.lightblue.crud.MetadataResolver;
 
 public class TranslatorUpdateTest extends AbstractMongoCrudTest {
 
-    private Translator translator;
+    private ExpressionTranslator translator;
 
     @Before
     public void setup() throws Exception {
         super.setup();
 
-        translator = new Translator(new MetadataResolver() {
+        translator = new ExpressionTranslator(new MetadataResolver() {
             @Override
             public EntityMetadata getEntityMetadata(String entityName) {
                 try {

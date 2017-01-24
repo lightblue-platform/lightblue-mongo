@@ -163,7 +163,7 @@ public class AssocTest extends AbstractMongoCrudTest {
 
 
     private void init_arr() throws Exception {
-        Translator translator=new Translator(new MDResolver(),JsonNodeFactory.instance);
+        DocTranslator translator=new DocTranslator(new MDResolver(),JsonNodeFactory.instance);
         ArrayNode node = (ArrayNode)loadJsonNode("arr_parent_data.json");
         for(int i=0;i<node.size();i++) {
             DBObject obj=translator.toBson(new JsonDoc(node.get(i)));

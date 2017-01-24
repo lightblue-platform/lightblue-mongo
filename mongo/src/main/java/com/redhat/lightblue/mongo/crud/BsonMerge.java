@@ -70,7 +70,7 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
         public Object getIdentity(Object element) {
             Object[] nodes = new Object[fields.length];
             for (int i = 0; i < fields.length; i++) {
-                nodes[i] = Translator.getDBObject((DBObject) element, fields[i]);
+                nodes[i] = DocTranslator.getDBObject((DBObject) element, fields[i]);
             }            
             return new DefaultIdentity(nodes);
         }
@@ -270,7 +270,7 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
 
     private boolean hasHiddenField(Path path) {
         for (int i = 0; i < path.numSegments(); i++) {
-            if (path.head(i).equals(Translator.HIDDEN_SUB_PATH.toString())) {
+            if (path.head(i).equals(DocTranslator.HIDDEN_SUB_PATH.toString())) {
                 return true;
             }
         }
@@ -319,7 +319,7 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
         LOGGER.debug("Adding contents of {} to {}", field, newFieldName);
         DBObject parent;
         if (newFieldName.numSegments() > 1) {
-            parent = (DBObject) Translator.getDBObject(doc, newFieldName.prefix(-1));
+            parent = (DBObject) DocTranslator.getDBObject(doc, newFieldName.prefix(-1));
         } else {
             parent = doc;
         }
