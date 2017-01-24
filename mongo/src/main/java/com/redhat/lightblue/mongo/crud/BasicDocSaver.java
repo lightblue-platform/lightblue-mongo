@@ -250,7 +250,7 @@ public class BasicDocSaver implements DocSaver {
                     LOGGER.debug("Inaccessible fields:{}", paths);
                     if (paths == null || paths.isEmpty()) {
                         DocTranslator.populateDocHiddenFields(doc.newDoc, md);
-                        MongoSafeUpdateProtocol.overwriteDocVer(doc.newDoc,docver);
+                        DocVerUtil.overwriteDocVer(doc.newDoc,docver);
                         insertionAttemptList.add(doc);
                     } else {
                         for (Path path : paths) {
@@ -312,7 +312,7 @@ public class BasicDocSaver implements DocSaver {
                     if (paths == null || paths.isEmpty()) {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc.inputDoc);
-                            MongoSafeUpdateProtocol.copyDocVer(doc.newDoc,doc.oldDoc);
+                            DocVerUtil.copyDocVer(doc.newDoc,doc.oldDoc);
                             // Copy the _id, newdoc doesn't necessarily have _id
                             doc.newDoc.put("_id",doc.oldDoc.get("_id"));
                             merge.merge(doc.oldDoc, doc.newDoc);

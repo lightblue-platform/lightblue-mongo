@@ -136,16 +136,12 @@ import com.redhat.lightblue.util.Error;
 
 
 
-public abstract class MongoSafeUpdateProtocol {
+public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
 
     private static final Logger LOGGER=LoggerFactory.getLogger(MongoSafeUpdateProtocol.class);
     
-    public static final String DOCVER="docver";
-
-    public static final String DOCVER_FLD=DocTranslator.HIDDEN_SUB_PATH.toString()+"."+DOCVER;
-    public static final String DOCVER_FLD0=DocTranslator.HIDDEN_SUB_PATH.toString()+"."+DOCVER+".0";
-
-    private static final long TOO_OLD_MS=1l*60l*1000l; // Any docver older than 1 minute is to old
+    public static final String DOCVER_FLD=DocTranslator.HIDDEN_SUB_PATH.toString()+"."+DocVerUtil.DOCVER;
+    public static final String DOCVER_FLD0=DocTranslator.HIDDEN_SUB_PATH.toString()+"."+DocVerUtil.DOCVER+".0";
 
     private static final class BatchDoc {
         Object id;
@@ -211,10 +207,11 @@ public abstract class MongoSafeUpdateProtocol {
      * Adds a document to the current batch. The document should
      * contain the original docver as read from the db
      */
+    @Override
     public void addDoc(DBObject doc) {
         DBObject q=writeReplaceQuery(doc);
-        cleanupOldDocVer(doc);
-        setDocVer(doc,docVer);
+        DocVerUtil.cleanupOldDocVer(doc,docVer);
+        DocVerUtil.setDocVer(doc,docVer);
         LOGGER.debug("replaceQuery={}",q);
         bwo.find(q).replaceOne(doc);        
         batch.add(new BatchDoc(doc));
@@ -223,6 +220,7 @@ public abstract class MongoSafeUpdateProtocol {
     /**
      * Returns the number of queued requests
      */
+    @Override
     public int getSize() {
         return batch.size();
     }
@@ -233,6 +231,7 @@ public abstract class MongoSafeUpdateProtocol {
      * errors and associate them with the documents using the document
      * index.
      */
+    @Override
     public Map<Integer,Error> commit() {
         Map<Integer,Error> results=new HashMap<>();
         if(!batch.isEmpty()) {
@@ -308,7 +307,7 @@ public abstract class MongoSafeUpdateProtocol {
                     // Update the doc ver to our doc ver. This doc is here
                     // because its docVer is not set to our docver, so
                     // this is ok
-                    setDocVer(newDoc,docVer);
+                    DocVerUtil.setDocVer(newDoc,docVer);
                     // Using bulkwrite here with one doc to use the
                     // findAndReplace API, which is lacking in
                     // DBCollection
@@ -399,10 +398,10 @@ public abstract class MongoSafeUpdateProtocol {
      * </pre>
      */
     private DBObject writeReplaceQuery(DBObject doc) {
-        DBObject hidden=getHidden(doc,false);
+        DBObject hidden=DocVerUtil.getHidden(doc,false);
         ObjectId top=null;
         if(hidden!=null) {
-            List<ObjectId> list=(List<ObjectId>)hidden.get(DOCVER);
+            List<ObjectId> list=(List<ObjectId>)hidden.get(DocVerUtil.DOCVER);
             if(list!=null&&!list.isEmpty())
                 top=list.get(0);
         }
@@ -411,81 +410,9 @@ public abstract class MongoSafeUpdateProtocol {
             query.append(DOCVER_FLD0,top);
         return query;
     }
-    
 
-    /**
-     * Returns the @mongoHidden at the root level of the document. Adds one if necessary.
-     */
-    public static DBObject getHidden(DBObject doc,boolean addIfNotFound) {
-        DBObject hidden=(DBObject)doc.get(DocTranslator.HIDDEN_SUB_PATH.toString());
-        if(hidden==null&&addIfNotFound) {
-            doc.put(DocTranslator.HIDDEN_SUB_PATH.toString(),hidden=new BasicDBObject());            
-        }
-        return hidden;
-    }
-
-    /**
-     * Returns the version list, if one present
-     */
-    public static List<ObjectId> getVersionList(DBObject doc) {
-        DBObject hidden=(DBObject)doc.get(DocTranslator.HIDDEN_SUB_PATH.toString());
-        if(hidden!=null) {
-            return (List<ObjectId>)hidden.get(DOCVER);
-        }
-        return null;
-    }
-
-    public static void overwriteDocVer(DBObject doc,ObjectId docver) {
-        getHidden(doc,true).removeField(DOCVER);
-        setDocVer(doc,docver);
-    }
-    
-    public static void setDocVer(DBObject doc,ObjectId docver) {
-        DBObject hidden=getHidden(doc,true);
-        List<ObjectId> list=(List<ObjectId>)hidden.get(DOCVER);
-        if(list==null) {
-            list=new ArrayList<ObjectId>();
-        }
-        list.add(0,docver);
-        hidden.put(DOCVER,list);
-    }
-
-    public static void copyDocVer(DBObject destDoc,DBObject sourceDoc) {
-        DBObject hidden=getHidden(sourceDoc,false);
-        if(hidden!=null) {
-            destDoc.put(DocTranslator.HIDDEN_SUB_PATH.toString(),hidden);
-        }
-    }
-
-    /**
-     * Removes old docvers from a document
-     */
-    private void cleanupOldDocVer(DBObject doc) {
-        DBObject hidden=getHidden(doc,false);
-        if(hidden!=null) {
-            List<ObjectId> list=(List<ObjectId>)hidden.get(DOCVER);
-            if(list!=null) {
-                List<ObjectId> copy=new ArrayList<>(list.size());
-                long now=docVer.getDate().getTime();
-                for(ObjectId id:list) {
-                    if(!id.equals(docVer)) {
-                        Date d=id.getDate();
-                        if(now-d.getTime()<TOO_OLD_MS) {
-                            copy.add(id);
-                        }
-                    } else {
-                        copy.add(id);
-                    }
-                }
-                if(copy.size()!=list.size()) {
-                    hidden.put(DOCVER,copy);
-                    LOGGER.debug("cleanupInput={}, cleanupOutput={}",list,copy);
-                }
-            }
-        }
-    }
-
-    private void reset() {
+    @Override
+    public void reset() {
         docVer=new ObjectId();
         bwo=collection.initializeUnorderedBulkOperation();
         batch=new ArrayList<>(128);

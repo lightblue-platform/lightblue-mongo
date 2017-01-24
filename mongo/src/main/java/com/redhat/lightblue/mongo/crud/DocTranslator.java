@@ -273,7 +273,7 @@ public class DocTranslator {
 
     public static ResultMetadata getDocMetadata(DBObject obj) {
         ResultMetadata md=new ResultMetadata();
-        List<ObjectId> list=MongoSafeUpdateProtocol.getVersionList(obj);
+        List<ObjectId> list=DocVerUtil.getVersionList(obj);
         if(list!=null&&!list.isEmpty())
             md.setDocumentVersion(getDocVer(obj,list.get(0)));
         return md;
@@ -298,7 +298,7 @@ public class DocTranslator {
     }
     
     private void injectDocumentVersion(DBObject root,ObjectNode parent,String fieldName) {
-        List<ObjectId> list=MongoSafeUpdateProtocol.getVersionList(root);
+        List<ObjectId> list=DocVerUtil.getVersionList(root);
         if(list!=null&&!list.isEmpty()) {
             parent.set(fieldName,factory.textNode(getDocVer(root,list.get(0))));
         }
