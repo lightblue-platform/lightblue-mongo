@@ -68,7 +68,7 @@ public class IterateAndUpdate implements DocUpdater {
     private final JsonNodeFactory nodeFactory;
     private final ConstraintValidator validator;
     private final FieldAccessRoleEvaluator roleEval;
-    private final Translator translator;
+    private final DocTranslator translator;
     private final Updater updater;
     private final Projector projector;
     private final Projector errorProjector;
@@ -94,18 +94,18 @@ public class IterateAndUpdate implements DocUpdater {
         }
         
         protected DBObject reapplyChanges(int docIndex,DBObject doc) {
-            JsonDoc jsonDoc=translator.toJson(doc);
+            DocTranslator.TranslatedDoc jsonDoc=translator.toJson(doc);
             // We are bypassing validation here
-            if(!updateDoc(md,jsonDoc,measure))
+            if(!updateDoc(md,jsonDoc.doc,measure))
                 return null;
-            return  translate(md,jsonDoc,doc,merge,measure);
+            return  translate(md,jsonDoc.doc,doc,merge,measure);
         }
     }
     
     public IterateAndUpdate(JsonNodeFactory nodeFactory,
                             ConstraintValidator validator,
                             FieldAccessRoleEvaluator roleEval,
-                            Translator translator,
+                            DocTranslator translator,
                             Updater updater,
                             Projector projector,
                             Projector errorProjector,
@@ -164,7 +164,8 @@ public class IterateAndUpdate implements DocUpdater {
                 boolean hasErrors = false;
                 LOGGER.debug("Retrieved doc {}", docIndex);
                 measure.begin("ctx.addDocument");
-                DocCtx doc = ctx.addDocument(translator.toJson(document));
+                DocTranslator.TranslatedDoc translatedDoc=translator.toJson(document);
+                DocCtx doc = ctx.addDocument(translatedDoc.doc,translatedDoc.rmd);
                 doc.startModifications();
                 measure.end("ctx.addDocument");
                 // From now on: doc contains the working copy, and doc.originalDoc contains the original copy
@@ -282,7 +283,7 @@ public class IterateAndUpdate implements DocUpdater {
         merge.merge(document, updatedObject);
         measure.end("toBsonAndMerge");
         measure.begin("populateHiddenFields");
-        Translator.populateDocHiddenFields(updatedObject, md);
+        DocTranslator.populateDocHiddenFields(updatedObject, md);
         measure.end("populateHiddenFields");
         return updatedObject;
     }

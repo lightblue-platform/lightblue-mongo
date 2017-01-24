@@ -142,8 +142,8 @@ public abstract class MongoSafeUpdateProtocol {
     
     public static final String DOCVER="docver";
 
-    public static final String DOCVER_FLD=Translator.HIDDEN_SUB_PATH.toString()+"."+DOCVER;
-    public static final String DOCVER_FLD0=Translator.HIDDEN_SUB_PATH.toString()+"."+DOCVER+".0";
+    public static final String DOCVER_FLD=DocTranslator.HIDDEN_SUB_PATH.toString()+"."+DOCVER;
+    public static final String DOCVER_FLD0=DocTranslator.HIDDEN_SUB_PATH.toString()+"."+DOCVER+".0";
 
     private static final long TOO_OLD_MS=1l*60l*1000l; // Any docver older than 1 minute is to old
 
@@ -417,11 +417,22 @@ public abstract class MongoSafeUpdateProtocol {
      * Returns the @mongoHidden at the root level of the document. Adds one if necessary.
      */
     public static DBObject getHidden(DBObject doc,boolean addIfNotFound) {
-        DBObject hidden=(DBObject)doc.get(Translator.HIDDEN_SUB_PATH.toString());
+        DBObject hidden=(DBObject)doc.get(DocTranslator.HIDDEN_SUB_PATH.toString());
         if(hidden==null&&addIfNotFound) {
-            doc.put(Translator.HIDDEN_SUB_PATH.toString(),hidden=new BasicDBObject());            
+            doc.put(DocTranslator.HIDDEN_SUB_PATH.toString(),hidden=new BasicDBObject());            
         }
         return hidden;
+    }
+
+    /**
+     * Returns the version list, if one present
+     */
+    public static List<ObjectId> getVersionList(DBObject doc) {
+        DBObject hidden=(DBObject)doc.get(DocTranslator.HIDDEN_SUB_PATH.toString());
+        if(hidden!=null) {
+            return (List<ObjectId>)hidden.get(DOCVER);
+        }
+        return null;
     }
 
     public static void overwriteDocVer(DBObject doc,ObjectId docver) {
@@ -442,7 +453,7 @@ public abstract class MongoSafeUpdateProtocol {
     public static void copyDocVer(DBObject destDoc,DBObject sourceDoc) {
         DBObject hidden=getHidden(sourceDoc,false);
         if(hidden!=null) {
-            destDoc.put(Translator.HIDDEN_SUB_PATH.toString(),hidden);
+            destDoc.put(DocTranslator.HIDDEN_SUB_PATH.toString(),hidden);
         }
     }
 

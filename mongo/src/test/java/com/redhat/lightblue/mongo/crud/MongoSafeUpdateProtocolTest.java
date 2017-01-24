@@ -102,8 +102,8 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
             DBObject doc=cursor.next();
             String id=(String)doc.get("_id");
             Assert.assertEquals("updated"+id,doc.get("field").toString());
-            Assert.assertNotNull(doc.get(Translator.HIDDEN_SUB_PATH.toString()));
-            Assert.assertEquals(1,((List)((DBObject)doc.get(Translator.HIDDEN_SUB_PATH.toString())).get("docver")).size());
+            Assert.assertNotNull(doc.get(DocTranslator.HIDDEN_SUB_PATH.toString()));
+            Assert.assertEquals(1,((List)((DBObject)doc.get(DocTranslator.HIDDEN_SUB_PATH.toString())).get("docver")).size());
         }
         cursor.close();
     }
