@@ -143,12 +143,12 @@ public class BasicDocSaver implements DocSaver {
                          Op op,
                          boolean upsert,
                          DBCollection collection,
-                         DBObject[] dbObjects,
+                         DocTranslator.TranslatedBsonDoc[] dbObjects,
                          DocCtx[] inputDocs) {
         // Operate in batches
         List<DocInfo> batch = new ArrayList<>(batchSize);
         for (int i = 0; i < dbObjects.length; i++) {
-            DocInfo item = new DocInfo(dbObjects[i], inputDocs[i]);
+            DocInfo item = new DocInfo(dbObjects[i].doc, inputDocs[i]);
             batch.add(item);
             if (batch.size() >= batchSize) {
                 saveDocs(ctx, op, upsert, collection, batch);
@@ -292,6 +292,18 @@ public class BasicDocSaver implements DocSaver {
         }
     }
 
+    private BatchUpdate getBatchUpdateProtocol(CRUDOperationContext ctx,
+                                               DBCollection collection,
+                                               List<DocInfo> updateAttemptList) {
+        if(ctx.isUpdateIfSame()) {
+        } else {
+            return new MongoSafeUpdateProtocolForSave(collection,
+                                                      writeConcern,
+                                                      concurrentModificationDetection,
+                                                      updateAttemptList);
+        }
+    }
+
     private void updateDocs(CRUDOperationContext ctx,
                             DBCollection collection,
                             List<DocInfo> list) {
@@ -328,10 +340,7 @@ public class BasicDocSaver implements DocSaver {
                 }
                 LOGGER.debug("After checks and merge, updating {} docs", updateAttemptList.size());
                 if (!updateAttemptList.isEmpty()) {
-                    MongoSafeUpdateProtocol upd=new MongoSafeUpdateProtocolForSave(collection,
-                                                                                   writeConcern,
-                                                                                   concurrentModificationDetection,
-                                                                                   updateAttemptList);
+                    BatchUpdate upd=getBatchUpdateProtocol(ctx,collection,updateAttemptList);
                     for (DocInfo doc : updateAttemptList) {
                         upd.addDoc(doc.newDoc);
                         doc.inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);

@@ -98,7 +98,7 @@ public class IterateAndUpdate implements DocUpdater {
             // We are bypassing validation here
             if(!updateDoc(md,jsonDoc.doc,measure))
                 return null;
-            return  translate(md,jsonDoc.doc,doc,merge,measure);
+            return translate(md,jsonDoc.doc,doc,merge,measure).doc;
         }
     }
     
@@ -133,12 +133,12 @@ public class IterateAndUpdate implements DocUpdater {
         LOGGER.debug("iterateUpdate: start");
         LOGGER.debug("Computing the result set for {}", query);
         Measure measure=new Measure();
-        MongoSafeUpdateProtocol sup=new MongoSafeUpdateProtocolForUpdate(collection,
-                                                                         writeConcern,
-                                                                         query,
-                                                                         concurrentModificationDetection,
-                                                                         md,
-                                                                         measure);
+        BatchUpdate sup=new MongoSafeUpdateProtocolForUpdate(collection,
+                                                             writeConcern,
+                                                             query,
+                                                             concurrentModificationDetection,
+                                                             md,
+                                                             measure);
         DBCursor cursor = null;
         int docIndex = 0;
         int numMatched = 0;
@@ -195,9 +195,9 @@ public class IterateAndUpdate implements DocUpdater {
                     if (!hasErrors) {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc);
-                            DBObject updatedObject=translate(md,doc,document,merge,measure);
+                            DocTranslator.TranslatedBsonDoc updatedObject=translate(md,doc,document,merge,measure);
 
-                            sup.addDoc(updatedObject);
+                            sup.addDoc(updatedObject.doc);
                             docUpdateAttempts.add(doc);
                             // update in batches
                             if (docUpdateAttempts.size()-batchStartIndex>= batchSize) {
@@ -277,13 +277,13 @@ public class IterateAndUpdate implements DocUpdater {
         }
     }
 
-    private DBObject translate(EntityMetadata md,JsonDoc doc,DBObject document,BsonMerge merge,Measure measure) {
+    private DocTranslator.TranslatedBsonDoc translate(EntityMetadata md,JsonDoc doc,DBObject document,BsonMerge merge,Measure measure) {
         measure.begin("toBsonAndMerge");
-        DBObject updatedObject = translator.toBson(doc);
-        merge.merge(document, updatedObject);
+        DocTranslator.TranslatedBsonDoc updatedObject = translator.toBson(doc);
+        merge.merge(document, updatedObject.doc);
         measure.end("toBsonAndMerge");
         measure.begin("populateHiddenFields");
-        DocTranslator.populateDocHiddenFields(updatedObject, md);
+        DocTranslator.populateDocHiddenFields(updatedObject.doc, md);
         measure.end("populateHiddenFields");
         return updatedObject;
     }

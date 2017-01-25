@@ -140,9 +140,6 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
 
     private static final Logger LOGGER=LoggerFactory.getLogger(MongoSafeUpdateProtocol.class);
     
-    public static final String DOCVER_FLD=DocTranslator.HIDDEN_SUB_PATH.toString()+"."+DocVerUtil.DOCVER;
-    public static final String DOCVER_FLD0=DocTranslator.HIDDEN_SUB_PATH.toString()+"."+DocVerUtil.DOCVER+".0";
-
     private static final class BatchDoc {
         Object id;
 
@@ -235,36 +232,8 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
     public Map<Integer,Error> commit() {
         Map<Integer,Error> results=new HashMap<>();
         if(!batch.isEmpty()) {
-            BulkWriteResult writeResult;
-            LOGGER.debug("attemptToUpdate={}",batch.size());
-            try {
-                if(writeConcern==null) {
-                    writeResult=bwo.execute();
-                } else {
-                    writeResult=bwo.execute(writeConcern);
-                }
-                LOGGER.debug("writeResult={}",writeResult);
-                if(batch.size()==writeResult.getMatchedCount()) {
-                    LOGGER.debug("Successful update");
-                } else {
-                    LOGGER.warn("notUpdated={}",batch.size()-writeResult.getMatchedCount());
-                    findConcurrentModifications(results);
-                }
-            } catch (BulkWriteException e) {
-                List<BulkWriteError> writeErrors=e.getWriteErrors();
-                if(writeErrors!=null) {
-                    for(BulkWriteError we:writeErrors) {
-                        if (MongoCrudConstants.isDuplicate(we.getCode())) {
-                            results.put(we.getIndex(),
-                                        Error.get("update", MongoCrudConstants.ERR_DUPLICATE, we.getMessage()));
-                        } else {
-                            results.put(we.getIndex(),
-                                        Error.get("update", MongoCrudConstants.ERR_SAVE_ERROR, we.getMessage()));
-                        }
-                    }
-                }
+            if(!BatchUpdate.batchUpdate(bwo,writeConcern,batch.size(),results,LOGGER))
                 findConcurrentModifications(results);
-            }
         }
         retryConcurrentUpdateErrorsIfNeeded(results);
         reset();
@@ -363,22 +332,12 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
         }
         LOGGER.debug("checking for concurrent modifications:{}",updatedIds);
         if(!updatedIds.isEmpty()) {
-            // documents with the given _ids and whose docver contains our docVer are the ones we managed to update
-            // others are failures
-            BasicDBObject query=new BasicDBObject(DOCVER_FLD,docVer);
-            query.append("_id",new BasicDBObject("$in",updatedIds));
-            try (DBCursor cursor = collection.find(query,new BasicDBObject("_id",1))
-                    .setReadPreference(ReadPreference.primaryPreferred())) {
-                Set<Object> successfulIds=new HashSet<>(updatedIds.size());
-                while(cursor.hasNext()) {
-                    DBObject obj=cursor.next();
-                    Object id=obj.get("_id");
-                    successfulIds.add(id);
-                }
+            Set<Object> failedIds=BatchUpdate.getFailedUpdates(collection,docVer,updatedIds);
+            if(!failedIds.isEmpty()) {
                 index=0;
                 for(BatchDoc doc:batch) {
                     if(!results.containsKey(index)) { // No other errors for this id
-                        if(!successfulIds.contains(doc.id)) {
+                        if(failedIds.contains(doc.id)) {
                             // concurrency errors for this id
                             results.put(index,Error.get("update",MongoCrudConstants.ERR_CONCURRENT_UPDATE,doc.id.toString()));
                             ret=true;
@@ -411,8 +370,7 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
         return query;
     }
 
-    @Override
-    public void reset() {
+    private void reset() {
         docVer=new ObjectId();
         bwo=collection.initializeUnorderedBulkOperation();
         batch=new ArrayList<>(128);

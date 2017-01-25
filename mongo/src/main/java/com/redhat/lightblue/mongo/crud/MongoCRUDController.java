@@ -237,7 +237,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                     ctx.getCallerRoles());
             LOGGER.debug("saveOrInsert: Translating docs");
             EntityMetadata md = ctx.getEntityMetadata(ctx.getEntityName());
-            DBObject[] dbObjects = translator.toBson(documents);
+            DocTranslator.TranslatedBsonDoc[] dbObjects = translator.toBson(documents);
             // dbObjects[i] is the translation of documents.get(i)
             if (dbObjects != null) {
                 LOGGER.debug("saveOrInsert: {} docs translated to bson", dbObjects.length);
@@ -268,7 +268,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
                 for (int docIndex = 0; docIndex < dbObjects.length; docIndex++) {
                     DocCtx inputDoc = documents.get(docIndex);
-                    DocTranslator.TranslatedDoc jsonDoc = translator.toJson(dbObjects[docIndex]);
+                    DocTranslator.TranslatedDoc jsonDoc = translator.toJson(dbObjects[docIndex].doc);
                     LOGGER.debug("Translated doc: {}", jsonDoc.doc);
                     inputDoc.setUpdatedDocument(jsonDoc.doc);
                     inputDoc.setResultMetadata(jsonDoc.rmd);

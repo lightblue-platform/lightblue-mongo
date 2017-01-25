@@ -20,18 +20,33 @@
 package com.redhat.lightblue.mongo.crud;
 
 import java.util.Map;
+import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
+
+import org.slf4j.Logger;
 
 import com.mongodb.DBObject;
+import com.mongodb.DBCursor;
+import com.mongodb.DBCollection;
+import com.mongodb.BasicDBObject;
+import com.mongodb.BulkWriteOperation;
+import com.mongodb.BulkWriteResult;
+import com.mongodb.BulkWriteException;
+import com.mongodb.BulkWriteError;
+import com.mongodb.WriteConcern;
+import com.mongodb.ReadPreference;
+
+import org.bson.types.ObjectId;
 
 import com.redhat.lightblue.util.Error;
 
 public interface BatchUpdate {
 
-    /**
-     * Reset the batch update
-     */
-    void reset();
-    
+    public static final String DOCVER_FLD=DocTranslator.HIDDEN_SUB_PATH.toString()+"."+DocVerUtil.DOCVER;
+    public static final String DOCVER_FLD0=DocTranslator.HIDDEN_SUB_PATH.toString()+"."+DocVerUtil.DOCVER+".0";
+
+
     /**
      * Adds a document to the current batch. The document should
      * contain the original docver as read from the db
@@ -51,4 +66,82 @@ public interface BatchUpdate {
      */
     Map<Integer,Error> commit();
 
+    /**
+     * Runs a batch update using bwo
+     *
+     * @param bwo The bulk write operation
+     * @param writeConcern
+     * @param batchSize
+     * @param results The results are populated during this call with an error for each failed doc
+     * @param logger The logger
+     *
+     * @return If returns true, all docs are updated. Otherwise, there
+     * are some failed docs, and concurrent update error detection
+     * should be called
+     */
+    public static boolean batchUpdate(BulkWriteOperation bwo,
+                                      WriteConcern writeConcern,
+                                      int batchSize,
+                                      Map<Integer,Error> results,
+                                      Logger logger) {
+        boolean ret=true;
+        BulkWriteResult writeResult;
+        logger.debug("attemptToUpdate={}",batchSize);
+        try {
+            if(writeConcern==null) {
+                writeResult=bwo.execute();
+            } else {
+                writeResult=bwo.execute(writeConcern);
+            }
+            logger.debug("writeResult={}",writeResult);
+            if(batchSize==writeResult.getMatchedCount()) {
+                logger.debug("Successful update");
+            } else {
+                logger.warn("notUpdated={}",batchSize-writeResult.getMatchedCount());
+                ret=false;
+            }
+        } catch (BulkWriteException e) {
+            List<BulkWriteError> writeErrors=e.getWriteErrors();
+            if(writeErrors!=null) {
+                for(BulkWriteError we:writeErrors) {
+                    if (MongoCrudConstants.isDuplicate(we.getCode())) {
+                        results.put(we.getIndex(),
+                                    Error.get("update", MongoCrudConstants.ERR_DUPLICATE, we.getMessage()));
+                    } else {
+                        results.put(we.getIndex(),
+                                    Error.get("update", MongoCrudConstants.ERR_SAVE_ERROR, we.getMessage()));
+                    }
+                }
+            }
+            ret=false;
+        }
+        return ret;
+    }
+
+    /**
+     * Returns the set of document ids that were not updated with docver
+     *
+     * @param docver The current document version
+     * @param documentIds The document ids to scan
+     *
+     * @return The set of document ids that were not updated with docver
+     */
+    public static Set<Object> getFailedUpdates(DBCollection collection,
+                                               ObjectId docver,
+                                               List<Object> documentIds) {
+        Set<Object> failedIds=new HashSet<>();
+        if(!documentIds.isEmpty()) {
+            // documents with the given _ids and whose docver contains our docVer are the ones we managed to update
+            // others are failures
+            BasicDBObject query=new BasicDBObject(DOCVER_FLD,new BasicDBObject("$ne",docver));
+            query.append("_id",new BasicDBObject("$in",documentIds));
+            try (DBCursor cursor = collection.find(query,new BasicDBObject("_id",1))
+                 .setReadPreference(ReadPreference.primary())) {
+                while(cursor.hasNext()) {
+                    failedIds.add(cursor.next().get("_id"));
+                }
+            }
+        }
+        return failedIds;
+    }
 }
