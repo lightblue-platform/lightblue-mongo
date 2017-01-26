@@ -166,12 +166,12 @@ public class AssocTest extends AbstractMongoCrudTest {
         DocTranslator translator=new DocTranslator(new MDResolver(),JsonNodeFactory.instance);
         ArrayNode node = (ArrayNode)loadJsonNode("arr_parent_data.json");
         for(int i=0;i<node.size();i++) {
-            DBObject obj=translator.toBson(new JsonDoc(node.get(i)));
+            DBObject obj=translator.toBson(new JsonDoc(node.get(i))).doc;
             db.getCollection("arr_parent").insert(obj);
         }
         node = (ArrayNode)loadJsonNode("arr_child_data.json");
         for(int i=0;i<node.size();i++) {
-            DBObject obj=translator.toBson(new JsonDoc(node.get(i)));
+            DBObject obj=translator.toBson(new JsonDoc(node.get(i))).doc;
             db.getCollection("arr_child").insert(obj);
         }
     }

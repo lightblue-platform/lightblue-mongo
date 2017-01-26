@@ -49,6 +49,7 @@ import com.redhat.lightblue.eval.Updater;
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.PredefinedFields;
+import com.redhat.lightblue.metadata.Type;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.Measure;
@@ -124,6 +125,28 @@ public class IterateAndUpdate implements DocUpdater {
         this.concurrentModificationDetection = concurrentModificationDetection;
     }
 
+    private BatchUpdate getUpdateProtocol(CRUDOperationContext ctx,
+                                          DBCollection collection,
+                                          DBObject query,
+                                          EntityMetadata md,
+                                          Measure measure) {
+        if(ctx.isUpdateIfSame()) {
+            // Retrieve doc versions from the context
+            Type type=md.resolve(DocTranslator.ID_PATH).getType();
+            Set<DocIdVersion> docVersions=DocIdVersion.getDocIdVersions(ctx.getUpdateDocumentVersions(),type);
+            UpdateIfSameProtocol uis=new UpdateIfSameProtocol(collection,writeConcern);
+            uis.addVersions(docVersions);
+            return uis;
+        } else {
+            return new MongoSafeUpdateProtocolForUpdate(collection,
+                                                        writeConcern,
+                                                        query,
+                                                        concurrentModificationDetection,
+                                                        md,
+                                                        measure);
+        }
+    }
+
     @Override
     public void update(CRUDOperationContext ctx,
                        DBCollection collection,
@@ -133,12 +156,7 @@ public class IterateAndUpdate implements DocUpdater {
         LOGGER.debug("iterateUpdate: start");
         LOGGER.debug("Computing the result set for {}", query);
         Measure measure=new Measure();
-        BatchUpdate sup=new MongoSafeUpdateProtocolForUpdate(collection,
-                                                             writeConcern,
-                                                             query,
-                                                             concurrentModificationDetection,
-                                                             md,
-                                                             measure);
+        BatchUpdate sup=getUpdateProtocol(ctx,collection,query,md,measure);
         DBCursor cursor = null;
         int docIndex = 0;
         int numMatched = 0;

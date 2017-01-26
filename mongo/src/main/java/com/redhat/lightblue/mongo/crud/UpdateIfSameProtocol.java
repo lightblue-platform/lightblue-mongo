@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Collection;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,6 +91,12 @@ public class UpdateIfSameProtocol implements BatchUpdate {
     public void addVersion(DocIdVersion v) {
         versions.add(v);
         id2VersionMap.put(v.id,v);
+    }
+
+    public void addVersions(Collection<DocIdVersion> collection) {
+        for(DocIdVersion v:collection) {
+            addVersion(v);
+        }
     }
     
     @Override
@@ -164,5 +171,6 @@ public class UpdateIfSameProtocol implements BatchUpdate {
             }
         }
     }
+
 
 }

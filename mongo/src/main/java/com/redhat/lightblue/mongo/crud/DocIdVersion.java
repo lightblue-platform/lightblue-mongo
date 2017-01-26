@@ -21,12 +21,16 @@ package com.redhat.lightblue.mongo.crud;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Collection;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.bson.types.ObjectId;
 
 import com.mongodb.DBObject;
 
 import com.redhat.lightblue.metadata.Type;
+import com.redhat.lightblue.ResultMetadata;
 
 /**
  * A representation of document version. Contains id:version as a pair
@@ -74,5 +78,11 @@ public final class DocIdVersion {
             return new DocIdVersion(DocTranslator.createIdFrom(document.get("_id")),list.get(0));
         else
             return null;
+    }
+
+    public static Set<DocIdVersion> getDocIdVersions(Collection<String> collection,Type idType) {
+        return collection.stream().
+            map(x->DocIdVersion.valueOf(x,idType)).
+            collect(Collectors.toSet());
     }
 }

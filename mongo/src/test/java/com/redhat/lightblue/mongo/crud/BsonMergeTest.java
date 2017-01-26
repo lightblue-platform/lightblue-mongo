@@ -97,8 +97,8 @@ public class BsonMergeTest extends AbstractJsonSchemaTest {
     @Test
     public void merge_simple() throws Exception {
         DocTranslator translator = new DocTranslator(new Resolver(md), nodeFactory);
-        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json")));
-        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json")));
+        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json"))).doc;
+        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json"))).doc;
         oldDoc.put("inv1", "val1");
         ((DBObject) oldDoc.get("field6")).put("inv2", "val2");
         merge.merge(oldDoc, newDoc);
@@ -109,8 +109,8 @@ public class BsonMergeTest extends AbstractJsonSchemaTest {
     @Test
     public void merge_elemremove() throws Exception {
         DocTranslator translator = new DocTranslator(new Resolver(md), nodeFactory);
-        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json")));
-        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json")));
+        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json"))).doc;
+        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json"))).doc;
         oldDoc.put("inv1", "val1");
         ((DBObject) oldDoc.get("field6")).put("inv2", "val2");
         newDoc.removeField("field6");
@@ -122,8 +122,8 @@ public class BsonMergeTest extends AbstractJsonSchemaTest {
     @Test
     public void merge_arr_mod() throws Exception {
         DocTranslator translator = new DocTranslator(new Resolver(md), nodeFactory);
-        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json")));
-        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json")));
+        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json"))).doc;
+        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata1.json"))).doc;
         ((List<DBObject>) oldDoc.get("field7")).get(0).put("inv1", "val1");
         merge.merge(oldDoc, newDoc);
         Assert.assertEquals("val1", ((List<DBObject>) newDoc.get("field7")).get(0).get("inv1"));
@@ -132,8 +132,8 @@ public class BsonMergeTest extends AbstractJsonSchemaTest {
     @Test
     public void merge_arr_mod_id() throws Exception {
         DocTranslator translator = new DocTranslator(new Resolver(md2), nodeFactory);
-        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata2.json")));
-        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata2.json")));
+        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata2.json"))).doc;
+        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata2.json"))).doc;
         ((List<DBObject>) oldDoc.get("field7")).get(0).put("inv1", "val1");
         merge2.merge(oldDoc, newDoc);
         Assert.assertEquals("val1", ((List<DBObject>) newDoc.get("field7")).get(0).get("inv1"));
@@ -142,8 +142,8 @@ public class BsonMergeTest extends AbstractJsonSchemaTest {
     @Test
     public void merge_nested_objarr() throws Exception {
         DocTranslator translator = new DocTranslator(new Resolver(md6), nodeFactory);
-        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata6.json")));
-        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata6.json")));
+        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata6.json"))).doc;
+        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata6.json"))).doc;
         ((List<DBObject>) oldDoc.get("field7")).get(0).put("inv1", "val1");
         merge6.merge(oldDoc, newDoc);
         Assert.assertEquals("val1", ((List<DBObject>) newDoc.get("field7")).get(0).get("inv1"));
@@ -152,8 +152,8 @@ public class BsonMergeTest extends AbstractJsonSchemaTest {
     @Test
     public void merge_duplicate_arrayid() throws Exception {
         DocTranslator translator = new DocTranslator(new Resolver(md6), nodeFactory);
-        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata6.json")));
-        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata6.json")));
+        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata6.json"))).doc;
+        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata6.json"))).doc;
         // Create a duplicate ID
         ((List<DBObject>) oldDoc.get("field7")).get(1).put("id", "1");
         merge6.merge(oldDoc, newDoc);

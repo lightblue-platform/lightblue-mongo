@@ -37,6 +37,7 @@ import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.WriteConcern;
 import com.mongodb.ReadPreference;
+import com.redhat.lightblue.ResultMetadata;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CrudConstants;
@@ -45,6 +46,7 @@ import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.Field;
+import com.redhat.lightblue.metadata.Type;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
@@ -300,13 +302,14 @@ public class BasicDocSaver implements DocSaver {
         if(ctx.isUpdateIfSame()) {
             // Retrieve doc versions from the context
             Type type=md.resolve(DocTranslator.ID_PATH).getType();
-            Set<DocIdVersion> docVersions=
-                ctx.getUpdateDocumentVersions().stream.map(x->return DocIdVersion.valueOf(x,type)).collect(Collectors.toSet());
+            Set<DocIdVersion> docVersions=DocIdVersion.getDocIdVersions(ctx.getUpdateDocumentVersions(),type);
             // Add any document version info from the documents themselves
-            updateAttemptList.stream().filter(d->d.rmd!=null&&d.rmd.getDocumentVersion()!=null).
-                forEach(x->docVersions.add(DocIdVersion.valueOf(x,type)));
+            updateAttemptList.stream().
+                filter(d->d.resultMetadata!=null&&d.resultMetadata.getDocumentVersion()!=null).
+                map(d->d.resultMetadata.getDocumentVersion()).
+                forEach(v->docVersions.add(DocIdVersion.valueOf(v,type)));
             UpdateIfSameProtocol uis=new UpdateIfSameProtocol(collection,writeConcern);
-            docVersions.stream.forEach(UpdateIfSameProtocol::addVersion);
+            uis.addVersions(docVersions);
             return uis;
         } else {
             return new MongoSafeUpdateProtocolForSave(collection,
