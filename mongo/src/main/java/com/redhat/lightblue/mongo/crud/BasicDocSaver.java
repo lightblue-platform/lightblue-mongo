@@ -121,12 +121,14 @@ public class BasicDocSaver implements DocSaver {
     private final class DocInfo {
         final DBObject newDoc; // translated input doc to be written
         final DocCtx inputDoc; // The doc coming from client
+        final ResultMetadata resultMetadata; // The resultmetadata injected into newDoc
         DBObject oldDoc; // The doc in the db
         Object[] id;
 
-        public DocInfo(DBObject newDoc, DocCtx inputDoc) {
+        public DocInfo(DBObject newDoc, ResultMetadata rmd,DocCtx inputDoc) {
             this.newDoc = newDoc;
             this.inputDoc = inputDoc;
+            this.resultMetadata=rmd;
         }
 
         public BasicDBObject getIdQuery() {
@@ -148,7 +150,7 @@ public class BasicDocSaver implements DocSaver {
         // Operate in batches
         List<DocInfo> batch = new ArrayList<>(batchSize);
         for (int i = 0; i < dbObjects.length; i++) {
-            DocInfo item = new DocInfo(dbObjects[i].doc, inputDocs[i]);
+            DocInfo item = new DocInfo(dbObjects[i].doc, dbObjects[i].rmd,inputDocs[i]);
             batch.add(item);
             if (batch.size() >= batchSize) {
                 saveDocs(ctx, op, upsert, collection, batch);
@@ -296,6 +298,16 @@ public class BasicDocSaver implements DocSaver {
                                                DBCollection collection,
                                                List<DocInfo> updateAttemptList) {
         if(ctx.isUpdateIfSame()) {
+            // Retrieve doc versions from the context
+            Type type=md.resolve(DocTranslator.ID_PATH).getType();
+            Set<DocIdVersion> docVersions=
+                ctx.getUpdateDocumentVersions().stream.map(x->return DocIdVersion.valueOf(x,type)).collect(Collectors.toSet());
+            // Add any document version info from the documents themselves
+            updateAttemptList.stream().filter(d->d.rmd!=null&&d.rmd.getDocumentVersion()!=null).
+                forEach(x->docVersions.add(DocIdVersion.valueOf(x,type)));
+            UpdateIfSameProtocol uis=new UpdateIfSameProtocol(collection,writeConcern);
+            docVersions.stream.forEach(UpdateIfSameProtocol::addVersion);
+            return uis;
         } else {
             return new MongoSafeUpdateProtocolForSave(collection,
                                                       writeConcern,
