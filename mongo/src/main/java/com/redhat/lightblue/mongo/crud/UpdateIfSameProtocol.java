@@ -54,7 +54,7 @@ public class UpdateIfSameProtocol implements BatchUpdate {
     /**
      * The document version to be assigned to the documents modified by this updater
      */
-    private final ObjectId docVer=new ObjectId();
+    public final ObjectId docVer=new ObjectId();
 
     /**
      * Set of documents and their versions to be updated.
