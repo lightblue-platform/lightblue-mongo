@@ -130,7 +130,7 @@ public class IterateAndUpdate implements DocUpdater {
                                           DBObject query,
                                           EntityMetadata md,
                                           Measure measure) {
-        if(ctx.isUpdateIfSame()) {
+        if(ctx.isUpdateIfCurrent()) {
             // Retrieve doc versions from the context
             Type type=md.resolve(DocTranslator.ID_PATH).getType();
             Set<DocIdVersion> docVersions=DocIdVersion.getDocIdVersions(ctx.getUpdateDocumentVersions(),type);

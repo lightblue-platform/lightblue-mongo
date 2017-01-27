@@ -161,6 +161,45 @@ public class UpdateIfSameTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void nullIsValidVersion() throws Exception {
+
+        DBObject doc;
+
+        doc=getDoc("1","1");
+        DocIdVersion ver=DocIdVersion.getDocumentVersion(doc);
+        coll.insert(doc);
+        updater.addVersion(ver);
+        updater.addDoc(doc);
+        doc.put("field","updated"+doc.get("_id").toString());
+
+        doc=getDoc("2","2",new ObjectId());
+        ver=DocIdVersion.getDocumentVersion(doc);
+        coll.insert(doc);
+        updater.addVersion(ver);
+        updater.addDoc(doc);
+        doc.put("field","updated"+doc.get("_id").toString());
+        
+        doc=getDoc("3","3",new ObjectId());
+        ver=DocIdVersion.getDocumentVersion(doc);
+        coll.insert(doc);
+        updater.addVersion(ver);
+        updater.addDoc(doc);
+        doc.put("field","updated"+doc.get("_id").toString());
+        
+        Assert.assertTrue(updater.commit().isEmpty());
+
+        DBCursor cursor=coll.find();
+        while(cursor.hasNext()) {
+            doc=cursor.next();
+            Assert.assertEquals("updated"+doc.get("_id").toString(),doc.get("field").toString());
+            Assert.assertEquals(updater.docVer.toString(),((List<ObjectId>)((DBObject)doc.get(DocTranslator.HIDDEN_SUB_PATH.toString())).
+                                                           get(DocVerUtil.DOCVER)).get(0).toString());
+        }
+        cursor.close();
+        
+    }
+
+    @Test
     public void concurrentModification() throws Exception {
 
         DBObject doc;

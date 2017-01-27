@@ -60,15 +60,18 @@ public final class DocIdVersion {
 
     @Override
     public String toString() {
-        return String.format("%s:%s",id.toString(),version);
+        return String.format("%s:%s",id==null?"":id.toString(),version==null?"":version);
     }
 
     static public DocIdVersion valueOf(String s,Type idType) {
         int index=s.indexOf(":");
-        if(index!=-1)
-            return new DocIdVersion(DocTranslator.createIdFrom(idType.cast(s.substring(0,index))),
-                                    new ObjectId(s.substring(index+1)));
-        else
+        if(index!=-1) {
+            String idStr=s.substring(0,index);
+            String versionStr=s.substring(index+1);
+            Object id=DocTranslator.createIdFrom(idType.cast(idStr));
+            ObjectId version=versionStr.length()==0?null:new ObjectId(versionStr);
+            return new DocIdVersion(id,version);
+        } else
             throw new IllegalArgumentException(s);
     }
 
@@ -77,7 +80,7 @@ public final class DocIdVersion {
         if(list!=null&&!list.isEmpty())
             return new DocIdVersion(DocTranslator.createIdFrom(document.get("_id")),list.get(0));
         else
-            return null;
+            return new DocIdVersion(DocTranslator.createIdFrom(document.get("_id")),null);
     }
 
     public static Set<DocIdVersion> getDocIdVersions(Collection<String> collection,Type idType) {
