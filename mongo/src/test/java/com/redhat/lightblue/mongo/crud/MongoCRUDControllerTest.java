@@ -73,6 +73,7 @@ import com.redhat.lightblue.mongo.common.DBResolver;
 import com.redhat.lightblue.mongo.common.MongoDataStore;
 import com.redhat.lightblue.mongo.config.MongoConfiguration;
 import com.redhat.lightblue.query.Projection;
+import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
@@ -847,6 +848,52 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(readDoc.get(new Path("field1")).asText(), r2doc.get(new Path("field1")).asText());
         Assert.assertEquals(readDoc.get(new Path("field7.0.elemf1")).asText(), r2doc.get(new Path("field7.0.elemf1")).asText());
         Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), saveResponse.getNumSaved());
+    }
+
+    @Test
+    public void saveTest_ifsame() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        Projection projection = projection("{'field':'_id'}");
+        ctx.addDocument(doc);
+        System.out.println("Write doc:" + doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);      
+        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+
+        QueryExpression  q=query("{'field':'_id','op':'=','rvalue':'" + id + "'}");
+        Projection p=projection("{'field':'*','recursive':1}");
+        
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, q,p, null, null, null);
+        String ver=ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion();
+        JsonDoc readDoc = ctx.getDocuments().get(0);
+
+        // Save the doc back
+        ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
+        readDoc.modify(new Path("field1"), nodeFactory.textNode("updated1"), false);
+        ctx.add(md);
+        ctx.addDocument(readDoc);
+        controller.save(ctx, false, projection);
+
+        // Try saving it again with updateIfCurrent flag
+        ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
+        ctx.setUpdateIfCurrent(true);
+        ctx.getUpdateDocumentVersions().add(ver);
+        readDoc.modify(new Path("field1"), nodeFactory.textNode("updated2"), false);
+        ctx.add(md);
+        ctx.addDocument(readDoc);
+        controller.save(ctx, false, projection);
+        Assert.assertTrue(ctx.hasDocumentErrors());
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        // Read it back
+        controller.find(ctx, q,p, null, null, null);
+        JsonDoc r2doc = ctx.getDocuments().get(0);
+        Assert.assertEquals("updated1", r2doc.get(new Path("field1")).asText());
     }
 
     @Test
