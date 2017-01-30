@@ -58,7 +58,7 @@ public interface DocSaver {
                   Op op,
                   boolean upsert,
                   DBCollection collection,
-                  DBObject[] dbObjects,
+                  DocTranslator.TranslatedBsonDoc[] dbObjects,
                   DocCtx[] inputDocs);
 
 }

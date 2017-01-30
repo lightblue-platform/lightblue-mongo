@@ -49,6 +49,7 @@ import com.redhat.lightblue.eval.Updater;
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.PredefinedFields;
+import com.redhat.lightblue.metadata.Type;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.Measure;
@@ -98,7 +99,7 @@ public class IterateAndUpdate implements DocUpdater {
             // We are bypassing validation here
             if(!updateDoc(md,jsonDoc.doc,measure))
                 return null;
-            return  translate(md,jsonDoc.doc,doc,merge,measure);
+            return translate(md,jsonDoc.doc,doc,merge,measure).doc;
         }
     }
     
@@ -124,6 +125,28 @@ public class IterateAndUpdate implements DocUpdater {
         this.concurrentModificationDetection = concurrentModificationDetection;
     }
 
+    private BatchUpdate getUpdateProtocol(CRUDOperationContext ctx,
+                                          DBCollection collection,
+                                          DBObject query,
+                                          EntityMetadata md,
+                                          Measure measure) {
+        if(ctx.isUpdateIfCurrent()) {
+            // Retrieve doc versions from the context
+            Type type=md.resolve(DocTranslator.ID_PATH).getType();
+            Set<DocIdVersion> docVersions=DocIdVersion.getDocIdVersions(ctx.getUpdateDocumentVersions(),type);
+            UpdateIfSameProtocol uis=new UpdateIfSameProtocol(collection,writeConcern);
+            uis.addVersions(docVersions);
+            return uis;
+        } else {
+            return new MongoSafeUpdateProtocolForUpdate(collection,
+                                                        writeConcern,
+                                                        query,
+                                                        concurrentModificationDetection,
+                                                        md,
+                                                        measure);
+        }
+    }
+
     @Override
     public void update(CRUDOperationContext ctx,
                        DBCollection collection,
@@ -133,12 +156,7 @@ public class IterateAndUpdate implements DocUpdater {
         LOGGER.debug("iterateUpdate: start");
         LOGGER.debug("Computing the result set for {}", query);
         Measure measure=new Measure();
-        MongoSafeUpdateProtocol sup=new MongoSafeUpdateProtocolForUpdate(collection,
-                                                                         writeConcern,
-                                                                         query,
-                                                                         concurrentModificationDetection,
-                                                                         md,
-                                                                         measure);
+        BatchUpdate sup=getUpdateProtocol(ctx,collection,query,md,measure);
         DBCursor cursor = null;
         int docIndex = 0;
         int numMatched = 0;
@@ -195,9 +213,9 @@ public class IterateAndUpdate implements DocUpdater {
                     if (!hasErrors) {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc);
-                            DBObject updatedObject=translate(md,doc,document,merge,measure);
+                            DocTranslator.TranslatedBsonDoc updatedObject=translate(md,doc,document,merge,measure);
 
-                            sup.addDoc(updatedObject);
+                            sup.addDoc(updatedObject.doc);
                             docUpdateAttempts.add(doc);
                             // update in batches
                             if (docUpdateAttempts.size()-batchStartIndex>= batchSize) {
@@ -277,13 +295,13 @@ public class IterateAndUpdate implements DocUpdater {
         }
     }
 
-    private DBObject translate(EntityMetadata md,JsonDoc doc,DBObject document,BsonMerge merge,Measure measure) {
+    private DocTranslator.TranslatedBsonDoc translate(EntityMetadata md,JsonDoc doc,DBObject document,BsonMerge merge,Measure measure) {
         measure.begin("toBsonAndMerge");
-        DBObject updatedObject = translator.toBson(doc);
-        merge.merge(document, updatedObject);
+        DocTranslator.TranslatedBsonDoc updatedObject = translator.toBson(doc);
+        merge.merge(document, updatedObject.doc);
         measure.end("toBsonAndMerge");
         measure.begin("populateHiddenFields");
-        DocTranslator.populateDocHiddenFields(updatedObject, md);
+        DocTranslator.populateDocHiddenFields(updatedObject.doc, md);
         measure.end("populateHiddenFields");
         return updatedObject;
     }

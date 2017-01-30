@@ -37,6 +37,7 @@ import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.WriteConcern;
 import com.mongodb.ReadPreference;
+import com.redhat.lightblue.ResultMetadata;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CrudConstants;
@@ -45,6 +46,7 @@ import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.Field;
+import com.redhat.lightblue.metadata.Type;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
@@ -121,12 +123,14 @@ public class BasicDocSaver implements DocSaver {
     private final class DocInfo {
         final DBObject newDoc; // translated input doc to be written
         final DocCtx inputDoc; // The doc coming from client
+        final ResultMetadata resultMetadata; // The resultmetadata injected into newDoc
         DBObject oldDoc; // The doc in the db
         Object[] id;
 
-        public DocInfo(DBObject newDoc, DocCtx inputDoc) {
+        public DocInfo(DBObject newDoc, ResultMetadata rmd,DocCtx inputDoc) {
             this.newDoc = newDoc;
             this.inputDoc = inputDoc;
+            this.resultMetadata=rmd;
         }
 
         public BasicDBObject getIdQuery() {
@@ -143,12 +147,12 @@ public class BasicDocSaver implements DocSaver {
                          Op op,
                          boolean upsert,
                          DBCollection collection,
-                         DBObject[] dbObjects,
+                         DocTranslator.TranslatedBsonDoc[] dbObjects,
                          DocCtx[] inputDocs) {
         // Operate in batches
         List<DocInfo> batch = new ArrayList<>(batchSize);
         for (int i = 0; i < dbObjects.length; i++) {
-            DocInfo item = new DocInfo(dbObjects[i], inputDocs[i]);
+            DocInfo item = new DocInfo(dbObjects[i].doc, dbObjects[i].rmd,inputDocs[i]);
             batch.add(item);
             if (batch.size() >= batchSize) {
                 saveDocs(ctx, op, upsert, collection, batch);
@@ -250,7 +254,7 @@ public class BasicDocSaver implements DocSaver {
                     LOGGER.debug("Inaccessible fields:{}", paths);
                     if (paths == null || paths.isEmpty()) {
                         DocTranslator.populateDocHiddenFields(doc.newDoc, md);
-                        MongoSafeUpdateProtocol.overwriteDocVer(doc.newDoc,docver);
+                        DocVerUtil.overwriteDocVer(doc.newDoc,docver);
                         insertionAttemptList.add(doc);
                     } else {
                         for (Path path : paths) {
@@ -292,6 +296,29 @@ public class BasicDocSaver implements DocSaver {
         }
     }
 
+    private BatchUpdate getBatchUpdateProtocol(CRUDOperationContext ctx,
+                                               DBCollection collection,
+                                               List<DocInfo> updateAttemptList) {
+        if(ctx.isUpdateIfCurrent()) {
+            // Retrieve doc versions from the context
+            Type type=md.resolve(DocTranslator.ID_PATH).getType();
+            Set<DocIdVersion> docVersions=DocIdVersion.getDocIdVersions(ctx.getUpdateDocumentVersions(),type);
+            // Add any document version info from the documents themselves
+            updateAttemptList.stream().
+                filter(d->d.resultMetadata!=null&&d.resultMetadata.getDocumentVersion()!=null).
+                map(d->d.resultMetadata.getDocumentVersion()).
+                forEach(v->docVersions.add(DocIdVersion.valueOf(v,type)));
+            UpdateIfSameProtocol uis=new UpdateIfSameProtocol(collection,writeConcern);
+            uis.addVersions(docVersions);
+            return uis;
+        } else {
+            return new MongoSafeUpdateProtocolForSave(collection,
+                                                      writeConcern,
+                                                      concurrentModificationDetection,
+                                                      updateAttemptList);
+        }
+    }
+
     private void updateDocs(CRUDOperationContext ctx,
                             DBCollection collection,
                             List<DocInfo> list) {
@@ -312,7 +339,7 @@ public class BasicDocSaver implements DocSaver {
                     if (paths == null || paths.isEmpty()) {
                         try {
                             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_DOC, ctx, doc.inputDoc);
-                            MongoSafeUpdateProtocol.copyDocVer(doc.newDoc,doc.oldDoc);
+                            DocVerUtil.copyDocVer(doc.newDoc,doc.oldDoc);
                             // Copy the _id, newdoc doesn't necessarily have _id
                             doc.newDoc.put("_id",doc.oldDoc.get("_id"));
                             merge.merge(doc.oldDoc, doc.newDoc);
@@ -328,10 +355,7 @@ public class BasicDocSaver implements DocSaver {
                 }
                 LOGGER.debug("After checks and merge, updating {} docs", updateAttemptList.size());
                 if (!updateAttemptList.isEmpty()) {
-                    MongoSafeUpdateProtocol upd=new MongoSafeUpdateProtocolForSave(collection,
-                                                                                   writeConcern,
-                                                                                   concurrentModificationDetection,
-                                                                                   updateAttemptList);
+                    BatchUpdate upd=getBatchUpdateProtocol(ctx,collection,updateAttemptList);
                     for (DocInfo doc : updateAttemptList) {
                         upd.addDoc(doc.newDoc);
                         doc.inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);

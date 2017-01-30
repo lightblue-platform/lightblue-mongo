@@ -80,7 +80,7 @@ public class TranslatorTest extends AbstractMongoCrudTest {
                 .put("field1", "testField1")
                 .put("field2", "testField2");
 
-        DBObject bson = docTranslator.toBson(new JsonDoc(obj));
+        DBObject bson = docTranslator.toBson(new JsonDoc(obj)).doc;
         DocTranslator.populateDocHiddenFields(bson, md);
 
         DBObject hidden = (DBObject) bson.get(DocTranslator.HIDDEN_SUB_PATH.toString());
@@ -171,7 +171,7 @@ public class TranslatorTest extends AbstractMongoCrudTest {
     public void translateNullArray() throws Exception {
         JsonDoc doc = new JsonDoc(json(loadResource("./testdata1.json")));
         doc.modify(new Path("field7"), nodeFactory.nullNode(), true);
-        DBObject bdoc = docTranslator.toBson(doc);
+        DBObject bdoc = docTranslator.toBson(doc).doc;
         Assert.assertNull(bdoc.get("field7"));
     }
 
@@ -179,7 +179,7 @@ public class TranslatorTest extends AbstractMongoCrudTest {
     public void translateNullObject() throws Exception {
         JsonDoc doc = new JsonDoc(json(loadResource("./testdata1.json")));
         doc.modify(new Path("field6"), nodeFactory.nullNode(), true);
-        DBObject bdoc = docTranslator.toBson(doc);
+        DBObject bdoc = docTranslator.toBson(doc).doc;
         Assert.assertNull(bdoc.get("field6"));
     }
 
@@ -310,7 +310,7 @@ public class TranslatorTest extends AbstractMongoCrudTest {
         String docStr = loadResource(getClass().getSimpleName() + "-data-without-ref.json");
         JsonNode jdoc = JsonUtils.json(docStr);
         JsonDoc doc = new JsonDoc(jdoc);
-        DBObject obj = docTranslator.toBson(doc);
+        DBObject obj = docTranslator.toBson(doc).doc;
         Assert.assertNull(obj.get("ref"));
     }
 
@@ -319,7 +319,7 @@ public class TranslatorTest extends AbstractMongoCrudTest {
         String docStr = loadResource(getClass().getSimpleName() + "-data-with-null-ref.json");
         JsonNode jdoc = JsonUtils.json(docStr);
         JsonDoc doc = new JsonDoc(jdoc);
-        DBObject obj = docTranslator.toBson(doc);
+        DBObject obj = docTranslator.toBson(doc).doc;
         Assert.assertNull(obj.get("ref"));
     }
 

@@ -41,6 +41,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ValueNode;
 import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
@@ -102,6 +103,16 @@ public class DocTranslator {
         }
     }
 
+    public static class TranslatedBsonDoc {
+        public final DBObject doc;
+        public final ResultMetadata rmd;
+
+        public TranslatedBsonDoc(DBObject doc,ResultMetadata md) {
+            this.doc=doc;
+            this.rmd=md;
+        }
+    }
+
     /**
      * Constructs a translator using the given metadata resolver and factory
      */
@@ -115,8 +126,8 @@ public class DocTranslator {
      * Translates a list of JSON documents to DBObjects. Translation is metadata
      * driven.
      */
-    public DBObject[] toBson(List<? extends JsonDoc> docs) {
-        DBObject[] ret = new DBObject[docs.size()];
+    public TranslatedBsonDoc[] toBson(List<? extends JsonDoc> docs) {
+        TranslatedBsonDoc[] ret = new TranslatedBsonDoc[docs.size()];
         int i = 0;
         for (JsonDoc doc : docs) {
             ret[i++] = toBson(doc);
@@ -127,7 +138,7 @@ public class DocTranslator {
     /**
      * Translates a JSON document to DBObject. Translation is metadata driven.
      */
-    public DBObject toBson(JsonDoc doc) {
+    public TranslatedBsonDoc toBson(JsonDoc doc) {
         LOGGER.debug("toBson() enter");
         JsonNode node = doc.get(OBJECT_TYPE);
         if (node == null) {
@@ -137,9 +148,10 @@ public class DocTranslator {
         if (md == null) {
             throw Error.get(ERR_INVALID_OBJECTTYPE, node.asText());
         }
-        DBObject ret = toBson(doc, md);
+        ResultMetadata rmd=new ResultMetadata();
+        DBObject bsonDoc = toBson(doc, md,rmd);
         LOGGER.debug("toBson() return");
-        return ret;
+        return new TranslatedBsonDoc(bsonDoc,rmd);
     }
 
     /**
@@ -273,9 +285,9 @@ public class DocTranslator {
 
     public static ResultMetadata getDocMetadata(DBObject obj) {
         ResultMetadata md=new ResultMetadata();
-        List<ObjectId> list=MongoSafeUpdateProtocol.getVersionList(obj);
-        if(list!=null&&!list.isEmpty())
-            md.setDocumentVersion(list.get(0).toString());
+        DocIdVersion v=DocIdVersion.getDocumentVersion(obj);
+        if(v!=null)
+            md.setDocumentVersion(v.toString());
         return md;
     }
 
@@ -298,9 +310,20 @@ public class DocTranslator {
     }
     
     private void injectDocumentVersion(DBObject root,ObjectNode parent,String fieldName) {
-        List<ObjectId> list=MongoSafeUpdateProtocol.getVersionList(root);
-        if(list!=null&&!list.isEmpty())
-            parent.set(fieldName,factory.textNode(list.get(0).toString()));
+        DocIdVersion v=DocIdVersion.getDocumentVersion(root);
+        if(v!=null) {
+            parent.set(fieldName,factory.textNode(v.toString()));
+        }
+    }
+
+    private boolean isResultMetadataNode(FieldTreeNode field) {
+        Object x=((MetadataObject)field).getProperties().get(ResultMetadata.MD_PROPERTY_RESULT_METADATA);
+        return x!=null&&x instanceof Boolean&&((Boolean)x).booleanValue();
+    }
+
+    private boolean isDocVerNode(FieldTreeNode field) {
+        Object x=((MetadataObject)field).getProperties().get(ResultMetadata.MD_PROPERTY_DOCVER);
+        return x!=null&&x instanceof Boolean&&((Boolean)x).booleanValue();
     }
     
     /**
@@ -314,13 +337,11 @@ public class DocTranslator {
             String fieldName = field.getName();
             LOGGER.debug("{}", p);
             boolean translate=true;
-            Object x=((MetadataObject)field).getProperties().get(ResultMetadata.MD_PROPERTY_RESULT_METADATA);
-            if(x!=null&&x instanceof Boolean&&((Boolean)x).booleanValue()) {
+            if(isResultMetadataNode(field)) {
                 injectResultMetadata(root,node,fieldName);
                 translate=false;
             } else {
-                x=((MetadataObject)field).getProperties().get(ResultMetadata.MD_PROPERTY_DOCVER);
-                if(x!=null&&x instanceof Boolean&&((Boolean)x).booleanValue()) {
+                if(isDocVerNode(field)) {
                     injectDocumentVersion(root,node,fieldName);
                     translate=false;
                 }
@@ -409,12 +430,12 @@ public class DocTranslator {
         return ret;
     }
 
-    private BasicDBObject toBson(JsonDoc doc, EntityMetadata md) {
+    private BasicDBObject toBson(JsonDoc doc, EntityMetadata md,ResultMetadata rmd) {
         LOGGER.debug("Entity: {}", md.getName());
         BasicDBObject ret = null;
         JsonNodeCursor cursor = doc.cursor();
         if (cursor.firstChild()) {
-            ret = objectToBson(cursor, md);
+            ret = objectToBson(cursor, md,rmd);
         }
         return ret;
     }
@@ -450,10 +471,24 @@ public class DocTranslator {
         }
     }
 
+    private void fillMetadata(JsonNode node,ResultMetadata rmd) {
+        if(node instanceof ObjectNode) {
+            fillMetadata(node.get("documentVersion"),rmd);
+        }
+    }
+
+    private void fillDocVer(JsonNode node,ResultMetadata rmd) {
+        if(node instanceof ValueNode) {
+            String docver=node.asText();
+            if(rmd.getDocumentVersion()!=null)
+                rmd.setDocumentVersion(docver);
+        }        
+    }
+
     /**
      * @param cursor The cursor, pointing to the first element of the object
      */
-    private BasicDBObject objectToBson(JsonNodeCursor cursor, EntityMetadata md) {
+    private BasicDBObject objectToBson(JsonNodeCursor cursor, EntityMetadata md,ResultMetadata rmd) {
         BasicDBObject ret = new BasicDBObject();
         do {
             Path path = cursor.getCurrentPath();
@@ -462,14 +497,17 @@ public class DocTranslator {
             FieldTreeNode fieldMdNode = md.resolve(path);
 
             // Do not translate result metadata fields
-            if(((MetadataObject)fieldMdNode).getProperties().get(ResultMetadata.MD_PROPERTY_RESULT_METADATA)==null&&
-               ((MetadataObject)fieldMdNode).getProperties().get(ResultMetadata.MD_PROPERTY_DOCVER)==null) {
+            if(isResultMetadataNode(fieldMdNode)) {
+                fillMetadata(node,rmd);
+            } else if(isDocVerNode(fieldMdNode)) {
+                fillDocVer(node,rmd);
+            } else {
                 if (fieldMdNode instanceof SimpleField) {
                     toBson(ret, (SimpleField) fieldMdNode, path, node, md);
                 } else if (fieldMdNode instanceof ObjectField) {
-                    convertObjectFieldToBson(node, cursor, ret, path, md);
+                    convertObjectFieldToBson(node, cursor, ret, path, md,rmd);
                 } else if (fieldMdNode instanceof ArrayField) {
-                    convertArrayFieldToBson(node, cursor, ret, fieldMdNode, path, md);
+                    convertArrayFieldToBson(node, cursor, ret, fieldMdNode, path, md,rmd);
                 } else if (fieldMdNode instanceof ReferenceField) {
                     convertReferenceFieldToBson(node, path);
                 }
@@ -478,11 +516,11 @@ public class DocTranslator {
         return ret;
     }
 
-    private void convertObjectFieldToBson(JsonNode node, JsonNodeCursor cursor, BasicDBObject ret, Path path, EntityMetadata md) {
+    private void convertObjectFieldToBson(JsonNode node, JsonNodeCursor cursor, BasicDBObject ret, Path path, EntityMetadata md,ResultMetadata rmd) {
         if (node != null) {
             if (node instanceof ObjectNode) {
                 if (cursor.firstChild()) {
-                    ret.append(path.tail(0), objectToBson(cursor, md));
+                    ret.append(path.tail(0), objectToBson(cursor, md,rmd));
                     cursor.parent();
                 }
             } else if (node instanceof NullNode) {
@@ -493,11 +531,11 @@ public class DocTranslator {
         }
     }
 
-    private void convertArrayFieldToBson(JsonNode node, JsonNodeCursor cursor, BasicDBObject ret, FieldTreeNode fieldMdNode, Path path, EntityMetadata md) {
+    private void convertArrayFieldToBson(JsonNode node, JsonNodeCursor cursor, BasicDBObject ret, FieldTreeNode fieldMdNode, Path path, EntityMetadata md,ResultMetadata rmd) {
         if (node != null) {
             if (node instanceof ArrayNode) {
                 if (cursor.firstChild()) {
-                    ret.append(path.tail(0), arrayToBson(cursor, ((ArrayField) fieldMdNode).getElement(), md));
+                    ret.append(path.tail(0), arrayToBson(cursor, ((ArrayField) fieldMdNode).getElement(), md,rmd));
                     cursor.parent();
                 } else {
                     // empty array! add an empty list.
@@ -523,7 +561,7 @@ public class DocTranslator {
      * @param cursor The cursor, pointing to the first element of the array
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private List arrayToBson(JsonNodeCursor cursor, ArrayElement el, EntityMetadata md) {
+    private List arrayToBson(JsonNodeCursor cursor, ArrayElement el, EntityMetadata md,ResultMetadata rmd) {
         List l = new ArrayList();
         if (el instanceof SimpleArrayElement) {
             Type t = el.getType();
@@ -537,7 +575,7 @@ public class DocTranslator {
                 if (node == null || node instanceof NullNode) {
                     l.add(null);
                 } else if (cursor.firstChild()) {
-                    l.add(objectToBson(cursor, md));
+                    l.add(objectToBson(cursor, md,rmd));
                     cursor.parent();
                 } else {
                     l.add(null);
