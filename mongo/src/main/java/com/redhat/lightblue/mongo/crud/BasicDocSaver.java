@@ -310,9 +310,11 @@ public class BasicDocSaver implements DocSaver {
                 forEach(v->docVersions.add(DocIdVersion.valueOf(v,type)));
             UpdateIfSameProtocol uis=new UpdateIfSameProtocol(collection,writeConcern);
             uis.addVersions(docVersions);
+            LOGGER.debug("Update-if-current protocol is chosen, docVersions={}",docVersions);
             return uis;
         } else {
-            return new MongoSafeUpdateProtocolForSave(collection,
+            LOGGER.debug("MongoSafeUpdateProtocol is chosen");
+           return new MongoSafeUpdateProtocolForSave(collection,
                                                       writeConcern,
                                                       concurrentModificationDetection,
                                                       updateAttemptList);
