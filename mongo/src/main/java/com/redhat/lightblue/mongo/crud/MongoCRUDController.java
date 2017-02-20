@@ -58,6 +58,7 @@ import com.redhat.lightblue.crud.ConstraintValidator;
 import com.redhat.lightblue.crud.CrudConstants;
 import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.crud.ExplainQuerySupport;
+import com.redhat.lightblue.crud.DocumentStream;
 import com.redhat.lightblue.crud.MetadataResolver;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
@@ -200,7 +201,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_INSERT, ctx);
         int n = saveOrInsert(ctx, false, projection, OP_INSERT);
         response.setNumInserted(n);
-        ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_INSERT, ctx);
         return response;
     }
 
@@ -213,7 +213,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_SAVE, ctx);
         int n = saveOrInsert(ctx, upsert, projection, OP_SAVE);
         response.setNumSaved(n);
-        ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_SAVE, ctx);
         return response;
     }
 
@@ -222,7 +221,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                              Projection projection,
                              String operation) {
         int ret = 0;
-        List<DocCtx> documents = ctx.getDocumentsWithoutErrors();
+        List<DocCtx> documents = ctx.getInputDocumentsWithoutErrors();
         if (documents == null || documents.isEmpty()) {
             return ret;
         }
@@ -358,7 +357,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         } finally {
             Error.pop();
         }
-        ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE, ctx);
         LOGGER.debug("update end: updated: {}, failed: {}", response.getNumUpdated(), response.getNumFailed());
         return response;
     }
@@ -398,7 +396,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         } finally {
             Error.pop();
         }
-        ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_DELETE, ctx);
         LOGGER.debug("delete end: deleted: {}}", response.getNumDeleted());
         return response;
     }
@@ -476,9 +473,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 // Project results
                 Projector projector = Projector.getInstance(projection == null ? EMPTY_PROJECTION
                         : Projection.add(projection, roleEval.getExcludedFields(FieldAccessRoleEvaluator.Operation.find)), md);
-                for (DocCtx document : ctx.getDocuments()) {
-                    document.setOutputDocument(projector.project(document, ctx.getFactory().getNodeFactory()));
-                }
+                ctx.setDocumentStream(DocumentStream.map(ctx.getDocumentStream(),d->{
+                            d.setOutputDocument(projector.project(d, JsonNodeFactory.instance));
+                            return d;
+                        }));
                 ctx.getHookManager().queueHooks(ctx);
             } else {
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "find:" + ctx.getEntityName()));
@@ -491,7 +489,6 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         } finally {
             Error.pop();
         }
-        ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_FIND, ctx);
         LOGGER.debug("find end: query: {} results: {}", response.getSize());
         return response;
     }

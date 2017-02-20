@@ -20,6 +20,8 @@ package com.redhat.lightblue.mongo.crud;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.List;
+import java.util.ArrayList;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -32,7 +34,10 @@ import com.mongodb.BasicDBObject;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.WriteResult;
+import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.crud.CRUDOperation;
+import com.redhat.lightblue.crud.DocumentStream;
+import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.JsonUtils;
@@ -59,6 +64,15 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         // create translator with the context
         translator = new DocTranslator(ctx, nodeFactory);
     }
+
+    private List<DocCtx> streamToList(CRUDOperationContext ctx) {
+        List<DocCtx> list=new ArrayList<>();
+        DocumentStream<DocCtx> stream=ctx.getDocumentStream();
+        while(stream.hasNext())
+            list.add(stream.next());
+        return list;
+    }
+
 
     private void insert(String jsonStringFormat, String formatArg) {
         insert(jsonStringFormat, new String[]{formatArg});
@@ -107,8 +121,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 // Long (to)
                 null);
 
+        List<DocCtx> documents=streamToList(ctx);
         Assert.assertEquals("find count", 3, count);
-        Assert.assertEquals(3, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(3, documents.size());
     }
 
     @Test
@@ -143,8 +158,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 // Long (to)
                 null);
 
+        List<DocCtx> documents=streamToList(ctx);
         Assert.assertEquals("find count", 1, count);
-        Assert.assertEquals(1, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(1, documents.size());
     }
 
     @Test
@@ -175,8 +191,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 // Long (to)
                 1l);
 
+        List<DocCtx> documents=streamToList(ctx);
         Assert.assertEquals("find count", 3, count);
-        Assert.assertEquals(2, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(2, documents.size());
     }
 
     @Test
@@ -207,15 +224,17 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 // Long (to)
                 9l);
 
+        List<DocCtx> documents=streamToList(ctx);
+
         Assert.assertEquals("find count", 20, count);
-        Assert.assertEquals(7, ctx.getDocumentsWithoutErrors().size());
-        Assert.assertEquals(id + "3", ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText());
-        Assert.assertEquals(id + "4", ctx.getDocuments().get(1).getOutputDocument().get(new Path("_id")).asText());
-        Assert.assertEquals(id + "5", ctx.getDocuments().get(2).getOutputDocument().get(new Path("_id")).asText());
-        Assert.assertEquals(id + "6", ctx.getDocuments().get(3).getOutputDocument().get(new Path("_id")).asText());
-        Assert.assertEquals(id + "7", ctx.getDocuments().get(4).getOutputDocument().get(new Path("_id")).asText());
-        Assert.assertEquals(id + "8", ctx.getDocuments().get(5).getOutputDocument().get(new Path("_id")).asText());
-        Assert.assertEquals(id + "9", ctx.getDocuments().get(6).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(7, documents.size());
+        Assert.assertEquals(id + "3", documents.get(0).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "4", documents.get(1).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "5", documents.get(2).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "6", documents.get(3).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "7", documents.get(4).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "8", documents.get(5).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "9", documents.get(6).getOutputDocument().get(new Path("_id")).asText());
 
     }
 
@@ -246,9 +265,10 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 12l,
                 // Long (to)
                 null);
-
+        
+        List<DocCtx> documents=streamToList(ctx);
         Assert.assertEquals("find count", 20, count);
-        Assert.assertEquals(8, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(8, documents.size());
     }
 
     @Test
@@ -279,8 +299,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 // Long (to)
                 0l);
 
+        List<DocCtx> documents=streamToList(ctx);
         Assert.assertEquals("find count", 20, count);
-        Assert.assertEquals(1, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(1, documents.size());
     }
 
     @Test
@@ -330,8 +351,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 // Long (to)
                 9l);
 
+        List<DocCtx> documents=streamToList(ctx);        
         Assert.assertEquals("find count", 20, count);
-        Assert.assertEquals(10, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(10, documents.size());
     }
 
     @Test
@@ -361,9 +383,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 12l,
                 // Long (to)
                 -8l);
-
+        List<DocCtx> documents=streamToList(ctx);
         Assert.assertEquals("find count", 20, count);
-        Assert.assertEquals(0, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(0, documents.size());
     }
 
     @Test
@@ -394,8 +416,9 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 // Long (to)
                 8l);
 
+        List<DocCtx> documents=streamToList(ctx);
         Assert.assertEquals("find count", 20, count);
-        Assert.assertEquals(0, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(0, documents.size());
     }
 
     @Test
@@ -429,13 +452,14 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 // Long (to)
                 null);
 
+        List<DocCtx> documents=streamToList(ctx);
         Assert.assertEquals("find count", 3, count);
-        Assert.assertEquals(3, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(3, documents.size());
 
         // verify order
-        Assert.assertEquals(id + "3", ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText());
-        Assert.assertEquals(id + "2", ctx.getDocuments().get(1).getOutputDocument().get(new Path("_id")).asText());
-        Assert.assertEquals(id + "1", ctx.getDocuments().get(2).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "3", documents.get(0).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "2", documents.get(1).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "1", documents.get(2).getOutputDocument().get(new Path("_id")).asText());
     }
 
     @Test
@@ -469,12 +493,13 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 // Long (to)
                 1l);
 
+        List<DocCtx> documents=streamToList(ctx);
         Assert.assertEquals("find count", 3, count);
-        Assert.assertEquals(2, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(2, documents.size());
 
         // verify order
-        Assert.assertEquals(id + "3", ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText());
-        Assert.assertEquals(id + "2", ctx.getDocuments().get(1).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "3", documents.get(0).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "2", documents.get(1).getOutputDocument().get(new Path("_id")).asText());
     }
 
     @Test
@@ -504,13 +529,14 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 1l,
                 // Long (to)
                 null);
+        List<DocCtx> documents=streamToList(ctx);
 
         Assert.assertEquals("find count", 3, count);
-        Assert.assertEquals(2, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(2, documents.size());
 
         // verify data
-        Assert.assertEquals(id + "2", ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText());
-        Assert.assertEquals(id + "3", ctx.getDocuments().get(1).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "2", documents.get(0).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "3", documents.get(1).getOutputDocument().get(new Path("_id")).asText());
     }
 
     @Test
@@ -544,12 +570,13 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 // Long (to)
                 null);
 
+        List<DocCtx> documents=streamToList(ctx);
         Assert.assertEquals("find count", 3, count);
-        Assert.assertEquals(2, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(2, documents.size());
 
         // verify order
-        Assert.assertEquals(id + "2", ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText());
-        Assert.assertEquals(id + "1", ctx.getDocuments().get(1).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "2", documents.get(0).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "1", documents.get(1).getOutputDocument().get(new Path("_id")).asText());
     }
 
     @Test
@@ -584,11 +611,12 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
                 // Long (to)
                 2l);
 
+        List<DocCtx> documents=streamToList(ctx);
         Assert.assertEquals("find count", 4, count);
-        Assert.assertEquals(2, ctx.getDocumentsWithoutErrors().size());
+        Assert.assertEquals(2, documents.size());
 
         // verify order
-        Assert.assertEquals(id + "2", ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText());
-        Assert.assertEquals(id + "3", ctx.getDocuments().get(1).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "2", documents.get(0).getOutputDocument().get(new Path("_id")).asText());
+        Assert.assertEquals(id + "3", documents.get(1).getOutputDocument().get(new Path("_id")).asText());
     }
 }

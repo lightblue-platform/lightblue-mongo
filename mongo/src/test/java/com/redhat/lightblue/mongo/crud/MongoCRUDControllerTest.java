@@ -43,6 +43,7 @@ import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
+import com.redhat.lightblue.DataError;
 import com.redhat.lightblue.ExecutionOptions;
 import com.redhat.lightblue.ResultMetadata;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
@@ -51,6 +52,7 @@ import com.redhat.lightblue.crud.CRUDInsertionResponse;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDSaveResponse;
+import com.redhat.lightblue.crud.DocumentStream;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.metadata.ArrayField;
@@ -105,6 +107,27 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         });
     }
 
+    private void addDocument(CRUDOperationContext ctx,JsonDoc doc) {
+        if(ctx.getInputDocuments()==null) {
+            ArrayList<DocCtx> list=new ArrayList<>();
+            ctx.setInputDocuments(list);
+        }
+        ctx.getInputDocuments().add(new DocCtx(doc));
+    }
+    
+    private void addDocuments(CRUDOperationContext ctx,List<JsonDoc> docs) {
+        for(JsonDoc doc:docs)
+            addDocument(ctx,doc);
+    }
+
+    private List<DocCtx> streamToList(CRUDOperationContext ctx) {
+        List<DocCtx> list=new ArrayList<>();
+        DocumentStream<DocCtx> stream=ctx.getDocumentStream();
+        while(stream.hasNext())
+            list.add(stream.next());
+        return list;
+    }
+
     @Test
     public void ensureIndexNotRecreated() throws IOException, InterruptedException {
         db.getCollection("testCollectionIndex1").drop();
@@ -113,7 +136,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         controller.insert(ctx, null);
         md = addCIIndexes(md);
         controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
@@ -162,7 +185,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
         ctx.add(emd);
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         controller.insert(ctx, null);
 
         ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.FIND);
@@ -171,9 +194,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 query("{'field':'field2.subArrayField.*', 'regex':'fieldTwoSubArrOne', 'options':'i'}"),
                 projection("{'field':'field2.subArrayField.*'}"), null, null, null);
 
-        assertEquals(1, ctx.getDocuments().size());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
+        List<DocCtx> documents=streamToList(ctx);
+        assertEquals(1, documents.size());
+        Assert.assertNotNull(documents.get(0).getResultMetadata());
+        Assert.assertNotNull(documents.get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -185,7 +209,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
         ctx.add(emd);
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         controller.insert(ctx, null);
 
         ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.FIND);
@@ -194,13 +218,14 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 query("{'field':'field2.subArrayField.*', 'regex':'fieldTwoSubArrOne', 'options':'i'}"),
                 projection("{'field':'field2.subArrayField.*'}"), null, null, null);
 
-        assertEquals(1, ctx.getDocuments().size());
-        Assert.assertEquals(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion(),
-                            ctx.getDocuments().get(0).get(new Path("docver")).asText());
-        Assert.assertEquals(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion(),
-                            ctx.getDocuments().get(0).get(new Path("resultMetadata.documentVersion")).asText());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
+        List<DocCtx> documents=streamToList(ctx);
+        assertEquals(1, documents.size());
+        Assert.assertEquals(documents.get(0).getResultMetadata().getDocumentVersion(),
+                            documents.get(0).get(new Path("docver")).asText());
+        Assert.assertEquals(documents.get(0).getResultMetadata().getDocumentVersion(),
+                            documents.get(0).get(new Path("resultMetadata.documentVersion")).asText());
+        Assert.assertNotNull(documents.get(0).getResultMetadata());
+        Assert.assertNotNull(documents.get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -212,7 +237,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
         ctx.add(emd);
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         controller.insert(ctx, null);
 
         DBCollection collection = db.getCollection("testCollectionIndex1");
@@ -230,10 +255,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(emd);
         controller.find(ctx, query("{'array': 'arrayObj', 'elemMatch': { 'field': 'x', 'regex': 'newValue', 'caseInsensitive': true}}"),
                 projection("{'field':'_id'}"), null, null, null);
-
-        assertEquals(1, ctx.getDocuments().size());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
+        List<DocCtx> documents=streamToList(ctx);
+        assertEquals(1, documents.size());
+        Assert.assertNotNull(documents.get(0).getResultMetadata());
+        Assert.assertNotNull(documents.get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -245,7 +270,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
         ctx.add(emd);
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         controller.insert(ctx, null);
 
         ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.UPDATE);
@@ -261,8 +286,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             DBObject hidden = (DBObject) obj.get(DocTranslator.HIDDEN_SUB_PATH.toString());
             assertEquals("NEWFIELDTHREE", hidden.get("field3"));
         });
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertNotNull(documents.get(0).getResultMetadata());
+        Assert.assertNotNull(documents.get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -274,7 +300,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
         ctx.add(emd);
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         controller.insert(ctx, null);
 
         DBCursor cursor = db.getCollection("testCollectionIndex1").find();
@@ -284,7 +310,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         doc.modify(new Path("_id"), JsonNodeFactory.instance.textNode(id), true);
         ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.SAVE);
         ctx.add(emd);
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
 
         controller.save(ctx, true, projection("{'field':'field3'}"));
 
@@ -294,8 +320,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             DBObject hidden = (DBObject) obj.get(DocTranslator.HIDDEN_SUB_PATH.toString());
             assertEquals("NEWFIELDTHREE", hidden.get("field3"));
             });
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertNotNull(documents.get(0).getResultMetadata());
+        Assert.assertNotNull(documents.get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -307,7 +334,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
         ctx.add(emd);
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         controller.insert(ctx, null);
         DBCursor cursor = db.getCollection("testCollectionIndex1").find();
         assertTrue(cursor.hasNext());
@@ -343,7 +370,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("testEntity", CRUDOperation.INSERT);
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdataCI.json"));
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse insert = controller.insert(ctx, null);
         md = addCIIndexes(md);
         controller.afterUpdateEntityInfo(null, md.getEntityInfo(), false);
@@ -470,8 +497,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         JsonNode node = loadJsonNode("./testdata_partial_index.json");
 
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(new JsonDoc(node.get(0))); // field3: 1, partial unique index does not include it
-        ctx.addDocument(new JsonDoc(node.get(1))); // field3: 6, partial unique index does include it
+        addDocument(ctx,new JsonDoc(node.get(0))); // field3: 1, partial unique index does not include it
+        addDocument(ctx,new JsonDoc(node.get(1))); // field3: 6, partial unique index does include it
 
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
@@ -480,13 +507,14 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
         ctx.add(md);
-        ctx.addDocument(new JsonDoc(node.get(2)));
+        addDocument(ctx,new JsonDoc(node.get(2)));
         response = controller.insert(ctx, projection);
 
+        List<DocCtx> documents=streamToList(ctx);
         // this would fail if there was no index
         Assert.assertEquals("Partial unique index should prevent document from being inserted", 0, response.getNumInserted());
-        Assert.assertEquals(1, ctx.getDocuments().get(0).getErrors().size());
-        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE, ctx.getDocuments().get(0).getErrors().get(0).getErrorCode());
+        Assert.assertEquals(1, documents.get(0).getErrors().size());
+        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE, documents.get(0).getErrors().get(0).getErrorCode());
 
     }
 
@@ -724,6 +752,14 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         return e;
     }
 
+    private List<DataError> getDataErrors(CRUDOperationContext ctx) {
+        List<DataError> l=new ArrayList<>();
+        for(DocCtx d:ctx.getInputDocuments())
+            if(d.hasErrors())
+                l.add(d.getDataError());
+        return l;
+    }
+    
     @Test
     public void insertTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata.json");
@@ -731,19 +767,20 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
-        System.out.println(ctx.getDataErrors());
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        System.out.println(getDataErrors(ctx));
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
         Assert.assertTrue(ctx.getErrors() == null || ctx.getErrors().isEmpty());
-        Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
-        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        Assert.assertTrue(getDataErrors(ctx).isEmpty());
+        Assert.assertEquals(ctx.getInputDocumentsWithoutErrors().size(), response.getNumInserted());
+        String id = documents.get(0).getOutputDocument().get(new Path("_id")).asText();
         try (DBCursor c = coll.find(new BasicDBObject("_id", DocTranslator.createIdFrom(id)))) {
             Assert.assertEquals(1, c.count());
         }
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
+        Assert.assertNotNull(documents.get(0).getResultMetadata());
+        Assert.assertNotNull(documents.get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -754,14 +791,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
         doc.modify(new Path("field1"), null, false);
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
-        System.out.println(ctx.getDataErrors());
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        System.out.println(getDataErrors(ctx));
+        Assert.assertEquals(1, documents.size());
         Assert.assertTrue(ctx.getErrors() == null || ctx.getErrors().isEmpty());
-        Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
-        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        Assert.assertTrue( getDataErrors(ctx).isEmpty());
+        Assert.assertEquals(ctx.getInputDocumentsWithoutErrors().size(), response.getNumInserted());
+        String id = documents.get(0).getOutputDocument().get(new Path("_id")).asText();
         try (DBCursor c = coll.find(new BasicDBObject("_id", DocTranslator.createIdFrom(id)))) {
             Assert.assertEquals(1, c.count());
         }
@@ -775,14 +813,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata_empty_array.json"));
         Projection projection = projection("{'field':'field7'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
-        System.out.println(ctx.getDataErrors());
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        System.out.println(getDataErrors(ctx));
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
         Assert.assertTrue(ctx.getErrors() == null || ctx.getErrors().isEmpty());
-        Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
-        JsonNode field7Node = ctx.getDocuments().get(0).getOutputDocument().get(new Path("field7"));
+        Assert.assertTrue(getDataErrors(ctx).isEmpty());
+        Assert.assertEquals(ctx.getInputDocumentsWithoutErrors().size(), response.getNumInserted());
+        JsonNode field7Node = documents.get(0).getOutputDocument().get(new Path("field7"));
         Assert.assertNotNull("empty array was not inserted", field7Node);
         Assert.assertTrue("field7 should be type ArrayNode", field7Node instanceof ArrayNode);
         String field7 = field7Node.asText();
@@ -796,17 +835,18 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
         Projection projection = null;
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
+        List<DocCtx> documents=streamToList(ctx);
 
         // basic checks
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        Assert.assertEquals(1, documents.size());
         Assert.assertTrue(ctx.getErrors() == null || ctx.getErrors().isEmpty());
-        Assert.assertTrue(ctx.getDataErrors() == null || ctx.getDataErrors().isEmpty());
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+        Assert.assertTrue(getDataErrors(ctx).isEmpty());
+        Assert.assertEquals(ctx.getInputDocumentsWithoutErrors().size(), response.getNumInserted());
 
         // verify there is nothing projected
-        Assert.assertNotNull(ctx.getDocuments().get(0).getOutputDocument());
+        Assert.assertNotNull(documents.get(0).getOutputDocument());
     }
 
     @Test
@@ -816,27 +856,29 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         System.out.println("Write doc:" + doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
-        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        List<DocCtx> documents=streamToList(ctx);
+        String id = documents.get(0).getOutputDocument().get(new Path("_id")).asText();
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        JsonDoc readDoc = ctx.getDocuments().get(0);
+        documents=streamToList(ctx);
+        JsonDoc readDoc = documents.get(0);
         // Change some fields
         System.out.println("Read doc:" + readDoc);
         readDoc.modify(new Path("field1"), nodeFactory.textNode("updated"), false);
         readDoc.modify(new Path("field7.0.elemf1"), nodeFactory.textNode("updated too"), false);
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
+        Assert.assertEquals(documents.size(), response.getNumInserted());
+        Assert.assertNotNull(documents.get(0).getResultMetadata());
+        Assert.assertNotNull(documents.get(0).getResultMetadata().getDocumentVersion());
 
         // Save it back
         ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
         ctx.add(md);
-        ctx.addDocument(readDoc);
+        addDocument(ctx,readDoc);
         CRUDSaveResponse saveResponse = controller.save(ctx, false, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
@@ -844,10 +886,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         // Read it back
         controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        JsonDoc r2doc = ctx.getDocuments().get(0);
+        documents=streamToList(ctx);
+        JsonDoc r2doc = documents.get(0);
         Assert.assertEquals(readDoc.get(new Path("field1")).asText(), r2doc.get(new Path("field1")).asText());
         Assert.assertEquals(readDoc.get(new Path("field7.0.elemf1")).asText(), r2doc.get(new Path("field7.0.elemf1")).asText());
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), saveResponse.getNumSaved());
+        Assert.assertEquals(documents.size(), saveResponse.getNumSaved());
     }
 
     @Test
@@ -857,10 +900,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         System.out.println("Write doc:" + doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);      
-        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        List<DocCtx> documents=streamToList(ctx);
+        String id = documents.get(0).getOutputDocument().get(new Path("_id")).asText();
 
         QueryExpression  q=query("{'field':'_id','op':'=','rvalue':'" + id + "'}");
         Projection p=projection("{'field':'*','recursive':1}");
@@ -868,14 +912,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, q,p, null, null, null);
-        String ver=ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion();
-        JsonDoc readDoc = ctx.getDocuments().get(0);
+        documents=streamToList(ctx);
+        String ver=documents.get(0).getResultMetadata().getDocumentVersion();
+        JsonDoc readDoc = documents.get(0);
 
         // Save the doc back
         ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
         readDoc.modify(new Path("field1"), nodeFactory.textNode("updated1"), false);
         ctx.add(md);
-        ctx.addDocument(readDoc);
+        addDocument(ctx,readDoc);
         controller.save(ctx, false, projection);
 
         // Try saving it again with updateIfCurrent flag
@@ -884,15 +929,20 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.getUpdateDocumentVersions().add(ver);
         readDoc.modify(new Path("field1"), nodeFactory.textNode("updated2"), false);
         ctx.add(md);
-        ctx.addDocument(readDoc);
+        addDocument(ctx,readDoc);
         controller.save(ctx, false, projection);
-        Assert.assertTrue(ctx.hasDocumentErrors());
+        boolean hasDocumentErrors=false;
+        for(DocCtx x:ctx.getInputDocuments())
+            if(x.hasErrors())
+                hasDocumentErrors=true;
+        Assert.assertTrue(hasDocumentErrors);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         // Read it back
         controller.find(ctx, q,p, null, null, null);
-        JsonDoc r2doc = ctx.getDocuments().get(0);
+        documents=streamToList(ctx);
+        JsonDoc r2doc = documents.get(0);
         Assert.assertEquals("updated1", r2doc.get(new Path("field1")).asText());
     }
 
@@ -903,20 +953,20 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         System.out.println("Write doc:" + doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
-        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        String id = ctx.getInputDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
 
         doc.modify(new Path("_id"), nodeFactory.textNode(id), false);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
         ctx.add(md);
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         controller.insert(ctx, projection);
 
-        Assert.assertEquals(1, ctx.getDocuments().get(0).getErrors().size());
-        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE, ctx.getDocuments().get(0).getErrors().get(0).getErrorCode());
+        Assert.assertEquals(1, ctx.getInputDocuments().get(0).getErrors().size());
+        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE, ctx.getInputDocuments().get(0).getErrors().get(0).getErrorCode());
 
     }
 
@@ -927,25 +977,26 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata4.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         System.out.println("Write doc:" + doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
-        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        String id = ctx.getInputDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        JsonDoc readDoc = ctx.getDocuments().get(0);
+        List<DocCtx> documents=streamToList(ctx);
+        JsonDoc readDoc = documents.get(0);
         // Change some fields
         System.out.println("Read doc:" + readDoc);
         readDoc.modify(new Path("field1"), nodeFactory.textNode("updated"), false);
         readDoc.modify(new Path("field7.0.elemf1"), nodeFactory.textNode("updated too"), false);
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+        Assert.assertEquals(documents.size(), response.getNumInserted());
 
         // Save it back
         ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
         ctx.add(md);
-        ctx.addDocument(readDoc);
+        addDocument(ctx,readDoc);
         CRUDSaveResponse saveResponse = controller.save(ctx, false, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
@@ -953,10 +1004,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         // Read it back
         controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        JsonDoc r2doc = ctx.getDocuments().get(0);
+        documents=streamToList(ctx);
+        JsonDoc r2doc = documents.get(0);
         Assert.assertEquals(readDoc.get(new Path("field1")).asText(), r2doc.get(new Path("field1")).asText());
         Assert.assertEquals(readDoc.get(new Path("field7.0.elemf1")).asText(), r2doc.get(new Path("field7.0.elemf1")).asText());
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), saveResponse.getNumSaved());
+        Assert.assertEquals(documents.size(), saveResponse.getNumSaved());
     }
 
     @Test
@@ -966,11 +1018,12 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         // Insert a doc
         System.out.println("Write doc:" + doc);
         controller.insert(ctx, projection);
-        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        List<DocCtx> documents=streamToList(ctx);
+        String id = documents.get(0).getOutputDocument().get(new Path("_id")).asText();
         System.out.println("Saved id:" + id);
 
         // Read doc using mongo
@@ -987,14 +1040,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        JsonDoc readDoc = ctx.getDocuments().get(0);
+        documents=streamToList(ctx);
+        JsonDoc readDoc = documents.get(0);
 
         // Now we save the doc, and expect that the invisible field is still there
         readDoc.modify(new Path("field1"), nodeFactory.textNode("updated"), false);
         System.out.println("To update:" + readDoc);
         ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
         ctx.add(md);
-        ctx.addDocument(readDoc);
+        addDocument(ctx,readDoc);
         controller.save(ctx, false, projection);
 
         // Make sure doc is modified, and invisible field is there
@@ -1011,11 +1065,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         // Insert a doc
         System.out.println("Write doc:" + doc);
         controller.insert(ctx, projection);
-        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        String id = ctx.getInputDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
         System.out.println("Saved id:" + id);
 
         // Read the doc
@@ -1023,19 +1077,20 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        JsonDoc readDoc = ctx.getDocuments().get(0);
+        List<DocCtx> documents=streamToList(ctx);
+        JsonDoc readDoc = documents.get(0);
 
         // Now we save the doc, and expect that the invisible field is still there
         readDoc.modify(new Path("field1"), nodeFactory.textNode("updated"), false);
         System.out.println("To update:" + readDoc);
         ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
         ctx.add(md);
-        ctx.addDocument(readDoc);
+        addDocument(ctx,readDoc);
         controller.save(ctx, false, projection);
 
         // Make sure ctx has the modified doc
-        Assert.assertEquals("updated", ctx.getDocuments().get(0).getUpdatedDocument().get(new Path("field1")).asText());
-        Assert.assertNull(ctx.getDocuments().get(0).getOutputDocument().get(new Path("field1")));
+        Assert.assertEquals("updated", ctx.getInputDocuments().get(0).getUpdatedDocument().get(new Path("field1")).asText());
+        Assert.assertNull(ctx.getInputDocuments().get(0).getOutputDocument().get(new Path("field1")));
     }
 
     @Test
@@ -1044,22 +1099,24 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         System.out.println("Write doc:" + doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
-        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        List<DocCtx> documents=streamToList(ctx);
+        String id = documents.get(0).getOutputDocument().get(new Path("_id")).asText();
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        JsonDoc readDoc = ctx.getDocuments().get(0);
+        documents=streamToList(ctx);
+        JsonDoc readDoc = documents.get(0);
         // Remove id, to force re-insert
         readDoc.modify(new Path("_id"), null, false);
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+        Assert.assertEquals(documents.size(), response.getNumInserted());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
         ctx.add(md);
-        ctx.addDocument(readDoc);
+        addDocument(ctx,readDoc);
         // This should not insert anything
         CRUDSaveResponse sr = controller.save(ctx, false, projection("{'field':'_id'}"));
         try (DBCursor c = coll.find(null)) {
@@ -1068,14 +1125,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
         ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
         ctx.add(md);
-        ctx.addDocument(readDoc);
+        addDocument(ctx,readDoc);
         sr = controller.save(ctx, true, projection("{'field':'_id'}"));
         try (DBCursor c = coll.find(null)) {
             Assert.assertEquals(2, c.count());
         }
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), sr.getNumSaved());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
+        documents=streamToList(ctx);
+        Assert.assertEquals(ctx.getInputDocumentsWithoutErrors().size(), sr.getNumSaved());
+        Assert.assertNotNull(documents.get(0).getResultMetadata());
+        Assert.assertNotNull(documents.get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -1084,16 +1142,18 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         System.out.println("Write doc:" + doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
-        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        List<DocCtx> documents=streamToList(ctx);
+        String id = documents.get(0).getOutputDocument().get(new Path("_id")).asText();
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        JsonDoc readDoc = ctx.getDocuments().get(0);
+        documents=streamToList(ctx);
+        JsonDoc readDoc = documents.get(0);
 
         // Remove _id from the doc
         readDoc.modify(new Path("_id"), null, false);
@@ -1102,14 +1162,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         readDoc.modify(new Path("field3"), JsonNodeFactory.instance.numberNode(2), true);
         ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
         ctx.add(md);
-        ctx.addDocument(readDoc);
+        addDocument(ctx,readDoc);
         controller.save(ctx, false, projection("{'field':'_id'}"));
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        readDoc = ctx.getDocuments().get(0);
+        documents=streamToList(ctx);
+        readDoc = documents.get(0);
 
         Assert.assertEquals(2, readDoc.get(new Path("field3")).asInt());
     }
@@ -1120,11 +1181,12 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         System.out.println("Write doc:" + doc);
         controller.updatePredefinedFields(ctx, doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
-        String id = ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText();
+        List<DocCtx> documents=streamToList(ctx);
+        String id = documents.get(0).getOutputDocument().get(new Path("_id")).asText();
 
         //There should be 1 doc in the db
         Assert.assertEquals(1, controller.find(ctx, null, projection("{'field':'*','recursive':1}"), null, null, null).getSize());
@@ -1133,7 +1195,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        JsonDoc readDoc = ctx.getDocuments().get(0);
+        documents=streamToList(ctx);
+        JsonDoc readDoc = documents.get(0);
 
         //Remove _id from the doc
         readDoc.modify(new Path("_id"), null, false);
@@ -1142,7 +1205,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         readDoc.modify(new Path("field3"), JsonNodeFactory.instance.numberNode(2), true);
         ctx = new TestCRUDOperationContext(CRUDOperation.SAVE);
         ctx.add(md);
-        ctx.addDocument(readDoc);
+        addDocument(ctx,readDoc);
         controller.updatePredefinedFields(ctx, readDoc);
         CRUDSaveResponse sresponse = controller.save(ctx, true, projection("{'field':'_id'}"));
         Assert.assertEquals(1, sresponse.getNumSaved());
@@ -1153,7 +1216,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         controller.find(ctx, query("{'field':'_id','op':'=','rvalue':'" + id + "'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        readDoc = ctx.getDocuments().get(0);
+        documents=streamToList(ctx);
+        readDoc = documents.get(0);
 
         Assert.assertEquals(2, readDoc.get(new Path("field3")).asInt());
     }
@@ -1174,12 +1238,12 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
             docs.add(doc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
         try (DBCursor c = coll.find(null)) {
             Assert.assertEquals(numDocs, c.count());
         }
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+        Assert.assertEquals(ctx.getInputDocumentsWithoutErrors().size(), response.getNumInserted());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
         ctx.add(md);
@@ -1190,8 +1254,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         assertEquals(1, upd.getNumUpdated());
         assertEquals(20, upd.getNumMatched());
         assertEquals(19, upd.getNumFailed());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertNotNull(documents.get(0).getResultMetadata());
+        Assert.assertNotNull(documents.get(0).getResultMetadata().getDocumentVersion());
     }
 
     @Test
@@ -1209,21 +1274,22 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
             docs.add(doc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
         try (DBCursor c = coll.find(null)) {
             Assert.assertEquals(batch, c.count());
         }
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+        Assert.assertEquals(ctx.getInputDocumentsWithoutErrors().size(), response.getNumInserted());
         ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
         ctx.add(md);
         CRUDUpdateResponse upd = controller.update(ctx, query("{'field':'field3','op':'>','rvalue':-1}"),
                 update("{ '$set': { 'field1' : '100' } }"),
                 projection("{'field':'_id'}"));
         // just make sure all get inserted when we're multi batching.  difficult to spy from here
+        List<DocCtx> documents=streamToList(ctx);
         assertEquals(batch, upd.getNumUpdated());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
+        Assert.assertNotNull(documents.get(0).getResultMetadata());
+        Assert.assertNotNull(documents.get(0).getResultMetadata().getDocumentVersion());
 
     }
 
@@ -1241,12 +1307,12 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
             docs.add(doc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
         try (DBCursor c = coll.find(null)) {
             Assert.assertEquals(numDocs, c.count());
         }
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+        Assert.assertEquals(ctx.getInputDocumentsWithoutErrors().size(), response.getNumInserted());
 
         // Single doc update
         ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
@@ -1258,12 +1324,13 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertEquals(0, upd.getNumFailed());
         //Assert.assertEquals(AtomicIterateUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
         Assert.assertEquals(IterateAndUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
+        List<DocCtx> documents=streamToList(ctx);
         try (DBCursor c = coll.find(new BasicDBObject("field3", 1000), new BasicDBObject("_id", 1))) {
             DBObject obj = c.next();
             Assert.assertNotNull(obj);
             System.out.println("DBObject:" + obj);
-            System.out.println("Output doc:" + ctx.getDocuments().get(0).getOutputDocument());
-            Assert.assertEquals(ctx.getDocuments().get(0).getOutputDocument().get(new Path("_id")).asText(),
+            System.out.println("Output doc:" + documents.get(0).getOutputDocument());
+            Assert.assertEquals(documents.get(0).getOutputDocument().get(new Path("_id")).asText(),
                     obj.get("_id").toString());
         }
         try (DBCursor c = coll.find(new BasicDBObject("field3", 1000))) {
@@ -1277,6 +1344,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 update("{ '$set': { 'field3' : 1000 } }"),
                 projection("{'field':'_id'}"));
         //Assert.assertEquals(AtomicIterateUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
+        documents=streamToList(ctx);
         Assert.assertEquals(IterateAndUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
         Assert.assertEquals(10, upd.getNumMatched()); // Doesn't update the one with field3:1000
         Assert.assertEquals(9, upd.getNumUpdated()); // Doesn't update the one with field3:1000
@@ -1322,7 +1390,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
         doc.modify(new Path("field1"), JsonNodeFactory.instance.nullNode(), false);
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
@@ -1348,12 +1416,12 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
             docs.add(doc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         CRUDInsertionResponse response = controller.insert(ctx, projection("{'field':'_id'}"));
         try (DBCursor c = coll.find(null)) {
             Assert.assertEquals(numDocs, c.count());
         }
-        Assert.assertEquals(ctx.getDocumentsWithoutErrors().size(), response.getNumInserted());
+        Assert.assertEquals(ctx.getInputDocumentsWithoutErrors().size(), response.getNumInserted());
 
         // Add element to array
         ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
@@ -1361,10 +1429,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         CRUDUpdateResponse upd = controller.update(ctx, query("{'field':'field1','op':'=','rvalue':'doc1'}"),
                 update("[ {'$append' : {'field7':{}} }, { '$set': { 'field7.-1.elemf1':'test'} } ]"),
                 projection("{'field':'*','recursive':1}"));
+        List<DocCtx> documents=streamToList(ctx);
         Assert.assertEquals(1, upd.getNumUpdated());
         Assert.assertEquals(0, upd.getNumFailed());
-        Assert.assertEquals(1, ctx.getDocuments().size());
-        Assert.assertEquals(3, ctx.getDocuments().get(0).getOutputDocument().get(new Path("field7")).size());
+        Assert.assertEquals(1, documents.size());
+        Assert.assertEquals(3, documents.get(0).getOutputDocument().get(new Path("field7")).size());
 
         // Add another element, with violated constraint
         ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
@@ -1392,16 +1461,17 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             doc.modify(new Path("field4"), nodeFactory.numberNode(new BigDecimal(100)), false);
             docs.add(doc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         controller.insert(ctx, projection("{'field':'_id'}"));
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field4','op':'=','rvalue':'100'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(numDocs, ctx.getDocuments().size());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata());
-        Assert.assertNotNull(ctx.getDocuments().get(0).getResultMetadata().getDocumentVersion());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(numDocs, documents.size());
+        Assert.assertNotNull(documents.get(0).getResultMetadata());
+        Assert.assertNotNull(documents.get(0).getResultMetadata().getDocumentVersion());
 
     }
 
@@ -1421,14 +1491,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             doc.modify(new Path("field4"), nodeFactory.numberNode(new BigDecimal(100)), false);
             docs.add(doc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         controller.insert(ctx, projection("{'field':'_id'}"));
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field4','op':'$in','values':[100]}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(numDocs, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(numDocs, documents.size());
 
     }
 
@@ -1448,7 +1519,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             doc.modify(new Path("field4"), nodeFactory.numberNode(new BigDecimal(100)), false);
             docs.add(doc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         controller.insert(ctx, projection("{'field':'_id'}"));
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
@@ -1477,14 +1548,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             doc.modify(new Path("field4"), nodeFactory.numberNode(new BigDecimal(100)), false);
             docs.add(doc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         controller.insert(ctx, projection("{'field':'_id'}"));
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field1','op':'$in','values':[0]}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
 
     }
 
@@ -1504,14 +1576,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             doc.modify(new Path("field4"), nodeFactory.numberNode(new BigDecimal(100)), false);
             docs.add(doc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         controller.insert(ctx, projection("{'field':'_id'}"));
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field1','op':'$in','values':[0]}"),
                 null, null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
 
     }
 
@@ -1529,14 +1602,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             doc.modify(new Path("_id"), nodeFactory.textNode("" + i), false);
             docs.add(doc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         controller.insert(ctx, projection("{'field':'_id'}"));
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'_id','op':'$in','values':[1]}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
 
     }
 
@@ -1555,7 +1629,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
             docs.add(doc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         controller.insert(ctx, projection("{'field':'_id'}"));
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
@@ -1563,9 +1637,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         controller.find(ctx, query("{'field':'field3','op':'>=','rvalue':0}"),
                 projection("{'field':'*','recursive':1}"),
                 sort("{'field3':'$desc'}"), null, null);
-        Assert.assertEquals(numDocs, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(numDocs, documents.size());
         int lastValue = -1;
-        for (DocCtx doc : ctx.getDocuments()) {
+        for (DocCtx doc : documents) {
             int value = doc.getOutputDocument().get(new Path("field3")).asInt();
             if (value < lastValue) {
                 Assert.fail("wrong order");
@@ -1578,9 +1653,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             controller.find(ctx, query("{'field':'field3','op':'>=','rvalue':0}"),
                     projection("{'field':'*','recursive':1}"),
                     sort("{'field3':'$asc'}"), new Long(k), new Long(k + 5));
+            documents=streamToList(ctx);
 
             int i = 0;
-            for (DocCtx doc : ctx.getDocuments()) {
+            for (DocCtx doc : documents) {
                 int value = doc.getOutputDocument().get(new Path("field3")).asInt();
                 Assert.assertEquals(i + k, value);
                 i++;
@@ -1603,7 +1679,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
             docs.add(doc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         controller.insert(ctx, projection("{'field':'_id'}"));
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
@@ -1611,7 +1687,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         CRUDFindResponse response = controller.find(ctx, query("{'field':'field3','op':'>=','rvalue':0}"),
                 projection("{'field':'*','recursive':1}"),
                 sort("{'field3':'$desc'}"), null, null);
-        Assert.assertEquals(numDocs, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(numDocs, documents.size());
         Assert.assertEquals(numDocs, response.getSize());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
@@ -1619,7 +1696,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         response = controller.find(ctx, query("{'field':'field3','op':'>=','rvalue':0}"),
                 projection("{'field':'*','recursive':1}"),
                 sort("{'field3':'$desc'}"), 0l, 1l);
-        Assert.assertEquals(2, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(2, documents.size());
         Assert.assertEquals(numDocs, response.getSize());
     }
 
@@ -1630,32 +1708,36 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf3','op':'=','rfield':'field6.nf5'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf3','op':'!=','rfield':'field6.nf5'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf3','op':'<','rfield':'field6.nf5'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field4','op':'<','rfield':'field6.nf5'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
 
     }
 
@@ -1666,14 +1748,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'array':'field6.nf6','elemMatch':{'field':'$this','op':'$in','rfield':'$parent'}}"),
                         projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
     }
 
     @Test
@@ -1683,20 +1766,22 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata7.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'array':'field6.nf6','elemMatch':{'field':'$this','op':'$in','rfield':'$parent.$parent.nf8'}}"),
                         projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'array':'field6.nf6','elemMatch':{'field':'$this','op':'$in','rfield':'$parent.$parent.nf9'}}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
     }
 
     @Test
@@ -1706,14 +1791,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata7.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'array':'field6.nf6','elemMatch':{'field':'$this','regex':'t.o'}}"),
                         projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
     }
 
     @Test
@@ -1723,20 +1809,22 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata7.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'array':'field6.nf6','elemMatch':{'field':'$this','op':'$nin','rfield':'$parent.$parent.nf8'}}"),
                         projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'array':'field6.nf6','elemMatch':{'field':'$this','op':'$nin','rfield':'$parent.$parent.nf9'}}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
     }
 
     @Test
@@ -1746,44 +1834,50 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'=','rfield':'field6.nf5'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'!=','rfield':'field6.nf5'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'<=','rfield':'field6.nf5'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'<','rfield':'field6.nf5'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'>=','rfield':'field6.nf5'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'>','rfield':'field6.nf5'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
     }
 
     @Test
@@ -1793,41 +1887,47 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata5.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'>','rfield':'field6.nf8'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'>=','rfield':'field6.nf8'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'<','rfield':'field6.nf8'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'<=','rfield':'field6.nf8'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'=','rfield':'field6.nf8'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'!=','rfield':'field6.nf8'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
     }
 
     @Test
@@ -1837,41 +1937,47 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata5.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'>','rfield':'field6.nf9'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'>=','rfield':'field6.nf9'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'<','rfield':'field6.nf9'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'<=','rfield':'field6.nf9'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'=','rfield':'field6.nf9'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'!=','rfield':'field6.nf9'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
     }
 
     @Test
@@ -1881,46 +1987,53 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata5.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'>','rfield':'field6.nf10'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'>=','rfield':'field6.nf10'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'<','rfield':'field6.nf10'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'<=','rfield':'field6.nf10'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'=','rfield':'field6.nf10'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf5','op':'!=','rfield':'field6.nf10'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field6.nf10','op':'>=','rfield':'field6.nf5'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(0, ctx.getDocuments().size());
+        documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
     }
 
     @Test
@@ -1930,14 +2043,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata5.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, null,
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
     }
 
     @Test
@@ -1955,7 +2069,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             doc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
             docs.add(doc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         controller.insert(ctx, projection("{'field':'*','recursive':true}"));
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
@@ -1979,7 +2093,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             jsonDOc.modify(new Path("field3"), nodeFactory.numberNode(i), false);
             docs.add(jsonDOc);
         }
-        ctx.addDocuments(docs);
+        addDocuments(ctx,docs);
         controller.insert(ctx, projection("{'field':'_id'}"));
         try (DBCursor c = coll.find(null)) {
             Assert.assertEquals(numDocs, c.count());
@@ -2011,14 +2125,15 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdata5.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'array':'field7','elemMatch':{'$not':{'field':'elemf3','op':'$eq','rvalue':0}}}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
     }
 
     @Test
@@ -2455,7 +2570,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(md);
         JsonDoc doc = new JsonDoc(loadJsonNode("./job1.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         System.out.println("Write doc:" + doc);
         CRUDInsertionResponse insresponse = controller.insert(ctx, projection);
 
@@ -2464,8 +2579,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         CRUDUpdateResponse upd = controller.update(ctx, query("{'field':'_id','op':'=','rvalue':'termsAcknowledgementJob_6264'}"),
                 update("[{'$append':{'jobExecutions':{}}},{'$set':{'jobExecutions.-1.ownerName':'hystrix'}},{'$set':{'jobExecutions.-1.hostName':'$(hostname)'}},{'$set':{'jobExecutions.-1.pid':'32601@localhost.localdomain'}},{'$set':{'jobExecutions.-1.actualStartDate':'20150312T19:19:00.700+0000'}},{'$set':{'jobExecutions.-1.actualEndDate':'$null'}},{'$set':{'jobExecutions.-1.completedFlag':false}},{'$set':{'jobExecutions.-1.processedDocumentCount':0}},{'$set':{'jobExecutions.-1.consistentDocumentCount':0}},{'$set':{'jobExecutions.-1.inconsistentDocumentCount':0}},{'$set':{'jobExecutions.-1.overwrittenDocumentCount':0}}]"),
                 projection("{'field':'*','recursive':1}"));
-        Assert.assertEquals(1, ctx.getDocuments().size());
-        Assert.assertEquals(2, ctx.getDocuments().get(0).getOutputDocument().get(new Path("jobExecutions")).size());
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
+        Assert.assertEquals(2, documents.get(0).getOutputDocument().get(new Path("jobExecutions")).size());
     }
 
     @Test
@@ -2502,7 +2618,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         obj.set("field1", JsonNodeFactory.instance.textNode("blah"));
         JsonDoc doc = new JsonDoc(obj);
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         Assert.assertEquals(1, collection.find().count());
@@ -2560,7 +2676,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         obj.set("field1", JsonNodeFactory.instance.textNode("blah"));
         JsonDoc doc = new JsonDoc(obj);
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         Assert.assertEquals(1, collection.find().count());
@@ -2601,15 +2717,16 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.add(cmd);
         JsonDoc doc = new JsonDoc(loadJsonNode("./testdataref.json"));
         Projection projection = projection("{'field':'_id'}");
-        ctx.addDocument(doc);
+        addDocument(ctx,doc);
         CRUDInsertionResponse response = controller.insert(ctx, projection);
 
         ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
         ctx.add(md);
         controller.find(ctx, query("{'field':'field1','op':'=','rvalue':'f1'}"),
                 projection("{'field':'*','recursive':1}"), null, null, null);
-        Assert.assertEquals(1, ctx.getDocuments().size());
-        Assert.assertNull(ctx.getDocuments().get(0).get(new Path("field7.0.elemf1")));
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
+        Assert.assertNull(documents.get(0).get(new Path("field7.0.elemf1")));
     }
 
     @Test

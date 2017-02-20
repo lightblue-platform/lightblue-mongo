@@ -18,6 +18,7 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -32,7 +33,7 @@ import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.DocCtx;
-
+import com.redhat.lightblue.crud.ListDocumentStream;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Error;
 import java.util.concurrent.TimeUnit;
@@ -96,11 +97,8 @@ public class BasicDocFinder implements DocFinder {
             }
             int numMatched = cursor.count();
             int nRetrieve=numMatched;
-            List<DBObject> mongoResults=null;            
-            List<DocTranslator.TranslatedDoc> jsonDocs=null;
 
            LOGGER.debug("Applying limits: {} - {}", from, to);
-            long retrievalTime=0;
 
             // f and t are from and to indexes, both inclusive
             int f=from==null?0:from.intValue();
@@ -123,36 +121,19 @@ public class BasicDocFinder implements DocFinder {
                 }
                 
                 LOGGER.debug("Retrieving results");
-                retrievalTime = System.currentTimeMillis();
-                mongoResults = cursor.toArray();
-                retrievalTime = System.currentTimeMillis() - retrievalTime;
-                
-                LOGGER.debug("Retrieved {} results", mongoResults.size());
-                jsonDocs = translator.toJson(mongoResults);
-                if(jsonDocs.size()!=nRetrieve)
-                    throw Error.get(MongoCrudConstants.ERR_MONGO_RESULTSET_MISMATCH,"Requested="+nRetrieve+" Retrieved="+jsonDocs.size());
-                
-                for(DocTranslator.TranslatedDoc d:jsonDocs)
-                    ctx.addDocument(d.doc,d.rmd);
-
-                for (DocCtx doc : ctx.getDocuments()) {
-                    doc.setCRUDOperationPerformed(CRUDOperation.FIND);
-                    ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_FIND_DOC, ctx, doc);
-                }
-                LOGGER.debug("Translated DBObjects to json");
+                CursorStream stream=new CursorStream(cursor,translator,mongoQuery,executionTime,f,t);
+                ctx.setDocumentStream(stream);
+            } else {
+            	ctx.setDocumentStream(new ListDocumentStream<DocCtx>(new ArrayList<>()));
             }
-            if (RESULTSET_LOGGER.isDebugEnabled() && (executionTime > 100 || retrievalTime > 100)) {
-                RESULTSET_LOGGER.debug("execution_time={}, retrieval_time={}, resultset_size={}, data_size={}, query={}, from={}, to={}",
-                                       executionTime, retrievalTime, mongoResults==null?0:mongoResults.size(),
-                                       jsonDocs==null?0:DocTranslator.translatedDocListSize(jsonDocs),
+            if (RESULTSET_LOGGER.isDebugEnabled() && (executionTime > 100 ) ) {
+                RESULTSET_LOGGER.debug("execution_time={}, query={}, from={}, to={}",
+                                       executionTime, 
                                        mongoQuery,
                                        f, t);
             }            
             return numMatched;
         } finally {
-            if (cursor != null) {
-                cursor.close();
-            }
         }
     }
 

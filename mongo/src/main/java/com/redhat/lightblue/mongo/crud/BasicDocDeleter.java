@@ -24,6 +24,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.mongodb.MongoException;
 import com.mongodb.BasicDBObject;
 import com.mongodb.BulkWriteError;
 import com.mongodb.BulkWriteException;
@@ -34,6 +35,7 @@ import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.WriteConcern;
 import com.mongodb.ReadPreference;
+import com.redhat.lightblue.crud.ListDocumentStream;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
@@ -51,6 +53,9 @@ public class BasicDocDeleter implements DocDeleter {
     // TODO: move this to a better place
     public final int batchSize;
 
+    // Use in tests. Set to false to test deletion with bulk operations
+    public boolean hookOptimization=true;
+
     private final DocTranslator translator;
     private final WriteConcern writeConcern;
 
@@ -59,20 +64,6 @@ public class BasicDocDeleter implements DocDeleter {
         this.translator = translator;
         this.writeConcern = writeConcern;
         this.batchSize = batchSize;
-    }
-
-    private final class DocInfo {
-
-        public DocInfo(DBObject doc, CRUDOperationContext ctx) {
-            DocTranslator.TranslatedDoc tdoc=translator.toJson(doc);
-            DocCtx docCtx = ctx.addDocument(tdoc.doc,tdoc.rmd);
-            docCtx.setOriginalDocument(docCtx);
-            this.docCtx = docCtx;
-            this._id = doc.get(MongoCRUDController.ID_STR);
-        }
-
-        public final DocCtx docCtx;
-        public final Object _id;
     }
 
     @Override
@@ -84,77 +75,90 @@ public class BasicDocDeleter implements DocDeleter {
 
         int numDeleted = 0;
 
-        try (DBCursor cursor = collection.find(mongoQuery, null)) {
-            // Set read preference to primary for read-for-update operations
-            cursor.setReadPreference(ReadPreference.primary());
-            List<DocInfo> docsToDelete = new ArrayList<>();
+        if(!hookOptimization||ctx.getHookManager().hasHooks(ctx,CRUDOperation.DELETE)) {
+            LOGGER.debug("There are hooks, retrieve-delete");
+            try (DBCursor cursor = collection.find(mongoQuery, null)) {
+                // Set read preference to primary for read-for-update operations
+                cursor.setReadPreference(ReadPreference.primary());
 
-            while (cursor.hasNext()) {
+                // All docs, to be put into the context
+                ArrayList<DocCtx> contextDocs=new ArrayList<>();
+                // ids to delete from the db
+                List<Object> idsToDelete = new ArrayList<>(batchSize);                
+                while (cursor.hasNext()) {
 
-                if (docsToDelete.size() < batchSize) {
-                    // build batch
-                    DBObject doc = cursor.next();
-                    DocInfo docInfo = new DocInfo(doc, ctx);
-
-                    docsToDelete.add(docInfo);
-
-                    ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_DELETE_DOC, ctx, docInfo.docCtx);
-                }
-
-                if (docsToDelete.size() == batchSize || !cursor.hasNext()) {
-                    // batch built or run out of documents
-
-                    BulkWriteOperation bw = collection.initializeUnorderedBulkOperation();
-
-                    for(DocInfo doc: docsToDelete) {
-                        // doing a bulk of single operations instead of removing by initial query
-                        // that way we know which documents were not removed
-                        bw.find(new BasicDBObject("_id", doc._id)).remove();
-                        doc.docCtx.setCRUDOperationPerformed(CRUDOperation.DELETE);
+                    // We will use this index to access the documents deleted in this batch
+                    int thisBatchIndex=contextDocs.size();
+                    if (idsToDelete.size() < batchSize) {
+                        // build batch
+                        DBObject doc = cursor.next();
+                        DocTranslator.TranslatedDoc tdoc=translator.toJson(doc);
+                        DocCtx docCtx=new DocCtx(tdoc.doc,tdoc.rmd);
+                        docCtx.setOriginalDocument(docCtx);
+                        docCtx.setCRUDOperationPerformed(CRUDOperation.DELETE);
+                        contextDocs.add(docCtx);
+                        idsToDelete.add(doc.get(MongoCRUDController.ID_STR));
                     }
-
-                    BulkWriteResult result = null;
-                    try {
-                        if (writeConcern == null) {
-                            LOGGER.debug("Bulk deleting docs");
-                            result = bw.execute();
-                        } else {
-                            LOGGER.debug("Bulk deleting docs with writeConcern={} from execution", writeConcern);
-                            result = bw.execute(writeConcern);
+                    
+                    if (idsToDelete.size() == batchSize || !cursor.hasNext()) {
+                        // batch built or run out of documents                        
+                        BulkWriteOperation bw = collection.initializeUnorderedBulkOperation();
+                        
+                        for(Object id: idsToDelete) {
+                            // doing a bulk of single operations instead of removing by initial query
+                            // that way we know which documents were not removed
+                            bw.find(new BasicDBObject("_id", id)).remove();
                         }
-                        LOGGER.debug("Bulk deleted docs - attempted {}, deleted {}", docsToDelete.size(), result.getRemovedCount());
-                    } catch (BulkWriteException bwe) {
-                        LOGGER.error("Bulk write exception", bwe);
-                        handleBulkWriteError(bwe.getWriteErrors(), docsToDelete);
-                        result = bwe.getWriteResult();
-                    } catch (RuntimeException e) {
-                        LOGGER.error("Exception", e);
-                        throw e;
-                    } finally {
-
-                        numDeleted+=result.getRemovedCount();
-
-                        for (DocInfo doc : docsToDelete) {
-                            // fire post delete interceptor only for successfully removed docs
-                            if (!doc.docCtx.hasErrors()) {
-                                ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_DELETE_DOC, ctx, doc.docCtx);
+                        
+                        BulkWriteResult result = null;
+                        try {
+                            if (writeConcern == null) {
+                                LOGGER.debug("Bulk deleting docs");
+                                result = bw.execute();
+                            } else {
+                                LOGGER.debug("Bulk deleting docs with writeConcern={} from execution", writeConcern);
+                                result = bw.execute(writeConcern);
                             }
+                            LOGGER.debug("Bulk deleted docs - attempted {}, deleted {}", idsToDelete.size(), result.getRemovedCount());
+                        } catch (BulkWriteException bwe) {
+                            LOGGER.error("Bulk write exception", bwe);
+                            handleBulkWriteError(bwe.getWriteErrors(), contextDocs.subList(thisBatchIndex,contextDocs.size()));
+                            result = bwe.getWriteResult();
+                        } catch (RuntimeException e) {
+                            LOGGER.error("Exception", e);
+                            throw e;
+                        } finally {
+                            
+                            numDeleted+=result.getRemovedCount();
+                            // clear list before processing next batch
+                            idsToDelete.clear();
                         }
                     }
-
-                    // clear list before processing next batch
-                    docsToDelete.clear();
                 }
+                ctx.setDocumentStream(new ListDocumentStream<DocCtx>(contextDocs));                
             }
+        } else {
+            LOGGER.debug("There are no hooks, deleting in bulk");
+            try {
+                if(writeConcern==null) {
+                    numDeleted=collection.remove(mongoQuery).getN();
+                } else {
+                    numDeleted=collection.remove(mongoQuery,writeConcern).getN();
+                }
+            } catch(MongoException e) {
+                LOGGER.error("Deletion error",e);
+                throw e;
+            }
+            ctx.setDocumentStream(new ListDocumentStream<DocCtx>(new ArrayList<DocCtx>()));
         }
 
         response.setNumDeleted(numDeleted);
     }
 
-    private void handleBulkWriteError(List<BulkWriteError> errors, List<DocInfo> docs) {
+    private void handleBulkWriteError(List<BulkWriteError> errors, List<DocCtx> docs) {
         for (BulkWriteError e : errors) {
-            DocInfo doc = docs.get(e.getIndex());
-            doc.docCtx.addError(Error.get("remove", MongoCrudConstants.ERR_DELETE_ERROR, e.getMessage()));
+            DocCtx doc = docs.get(e.getIndex());
+            doc.addError(Error.get("remove", MongoCrudConstants.ERR_DELETE_ERROR, e.getMessage()));
         }
     }
 }

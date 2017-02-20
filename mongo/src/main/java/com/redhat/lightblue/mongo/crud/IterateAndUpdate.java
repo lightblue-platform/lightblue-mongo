@@ -42,6 +42,7 @@ import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.ConstraintValidator;
 import com.redhat.lightblue.crud.CrudConstants;
+import com.redhat.lightblue.crud.ListDocumentStream;
 import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
@@ -164,6 +165,8 @@ public class IterateAndUpdate implements DocUpdater {
         int numFailed =0;
         BsonMerge merge = new BsonMerge(md);
         List<DocCtx> docUpdateAttempts=new ArrayList<>();
+        List<DocCtx> resultDocs=new ArrayList<>();
+        ctx.setInputDocuments(resultDocs);
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
             measure.begin("collection.find");
@@ -172,7 +175,6 @@ public class IterateAndUpdate implements DocUpdater {
             cursor.setReadPreference(ReadPreference.primary());
             measure.end("collection.find");
             LOGGER.debug("Found {} documents", cursor.count());
-            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_RESULTSET, ctx);
             // read-update-write
             measure.begin("iteration");
             int batchStartIndex=0; // docUpdateAttempts[batchStartIndex] is the first doc in this batch
@@ -183,7 +185,8 @@ public class IterateAndUpdate implements DocUpdater {
                 LOGGER.debug("Retrieved doc {}", docIndex);
                 measure.begin("ctx.addDocument");
                 DocTranslator.TranslatedDoc translatedDoc=translator.toJson(document);
-                DocCtx doc = ctx.addDocument(translatedDoc.doc,translatedDoc.rmd);
+                DocCtx doc=new DocCtx(translatedDoc.doc,translatedDoc.rmd);
+                resultDocs.add(doc);
                 doc.startModifications();
                 measure.end("ctx.addDocument");
                 // From now on: doc contains the working copy, and doc.originalDoc contains the original copy
@@ -269,10 +272,8 @@ public class IterateAndUpdate implements DocUpdater {
             }
         }
 
-        ctx.getDocumentsWithoutErrors().stream().forEach(doc -> {
-            ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc);
-        });
-
+        ctx.setDocumentStream(new ListDocumentStream<DocCtx>(resultDocs));
+        
         response.setNumUpdated(numUpdated);
         response.setNumFailed(numFailed);
         response.setNumMatched(numMatched);

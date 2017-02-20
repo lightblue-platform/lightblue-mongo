@@ -285,11 +285,6 @@ public class BasicDocSaver implements DocSaver {
                         LOGGER.error("Exception", e);
                         throw e;
                     } finally {
-                        for (DocInfo doc : insertionAttemptList) {
-                            if (!doc.inputDoc.hasErrors()) {
-                                ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_INSERT_DOC, ctx, doc.inputDoc);
-                            }
-                        }
                     }
                 }
             }
@@ -369,11 +364,6 @@ public class BasicDocSaver implements DocSaver {
                         }                        
                     } catch (RuntimeException e) {
                     } finally {
-                        for (DocInfo doc : updateAttemptList) {
-                            if (!doc.inputDoc.hasErrors()) {
-                                ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.POST_CRUD_UPDATE_DOC, ctx, doc.inputDoc);
-                            }
-                        }
                     }
                 }
             }
