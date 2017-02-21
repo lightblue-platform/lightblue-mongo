@@ -21,6 +21,9 @@ package com.redhat.lightblue.mongo.crud;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.function.Consumer;
+
 import com.mongodb.DBObject;
 import com.mongodb.DBCursor;
 
@@ -39,6 +42,7 @@ public class CursorStream implements DocumentStream<DocCtx> {
     private final long executionTime;
     private final long from;
     private final long to;
+    private final ArrayList<Consumer<DocCtx>> listeners=new ArrayList<>();
 
     public CursorStream(DBCursor cursor,DocTranslator translator,DBObject mongoQuery,long executionTime,long from,long to) {
         this.cursor=cursor;
@@ -73,6 +77,8 @@ public class CursorStream implements DocumentStream<DocCtx> {
         
         DocCtx ctx=new DocCtx(d.doc,d.rmd);
         ctx.setCRUDOperationPerformed(CRUDOperation.FIND);
+        for(Consumer<DocCtx> x:listeners)
+            x.accept(ctx);
         return ctx;
     }
 
@@ -81,6 +87,10 @@ public class CursorStream implements DocumentStream<DocCtx> {
         try{
             cursor.close();
         } catch (Exception e) {}
+    }
+    @Override
+    public void tee(Consumer<DocCtx> dest) {
+        listeners.add(dest);
     }
         
 }
