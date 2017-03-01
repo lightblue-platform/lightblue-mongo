@@ -89,7 +89,7 @@ public class CursorStream implements DocumentStream<DocCtx> {
         } catch (Exception e) {}
     }
     @Override
-    public void tee(Consumer<DocCtx> dest) {
+    public void forEach(Consumer<DocCtx> dest) {
         listeners.add(dest);
     }
         
