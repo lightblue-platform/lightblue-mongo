@@ -476,9 +476,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 // Project results
                 Projector projector = Projector.getInstance(projection == null ? EMPTY_PROJECTION
                         : Projection.add(projection, roleEval.getExcludedFields(FieldAccessRoleEvaluator.Operation.find)), md);
+                ctx.measure.begin("projectFound");
                 for (DocCtx document : ctx.getDocuments()) {
                     document.setOutputDocument(projector.project(document, ctx.getFactory().getNodeFactory()));
                 }
+                ctx.measure.end("projectFound");
                 ctx.getHookManager().queueHooks(ctx);
             } else {
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "find:" + ctx.getEntityName()));
