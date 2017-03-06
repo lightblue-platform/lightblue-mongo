@@ -28,9 +28,6 @@ public class IfStatement extends Block {
     }
 
     public static IfStatement ifDefined(Name var,Statement...s) {
-        StringBuffer b=new StringBuffer(64);
-        for(int i=0;i<var.length();i++) {
-        }
         return new IfStatement(new SimpleExpression(buildNotUndefined(var)),s);
     }
     
