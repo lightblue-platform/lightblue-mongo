@@ -326,11 +326,11 @@ public class TranslatorTest extends AbstractMongoCrudTest {
     @Test
     public void translateJS() throws Exception {
         DBObject obj = expressionTranslator.translate(md, query("{'field':'field7.*.elemf1','op':'=','rfield':'field7.*.elemf2'}"));
-        Assert.assertEquals("function() {var r0=false;{if(typeof this.field7 != 'undefined'){for(var ri1=0;ri1<this.field7.length;ri1++){if(typeof this.field7 != 'undefined'){for(var ri2=0;ri2<this.field7.length;ri2++){r0=field7[ri1].elemf1 == field7[ri2].elemf2;if(r0){break;}}}if(r0){break;}}}}return r0;}",
+        Assert.assertEquals("function() {var r0=false;{if(typeof this.field7!='undefined'){for(var ri1=0;ri1<this.field7.length;ri1++){if(typeof this.field7!='undefined'){for(var ri2=0;ri2<this.field7.length;ri2++){r0=field7[ri1].elemf1 == field7[ri2].elemf2;if(r0){break;}}}if(r0){break;}}}}return r0;}",
                             obj.get("$where").toString().trim());
 
         obj = expressionTranslator.translate(md, query("{'field':'field7.0.elemf1','op':'=','rfield':'field7.*.elemf2'}"));
-        Assert.assertEquals("function() {var r0=false;{if(typeof this.field7 != 'undefined'){for(var ri1=0;ri1<this.field7.length;ri1++){r0=field7[0].elemf1 == field7[ri1].elemf2;if(r0){break;}}}}return r0;}",
+        Assert.assertEquals("function() {var r0=false;{if(typeof this.field7!='undefined'){for(var ri1=0;ri1<this.field7.length;ri1++){r0=field7[0].elemf1 == field7[ri1].elemf2;if(r0){break;}}}}return r0;}",
                 obj.get("$where").toString().trim());
     }
 

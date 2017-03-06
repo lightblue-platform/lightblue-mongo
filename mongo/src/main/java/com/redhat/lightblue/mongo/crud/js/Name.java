@@ -73,6 +73,25 @@ public class Name {
     public String get(int i) {
         return getPart(i).name;
     }
+
+    public String getPrefix(int n) {
+        StringBuilder bld=new StringBuilder();
+        int i=0;
+        for(Part p:parts) {
+            if(p.index) {
+                bld.append('[').append(p.name).append(']');
+            } else {
+                if(bld.length()>0) {
+                    bld.append('.');
+                }
+                bld.append(p.name);
+            }
+            i++;
+            if(i>=n)
+                break;
+        }
+        return bld.toString();
+    }
     
     public Part getPart(int i) {
         return parts.get(i);
@@ -89,18 +108,6 @@ public class Name {
     
     @Override
     public String toString() {
-        StringBuilder bld=new StringBuilder();
-        boolean first=true;
-        for(Part p:parts) {
-            if(p.index)
-                bld.append('[').append(p.name).append(']');
-            else {
-                if(bld.length()>0) {
-                    bld.append('.');
-                }
-                bld.append(p.name);
-            }
-        }
-        return bld.toString();
+        return getPrefix(parts.size());
     }
 }
