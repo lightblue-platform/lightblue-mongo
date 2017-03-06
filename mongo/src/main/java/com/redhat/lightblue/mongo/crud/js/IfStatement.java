@@ -28,11 +28,24 @@ public class IfStatement extends Block {
     }
 
     public static IfStatement ifDefined(Name var,Statement...s) {
-        return new IfStatement(new SimpleExpression("typeof this.%s != 'undefined'", var),s);
+        return new IfStatement(new SimpleExpression(buildNotUndefined(var)),s);
     }
-
+    
     public static IfStatement ifDefined(Name var1, Name var2 ,Statement...s) {
-        return new IfStatement(new SimpleExpression("typeof this.%s != 'undefined' && typeof this.%s != 'undefined'", var1,var2),s);
+        return new IfStatement(new SimpleExpression(buildNotUndefined(var1)+"&&"+buildNotUndefined(var2)),s);
+    }
+    
+    private static String buildNotUndefined(Name var) {
+        StringBuilder b=new StringBuilder(64);
+        for(int i=0;i<var.length();i++) {
+            if(b.length()>0) {
+                b.append("&&");
+            }
+            b.append("typeof this.");
+            b.append(var.getPrefix(i+1));
+            b.append("!='undefined'");
+        }
+        return b.toString();
     }
     
     @Override

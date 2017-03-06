@@ -71,7 +71,7 @@ public class JSQueryTranslatorTest extends AbstractMongoCrudTest {
         cmpjs("function() {var r0=[1,2,3];var r1=false;var r3=false;"+
               "{for(var i2=0;i2<r0.length;i2++){"+
               " r3=false;"+
-              " if(typeof this.field6.nf5!='undefined'){"+
+              " if(typeof this.field6!='undefined'&&typeof this.field6.nf5!='undefined'){"+
               "   for(var j4=0;j4<this.field6.nf5.length;j4++){"+
               "     if(this.field6.nf5[j4]==r0[i2]){r3=true;break;}}}"+
               " if(r3){r1=true;break;}}}return r1;}",
@@ -82,7 +82,7 @@ public class JSQueryTranslatorTest extends AbstractMongoCrudTest {
         cmpjs("function() {var r0=[1,2,3];var r1=true;var r3=false;"+
               "{for(var i2=0;i2<r0.length;i2++){"+
               " r3=false;"+
-              " if(typeof this.field6.nf5!='undefined') {"+
+              " if(typeof this.field6!='undefined'&&typeof this.field6.nf5!='undefined') {"+
               "  for(var j4=0;j4<this.field6.nf5.length;j4++){"+
               "   if(this.field6.nf5[j4]==r0[i2]){r3=true;break;}}}"+
               " if(r3){r1=false;break;}}}return r1;}",
@@ -105,7 +105,7 @@ public class JSQueryTranslatorTest extends AbstractMongoCrudTest {
     public void testInField() throws Exception {
         cmpjs("function(){"+
               " var r0=false;{"+
-              " if(typeof this.field6.nf5!='undefined'&&typeof this.field1!='undefined') {"+
+              " if(typeof this.field6!='undefined'&&typeof this.field6.nf5!='undefined'&&typeof this.field1!='undefined') {"+
               "  for(var i1=0;i1<this.field6.nf5.length;i1++){"+
               "    if(this.field6.nf5[i1]==this.field1){r0=true;break;}}}}return r0;}",
               translator.translateQuery(query("{'field':'field1','op':'$in','rfield':'field6.nf5'}")).toString());
@@ -153,7 +153,7 @@ public class JSQueryTranslatorTest extends AbstractMongoCrudTest {
               " var r2=false; {"+
               " if(typeof this.field7 != 'undefined') {"+
               "  for(var i1=0;i1<this.field7.length;i1++) {"+
-              "   if(typeof this.field7[i1].elemf1 != 'undefined') {"+
+              "   if(typeof this.field7!='undefined'&&typeof this.field7[i1]!='undefined'&&typeof this.field7[i1].elemf1 != 'undefined') {"+
               "     r2=this.field7[i1].elemf1==\"test\";"+
               "   }"+
               "   if(r2){r0=true;break; }"+
@@ -167,9 +167,9 @@ public class JSQueryTranslatorTest extends AbstractMongoCrudTest {
         cmpjs("function() {"+
               " var r0=false; "+
               " var r2=false; {"+
-              "  if(typeof this.field6.nf5 != 'undefined') {"+
+              "  if(typeof this.field6!='undefined'&&typeof this.field6.nf5 != 'undefined') {"+
               "    for(var i1=0;i1<this.field6.nf5.length;i1++) {"+
-              "     if(typeof this.field6.nf5[i1] != 'undefined') {"+
+              "     if(typeof this.field6!='undefined'&&typeof this.field6.nf5!='undefined'&&typeof this.field6.nf5[i1] != 'undefined') {"+
               "       r2=this.field6.nf5[i1]==1;"+
               "     }"+
               "    if(r2){r0=true;break;}"+
@@ -185,9 +185,9 @@ public class JSQueryTranslatorTest extends AbstractMongoCrudTest {
               "{"+
               "if(typeof this.field8 != 'undefined') {"+
               " for(var ri1=0;ri1<this.field8.length;ri1++){"+
-              "  if(typeof this.field8[ri1].arr1 != 'undefined') {"+
+              "  if(typeof this.field8!='undefined'&&typeof this.field8[ri1]!='undefined'&&typeof this.field8[ri1].arr1 != 'undefined') {"+
               "   for(var ri2=0;ri2<this.field8[ri1].arr1.length;ri2++){"+
-              "    if(typeof this.field8[ri1].arr1[ri2].arr2 != 'undefined' && typeof this.field6.nf5 != 'undefined') {"+ 
+              "    if(typeof this.field8!='undefined'&&typeof this.field8[ri1]!='undefined'&&typeof this.field8[ri1].arr1!='undefined'&&typeof this.field8[ri1].arr1[ri2] != 'undefined'&&typeof this.field8[ri1].arr1[ri2].arr2 != 'undefined' && typeof this.field6!='undefined'&&typeof this.field6.nf5 != 'undefined') {"+ 
               "      if(this.field8[ri1].arr1[ri2].arr2.length==this.field6.nf5.length){"+
               "       r0=true;"+
               "       for(var i3=0;i3<this.field8[ri1].arr1[ri2].arr2.length;i3++){{"+
