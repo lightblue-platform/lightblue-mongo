@@ -136,7 +136,7 @@ public class BasicDocFinder implements DocFinder {
             }            
             return numMatched;
         } finally {
-            if(!cursorInUse) {
+            if(cursor!=null&&!cursorInUse) {
                 cursor.close();
             }
         }
