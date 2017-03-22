@@ -78,6 +78,7 @@ public class BasicDocFinder implements DocFinder {
 
         long executionTime = System.currentTimeMillis();
         DBCursor cursor = null;
+        boolean cursorInUse=false;
         try {
             cursor = coll.find(mongoQuery, mongoProjection);
             if (readPreference != null) {
@@ -123,6 +124,7 @@ public class BasicDocFinder implements DocFinder {
                 LOGGER.debug("Retrieving results");
                 CursorStream stream=new CursorStream(cursor,translator,mongoQuery,executionTime,f,t);
                 ctx.setDocumentStream(stream);
+                cursorInUse=true;
             } else {
             	ctx.setDocumentStream(new ListDocumentStream<DocCtx>(new ArrayList<>()));
             }
@@ -134,6 +136,9 @@ public class BasicDocFinder implements DocFinder {
             }            
             return numMatched;
         } finally {
+            if(cursor!=null&&!cursorInUse) {
+                cursor.close();
+            }
         }
     }
 
