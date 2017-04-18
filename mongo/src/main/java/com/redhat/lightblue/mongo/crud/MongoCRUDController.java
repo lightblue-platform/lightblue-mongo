@@ -229,7 +229,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             doc.setOriginalDocument(doc);
         }
         LOGGER.debug("saveOrInsert() start");
-        Error.push(operation);
+        Error.push("mongo:"+operation);
         DocTranslator translator = new DocTranslator(ctx, ctx.getFactory().getNodeFactory());
         try {
             FieldAccessRoleEvaluator roleEval = new FieldAccessRoleEvaluator(ctx.getEntityMetadata(ctx.getEntityName()),
@@ -285,8 +285,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 ctx.getHookManager().queueHooks(ctx);
             }
         } catch (Error e) {
+            LOGGER.error("Error in saveOrInsert",e);
             ctx.addError(e);
         } catch (Exception e) {
+            LOGGER.error("Exception in saveOrInsert",e);
             ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
@@ -301,7 +303,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                                      UpdateExpression update,
                                      Projection projection) {
         LOGGER.debug("update start: q:{} u:{} p:{}", query, update, projection);
-        Error.push(OP_UPDATE);
+        Error.push("mongo:"+OP_UPDATE);
         CRUDUpdateResponse response = new CRUDUpdateResponse();
         DocTranslator translator = new DocTranslator(ctx, ctx.getFactory().getNodeFactory());
         ExpressionTranslator xtranslator = new ExpressionTranslator(ctx, ctx.getFactory().getNodeFactory());
@@ -351,8 +353,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "update:" + ctx.getEntityName()));
             }
         } catch (Error e) {
+            LOGGER.error("Error in update",e);
             ctx.addError(e);
         } catch (Exception e) {
+            LOGGER.error("Exception in update",e);
             ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
@@ -365,7 +369,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     public CRUDDeleteResponse delete(CRUDOperationContext ctx,
                                      QueryExpression query) {
         LOGGER.debug("delete start: q:{}", query);
-        Error.push(OP_DELETE);
+        Error.push("mongo:"+OP_DELETE);
         CRUDDeleteResponse response = new CRUDDeleteResponse();
         DocTranslator translator = new DocTranslator(ctx, ctx.getFactory().getNodeFactory());
         ExpressionTranslator xtranslator = new ExpressionTranslator(ctx, ctx.getFactory().getNodeFactory());
@@ -390,8 +394,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "delete:" + ctx.getEntityName()));
             }
         } catch (Error e) {
+            LOGGER.error("Error in delete",e);
             ctx.addError(e);
         } catch (Exception e) {
+            LOGGER.error("Exception in delete",e);
             ctx.addError(analyzeException(e, CrudConstants.ERR_CRUD));
         } finally {
             Error.pop();
@@ -436,7 +442,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                                  Long from,
                                  Long to) {
         LOGGER.debug("find start: q:{} p:{} sort:{} from:{} to:{}", query, projection, sort, from, to);
-        Error.push(OP_FIND);
+        Error.push("mongo:"+OP_FIND);
         CRUDFindResponse response = new CRUDFindResponse();
         DocTranslator translator = new DocTranslator(ctx, ctx.getFactory().getNodeFactory());
         ExpressionTranslator xtranslator = new ExpressionTranslator(ctx, ctx.getFactory().getNodeFactory());
@@ -484,6 +490,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "find:" + ctx.getEntityName()));
             }
         } catch (Error e) {
+            LOGGER.error("Error in find",e);
             ctx.addError(e);
         } catch (Exception e) {
             LOGGER.error("Error during find:", e);
