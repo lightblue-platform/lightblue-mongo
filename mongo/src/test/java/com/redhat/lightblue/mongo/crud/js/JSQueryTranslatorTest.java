@@ -208,7 +208,7 @@ public class JSQueryTranslatorTest extends AbstractMongoCrudTest {
 
     @Test
     public void testFieldCommparison() throws Exception {
-        cmpjs("function(){var r0=false;{r0=field1==field2;}return r0;}",
+        cmpjs("function(){var r0=false;{if(typeof this.field1!='undefined'&&typeof this.field2!='undefined'){r0=this.field1==this.field2;}}return r0;}",
               translator.translateQuery(query("{'field':'field1','op':'=','rfield':'field2'}")).toString());
     }
     
