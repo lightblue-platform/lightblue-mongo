@@ -252,7 +252,8 @@ public class JSQueryTranslator {
                                                                   SimpleStatement.S_BREAK))));
         } else {
             // Simple comparison
-            parentBlock.add(new SimpleStatement("%s=%s %s %s",comparisonBlock.resultVar,lfieldName,BINARY_COMPARISON_OPERATOR_JS_MAP.get(query.getOp()),rfieldName));
+            parentBlock.add(IfStatement.ifDefined(lfieldName,rfieldName,
+                                                  new SimpleStatement("%s=this.%s %s this.%s",comparisonBlock.resultVar,lfieldName,BINARY_COMPARISON_OPERATOR_JS_MAP.get(query.getOp()),rfieldName)));
         }
         // Add breaks to the end of for loops
         // Trace ctx back to ctx, add breaks to for loops

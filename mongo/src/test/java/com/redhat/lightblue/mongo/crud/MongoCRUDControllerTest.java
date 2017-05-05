@@ -2056,6 +2056,47 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void fieldfieldComparisonTest() throws Exception {
+         EntityMetadata md = getMd("./testMetadata5.json");
+         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata5.json"));
+        // This makes field1=field2
+        doc.modify(new Path("field2"),JsonNodeFactory.instance.textNode("f1"),false);
+        Projection projection = projection("{'field':'_id'}");
+        addDocument(ctx,doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+        
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'field':'field1','op':'=','rfield':'field2'}"),
+                projection("{'field':'*','recursive':1}"), null, null, null);
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
+    }
+
+    @Test
+    public void fieldfieldComparisonTest_missingField() throws Exception {
+         EntityMetadata md = getMd("./testMetadata5.json");
+         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata5.json"));
+        // This will remove field2
+        doc.modify(new Path("field2"),null,false);
+        Projection projection = projection("{'field':'_id'}");
+        addDocument(ctx,doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+        
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'field':'field1','op':'=','rfield':'field2'}"),
+                projection("{'field':'*','recursive':1}"), null, null, null);
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(0, documents.size());
+        // should not throw exception
+    }
+
+    @Test
     public void nullqTest() throws Exception {
         EntityMetadata md = getMd("./testMetadata5.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
