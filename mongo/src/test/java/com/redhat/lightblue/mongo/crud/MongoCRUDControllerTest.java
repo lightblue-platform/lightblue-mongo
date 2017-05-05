@@ -261,6 +261,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertNotNull(documents.get(0).getResultMetadata().getDocumentVersion());
     }
 
+
     @Test
     public void updateDocument_CI() throws Exception {
         db.getCollection("testCollectionIndex1").drop();
@@ -1739,6 +1740,24 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         documents=streamToList(ctx);
         Assert.assertEquals(0, documents.size());
 
+    }
+
+    @Test
+    public void searchByArrayIndexTest() throws Exception {
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        JsonDoc doc = new JsonDoc(loadJsonNode("./testdata1.json"));
+        Projection projection = projection("{'field':'_id'}");
+        addDocument(ctx,doc);
+        CRUDInsertionResponse response = controller.insert(ctx, projection);
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.FIND);
+        ctx.add(md);
+        controller.find(ctx, query("{'field':'field7.0.elemf1','op':'$eq','rvalue':'value0_1'}}"),
+                        projection("{'field':'*','recursive':1}"), null, null, null);
+        List<DocCtx> documents=streamToList(ctx);
+        Assert.assertEquals(1, documents.size());
     }
 
     @Test
