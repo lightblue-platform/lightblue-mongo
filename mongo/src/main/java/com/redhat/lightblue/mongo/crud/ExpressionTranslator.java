@@ -560,7 +560,7 @@ public class ExpressionTranslator {
                 p.push(seg);
                 if(s!=null)
                     s.push(seg);
-                if(context instanceof ArrayNode) {
+                if(fieldNode instanceof ArrayField) {
                     fieldNode=((ArrayField)fieldNode).getElement();
                 } else {
                     throw Error.get(ERR_INVALID_FIELD,field.toString());
