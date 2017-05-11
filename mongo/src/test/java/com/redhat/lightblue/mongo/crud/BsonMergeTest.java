@@ -160,4 +160,18 @@ public class BsonMergeTest extends AbstractJsonSchemaTest {
         Assert.assertEquals("1",  ((List<DBObject>) oldDoc.get("field7")).get(0).get("id"));
         Assert.assertEquals("2",  ((List<DBObject>) newDoc.get("field7")).get(1).get("id"));
     }
+
+    @Test
+    public void merge_shifting_arrays() throws Exception {
+        DocTranslator translator = new DocTranslator(new Resolver(md6), nodeFactory);
+        DBObject oldDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata_largearr.json"))).doc;
+        DBObject newDoc = translator.toBson(new JsonDoc(loadJsonNode("./testdata_largearr.json"))).doc;
+        // Remove an element from newdoc, so element indexes shift
+        ((List<DBObject>) newDoc.get("field7")).remove(2);
+        // Add a new field-value to an element in olddoc that shifted
+        ((List<DBObject>)oldDoc.get("field7")).get(3).put("inv1","val1");
+        System.out.println(oldDoc);
+        merge6.merge(oldDoc, newDoc);
+        Assert.assertEquals("val1",  ((List<DBObject>) oldDoc.get("field7")).get(2).get("inv1"));
+    }
 }
