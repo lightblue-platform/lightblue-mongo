@@ -272,7 +272,15 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
             if(updatedDoc!=null) {
                 // if updatedDoc is null, doc is lost. Error remains
                 DBObject newDoc=reapplyChanges(index,updatedDoc);
+                // WARNING There is a potential for major screwup
+                // here, so be careful when you're changing this
+                // code. reapplyChanges implementation calls merge(),
+                // which adds a reference to @mongoHidden at the root
+                // level in the old document into the new
+                // document. This is NOT a copy, a reference. So, the
+                // setDocVer call below sets the version of BOTH docs
                 if(newDoc!=null) {
+                    DBObject replaceQuery=writeReplaceQuery(updatedDoc);
                     // Update the doc ver to our doc ver. This doc is here
                     // because its docVer is not set to our docver, so
                     // this is ok
@@ -281,7 +289,7 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
                     // findAndReplace API, which is lacking in
                     // DBCollection
                     BulkWriteOperation nestedBwo=collection.initializeUnorderedBulkOperation();
-                    nestedBwo.find(writeReplaceQuery(updatedDoc)).replaceOne(newDoc);
+                    nestedBwo.find(replaceQuery).replaceOne(newDoc);
                     try {
                         if(nestedBwo.execute().getMatchedCount()==1) {
                             // Successful update

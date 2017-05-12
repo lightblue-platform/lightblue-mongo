@@ -223,7 +223,16 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
                     System.out.println("Retrying");
                     BasicDBObject newDoc=new BasicDBObject();
                     newDoc.putAll(doc);
-                    newDoc.removeField("@mongoHidden");
+                    // Emulating merging behavior here. When we merge
+                    // documents, we put references to missing items
+                    // from the old document into the new
+                    // document. Once of these references is
+                    // the @mongoHidden element at the root. This
+                    // contains the document versions. So after
+                    // merging, we have two copies of the same
+                    // document, sharing the same instance of document
+                    // versions.
+                    newDoc.put("@mongoHidden",doc.get("@mongoHidden"));
                     newDoc.put("field","updated1"+doc.get("_id").toString());                    
                     return newDoc;
                 }
@@ -265,6 +274,15 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
 
         err=updater.commit();
         Assert.assertEquals(0,err.size());
+
+        // Check if the updates worked
+        cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","19")));
+        while(cursor.hasNext()) {
+            DBObject doc=cursor.next();
+            String id=doc.get("_id").toString();
+            Assert.assertEquals(doc.get("field"),"updated1"+id);
+        }
+        cursor.close();
     }
 
     @Test
