@@ -172,6 +172,6 @@ public class BsonMergeTest extends AbstractJsonSchemaTest {
         ((List<DBObject>)oldDoc.get("field7")).get(3).put("inv1","val1");
         System.out.println(oldDoc);
         merge6.merge(oldDoc, newDoc);
-        Assert.assertEquals("val1",  ((List<DBObject>) oldDoc.get("field7")).get(2).get("inv1"));
+        Assert.assertEquals("val1",  ((List<DBObject>) newDoc.get("field7")).get(2).get("inv1"));
     }
 }

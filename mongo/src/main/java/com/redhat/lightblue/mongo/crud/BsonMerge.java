@@ -19,10 +19,12 @@
 package com.redhat.lightblue.mongo.crud;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Collection;
-import java.util.HashSet;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -215,7 +217,7 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
         }
         throw new RuntimeException("Cannot compute document diffs even with ignored identities:"+ignoredIdentities);
     }
-
+    
     /**
      * Copies all fields in oldDoc that are not in metadata into newDoc
      *
@@ -226,15 +228,16 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
         try {
             LOGGER.debug("Merge start");
             DocComparator.Difference<Object> diff = compareNodesWithFallback(oldDoc, newDoc);
-            LOGGER.debug("Diff:{}" + diff);
+            LOGGER.debug("Diff:{}" + diff);            
+            
             // We look for things removed in the new document
             for (DocComparator.Delta<Object> delta : diff.getDelta()) {
                 if (delta instanceof DocComparator.Removal) {
                     DocComparator.Removal<Object> removal = (DocComparator.Removal<Object>) delta;
                     Path removedField = removal.getField1();
-
+                    
                     boolean hidden = true;
-
+                    
                     // If this is a removed array element, we don't add it back
                     int numSegments = removedField.numSegments();
                     if (numSegments > 1 && removedField.isIndex(numSegments - 1)) {
@@ -283,16 +286,17 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
         Path field = removedField.getField1();
         // 'field' is the name of the removed field in the old document.
         // We have to find the field name it has in the new document, because array elements might have moved around
+
         MutablePath newFieldName = new MutablePath();
         int n = field.numSegments();
         for (int i = 0; i < n; i++) {
-            if (field.isIndex(i)) {
+            if (field.isIndex(i)) {               
                 // At this point, newFieldName points to an array,
                 // field.prefix(i) points to an array element. If there
                 // is a Move delta for the move of field.prefix(i+1)
                 // -> someField, then we get the new index from
                 // someField
-                Path arrayElement = field.prefix(i);
+                Path arrayElement = field.prefix(i+1);
                 // arrayElement.tail(0) is an index
                 Path movedTo = null;
                 for (DocComparator.Delta<Object> d : delta) {
@@ -304,6 +308,7 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
                         }
                     }
                 }
+                LOGGER.debug("field: {}, arrayElement: {}, movedTo:{}", field,arrayElement,movedTo);
                 if (movedTo != null) {
                     // arrayElement moved to somewhere else, get the new index, push it to the newFieldName
                     newFieldName.push(movedTo.tail(0));
