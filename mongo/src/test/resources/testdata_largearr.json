@@ -1,0 +1,63 @@
+{
+  "objectType":"test",
+  "field1":"f1",
+  "field2":"f2",
+  "field3":1,
+  "field4":123.45,
+  "field5":true,
+  "field6":{
+      "nf1":"v1",
+      "nf2":"v2",
+      "nf3":2,
+      "nf4":false,
+      "nf5":[1,2,3,4,5],
+      "nf6":["one","two"],
+      "nf7": {
+  "nnf1":"value1",
+  "nnf2": 3
+      }
+  },
+  "field7": [
+  { "elemf1":"value0_1",
+    "elemf2":"value0_2",
+    "elemf3":0,
+    "id":0,
+    "nested": {
+        "f1":"0"
+    }},
+  { "elemf1":"value1_1",
+    "elemf2":"value1_2",
+    "elemf3":1,
+    "id":1,
+    "nested": {
+        "f1":"1"
+    }},
+  { "elemf1":"value2_1",
+    "elemf2":"value2_2",
+    "elemf3":2,
+    "id":2,
+    "nested": {
+        "f1":"2"
+    }},
+  { "elemf1":"value3_1",
+    "elemf2":"value3_2",
+    "elemf3":3,
+    "id":3,
+    "nested": {
+        "f1":"3"
+    }},
+  { "elemf1":"value4_1",
+    "elemf2":"value4_2",
+    "elemf3":4,
+    "id":4,
+    "nested": {
+        "f1":"4"
+    }},
+  { "elemf1":"value5_1",
+    "elemf2":"value5_2",
+    "elemf3":5,
+    "id":5,
+    "nested":{
+        "f1":"5"
+    }} ]
+ }
