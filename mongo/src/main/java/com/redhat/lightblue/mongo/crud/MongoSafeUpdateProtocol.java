@@ -272,13 +272,10 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
             if(updatedDoc!=null) {
                 // if updatedDoc is null, doc is lost. Error remains
                 DBObject newDoc=reapplyChanges(index,updatedDoc);
-                // WARNING There is a potential for major screwup
-                // here, so be careful when you're changing this
-                // code. reapplyChanges implementation calls merge(),
-                // which adds a reference to @mongoHidden at the root
-                // level in the old document into the new
-                // document. This is NOT a copy, a reference. So, the
-                // setDocVer call below sets the version of BOTH docs
+                // Make sure reapplyChanges does not insert references
+                // of objects from the old document into the
+                // updatedDoc. That updates both copies of
+                // documents. Use deepCopy
                 if(newDoc!=null) {
                     DBObject replaceQuery=writeReplaceQuery(updatedDoc);
                     // Update the doc ver to our doc ver. This doc is here
