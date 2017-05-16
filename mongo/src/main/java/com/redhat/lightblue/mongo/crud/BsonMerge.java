@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.mongodb.DBObject;
+import com.mongodb.BasicDBObject;
 
 import com.redhat.lightblue.metadata.EntityMetadata;
 
@@ -328,6 +329,26 @@ public final class BsonMerge extends DocComparator<Object, Object, DBObject, Lis
         } else {
             parent = doc;
         }
-        parent.put(newFieldName.tail(0), removedField.getRemovedNode());
+        parent.put(newFieldName.tail(0), copy(removedField.getRemovedNode()));
+    }
+
+    private static Object copy(Object fld) {
+        Object ret;
+        if(fld instanceof List) {
+            ArrayList<Object> l=new ArrayList<>();
+            for(Object s:(List)fld) {
+                l.add(copy(s));
+            }
+            ret=l;
+        } else if (fld instanceof DBObject) {
+            DBObject r=new BasicDBObject();
+            for(String s:((DBObject)fld).keySet()) {
+                r.put(s,copy( ((DBObject)fld).get(s)));
+            }
+            ret=r;
+        } else {
+            ret=fld;
+        }
+        return ret;
     }
 }

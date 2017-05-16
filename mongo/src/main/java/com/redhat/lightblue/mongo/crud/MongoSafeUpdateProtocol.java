@@ -272,7 +272,12 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
             if(updatedDoc!=null) {
                 // if updatedDoc is null, doc is lost. Error remains
                 DBObject newDoc=reapplyChanges(index,updatedDoc);
+                // Make sure reapplyChanges does not insert references
+                // of objects from the old document into the
+                // updatedDoc. That updates both copies of
+                // documents. Use deepCopy
                 if(newDoc!=null) {
+                    DBObject replaceQuery=writeReplaceQuery(updatedDoc);
                     // Update the doc ver to our doc ver. This doc is here
                     // because its docVer is not set to our docver, so
                     // this is ok
@@ -281,7 +286,7 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
                     // findAndReplace API, which is lacking in
                     // DBCollection
                     BulkWriteOperation nestedBwo=collection.initializeUnorderedBulkOperation();
-                    nestedBwo.find(writeReplaceQuery(updatedDoc)).replaceOne(newDoc);
+                    nestedBwo.find(replaceQuery).replaceOne(newDoc);
                     try {
                         if(nestedBwo.execute().getMatchedCount()==1) {
                             // Successful update
