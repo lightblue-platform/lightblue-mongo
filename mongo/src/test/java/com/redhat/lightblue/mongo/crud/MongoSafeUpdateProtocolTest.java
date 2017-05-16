@@ -226,7 +226,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
                     // Emulating merging behavior here. When we merge
                     // documents, we put references to missing items
                     // from the old document into the new
-                    // document. Once of these references is
+                    // document. One of these references is
                     // the @mongoHidden element at the root. This
                     // contains the document versions. So after
                     // merging, we have two copies of the same
