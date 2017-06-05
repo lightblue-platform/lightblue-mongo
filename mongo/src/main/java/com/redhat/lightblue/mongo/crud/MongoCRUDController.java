@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.mongodb.CommandResult;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,11 +45,12 @@ import com.mongodb.MongoException;
 import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
-import com.mongodb.util.JSON;
+
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.CRUDController;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDFindResponse;
+import com.redhat.lightblue.crud.CRUDHealth;
 import com.redhat.lightblue.crud.CRUDInsertionResponse;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
@@ -560,6 +562,31 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                         false);
             }
         }
+    }
+
+    @Override
+    public CRUDHealth checkHealth() {
+        boolean isHealthy = true;
+        List<MongoConfiguration> configs = dbResolver.getConfigurations();
+        List<String> details = new ArrayList<>(configs.size());
+        DBObject ping = new BasicDBObject("ping", 1);
+
+        for (MongoConfiguration config : configs) {
+            try {
+                CommandResult result = config.getDB().command(ping);
+                if (!result.get("ok").equals(1)) {
+                    isHealthy = false;
+                    details.add(config + ":ping_ok!=1");
+                } else {
+                    details.add(config + ":ping_ok=1");
+                }
+            } catch (Exception e) {
+                isHealthy = false;
+                details.add(config + ":ping_exception=" + e);
+            }
+        }
+
+        return new CRUDHealth(isHealthy, details.toString());
     }
 
     @Override
