@@ -126,6 +126,12 @@ public class CacheTest {
         @Override
         public void updatePredefinedFields(CRUDOperationContext ctx, JsonDoc doc) {
         }
+
+		@Override
+		public LightblueHealth checkHealth() {
+			// TODO Auto-generated method stub
+			return null;
+		}
     }
 
     @Test

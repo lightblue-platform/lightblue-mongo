@@ -18,7 +18,10 @@
  */
 package com.redhat.lightblue.mongo.config;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -54,6 +57,18 @@ public class MongoDBResolver implements DBResolver {
             }
         }
         return null;
+    }
+    
+    @Override
+    public List<MongoConfiguration> getConfigurations() {
+    	
+    	List<MongoConfiguration> mongoConfigurations = new ArrayList<>();
+        
+    	for (MongoConfiguration cfg : datasources.values()) {
+    		mongoConfigurations.add(cfg);
+        }
+    	
+        return Collections.unmodifiableList(mongoConfigurations);
     }
 
     @Override

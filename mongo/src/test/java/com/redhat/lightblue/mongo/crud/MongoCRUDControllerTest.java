@@ -104,6 +104,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             public MongoConfiguration getConfiguration(MongoDataStore store) {
                 return null;
             }
+
+			@Override
+			public List<MongoConfiguration> getConfigurations() {
+				return null;
+			}
         });
     }
 

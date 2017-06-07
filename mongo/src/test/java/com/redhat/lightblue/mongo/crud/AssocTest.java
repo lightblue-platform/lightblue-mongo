@@ -94,6 +94,10 @@ public class AssocTest extends AbstractMongoCrudTest {
                 public MongoConfiguration getConfiguration(MongoDataStore store) {
                     return null;
                 }
+				@Override
+				public List<MongoConfiguration> getConfigurations() {
+					return null;
+				}
             }));
         return new Mediator(new DatabaseMetadata(), factory);
     }
