@@ -24,6 +24,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -53,6 +54,7 @@ import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDSaveResponse;
 import com.redhat.lightblue.crud.DocumentStream;
+import com.redhat.lightblue.crud.LightblueHealth;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.metadata.ArrayField;
@@ -107,9 +109,18 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
 			@Override
 			public List<MongoConfiguration> getConfigurations() {
-				return null;
+				MongoConfiguration configuration = new MongoConfiguration();
+				try {
+					configuration.addServerAddress(db.getMongo().getAddress().getHost(), db.getMongo().getAddress().getPort());
+					configuration.setDatabase("mongo");
+				} catch (UnknownHostException e) {
+					// Exception
+				}
+				List<MongoConfiguration> configs = new ArrayList<>();
+				configs.add(configuration);
+				return configs;
 			}
-        });
+		});
     }
 
     private void addDocument(CRUDOperationContext ctx,JsonDoc doc) {
@@ -2855,5 +2866,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index(new IndexSortKey(new Path("a.*.b"), false, false));
         DBObject existingIndex = new BasicDBObject("key", new BasicDBObject("a.b", 1));
         Assert.assertTrue(controller.indexFieldsMatch(index, existingIndex));
+    }
+    
+    @Test
+    public void checkHealth() throws Exception{
+    	LightblueHealth healthCheck = controller.checkHealth();
+    	Assert.assertTrue(healthCheck.isHealthy());
     }
 }
