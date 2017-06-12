@@ -565,11 +565,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 		for (MongoConfiguration config : configs) {
 			try {
 				CommandResult result = config.getDB().command(ping);
-				if (!result.get("ok").equals(1)) {
+				if (!result.get("ok").equals(1.0)) {
 					isHealthy = false;
-					details.add(config + ":ping_ok!=1");
+					details.add(config + ":ping_ok!=1.0");
 				} else {
-					details.add(config + ":ping_ok=1");
+					details.add(config + ":ping_ok=1.0");
 				}
 			} catch (Exception e) {
 				isHealthy = false;
