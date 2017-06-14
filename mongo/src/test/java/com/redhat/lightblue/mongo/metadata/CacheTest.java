@@ -127,11 +127,10 @@ public class CacheTest {
         public void updatePredefinedFields(CRUDOperationContext ctx, JsonDoc doc) {
         }
 
-		@Override
-		public LightblueHealth checkHealth() {
-			// TODO Auto-generated method stub
-			return null;
-		}
+        @Override
+        public CRUDHealth checkHealth() {
+            return new CRUDHealth(true, "Return always healthy for test");
+        }
     }
 
     @Test

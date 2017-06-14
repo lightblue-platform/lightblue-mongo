@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -54,7 +55,7 @@ import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDSaveResponse;
 import com.redhat.lightblue.crud.DocumentStream;
-import com.redhat.lightblue.crud.LightblueHealth;
+import com.redhat.lightblue.crud.CRUDHealth;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.metadata.ArrayField;
@@ -104,23 +105,25 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
             @Override
             public MongoConfiguration getConfiguration(MongoDataStore store) {
-                return null;
+                MongoConfiguration configuration = new MongoConfiguration();
+                try {
+                    configuration.addServerAddress(db.getMongo().getAddress().getHost(),
+                            db.getMongo().getAddress().getPort());
+                    configuration.setDatabase("mongo");
+                } catch (UnknownHostException e) {
+                    return null;
+                }
+                return configuration;
             }
 
-			@Override
-			public List<MongoConfiguration> getConfigurations() {
-				MongoConfiguration configuration = new MongoConfiguration();
-				try {
-					configuration.addServerAddress(db.getMongo().getAddress().getHost(), db.getMongo().getAddress().getPort());
-					configuration.setDatabase("mongo");
-				} catch (UnknownHostException e) {
-					// Exception
-				}
-				List<MongoConfiguration> configs = new ArrayList<>();
-				configs.add(configuration);
-				return configs;
-			}
-		});
+            @Override
+            public Collection<MongoConfiguration> getConfigurations() {
+
+                List<MongoConfiguration> configs = new ArrayList<>();
+                configs.add(getConfiguration(null));
+                return configs;
+            }
+        });
     }
 
     private void addDocument(CRUDOperationContext ctx,JsonDoc doc) {
@@ -2870,7 +2873,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     
     @Test
     public void checkHealth() throws Exception{
-    	LightblueHealth healthCheck = controller.checkHealth();
+    	CRUDHealth healthCheck = controller.checkHealth();
+    	System.out.println("CRUDHealthCheck Details : " + healthCheck.details());
     	Assert.assertTrue(healthCheck.isHealthy());
     }
 }

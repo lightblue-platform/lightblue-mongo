@@ -20,7 +20,7 @@ package com.redhat.lightblue.mongo.crud;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import java.util.List;
+import java.util.Collection;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -60,10 +60,10 @@ public class GeneratorSupportTest extends AbstractMongoCrudTest {
                 return null;
             }
 
-			@Override
-			public List<MongoConfiguration> getConfigurations() {
-				return null;
-			}
+            @Override
+            public Collection<MongoConfiguration> getConfigurations() {
+                return null;
+            }
         });
     }
 

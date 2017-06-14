@@ -18,7 +18,7 @@
  */
 package com.redhat.lightblue.mongo.common;
 
-import java.util.List;
+import java.util.Collection;
 
 import com.mongodb.DB;
 
@@ -35,8 +35,8 @@ public interface DBResolver {
 
     MongoConfiguration getConfiguration(MongoDataStore store);
 
-	/**
-	 * Returns a list of available {@link MongoConfiguration}
-	 */
-	List<MongoConfiguration> getConfigurations();
+    /**
+     * Returns a list of available {@link MongoConfiguration}
+     */
+    Collection<MongoConfiguration> getConfigurations();
 }
