@@ -299,6 +299,9 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
                     // reapllyChanges removed the doc from the resultset
                     results.remove(index);
                 }
+            } else {
+                // Doc no longer exists
+                results.remove(index);
             }
         }
         return newFailedDocs;
