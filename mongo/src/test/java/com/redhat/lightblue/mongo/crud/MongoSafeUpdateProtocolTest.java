@@ -18,25 +18,20 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import java.util.UUID;
 
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 
-import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
-import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
-
+import com.mongodb.WriteResult;
 import com.redhat.lightblue.util.Error;
 
 public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
@@ -51,6 +46,10 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
             super(coll,null,null);
         }
         
+        public TestUpdater(DBCollection coll, DBObject query) {
+            super(coll,null,query,null);
+        }
+
         protected DBObject reapplyChanges(int docIndex,DBObject doc) {
             numRetries++;
             System.out.println("Retrying");
@@ -70,7 +69,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
     }
 
     private void insertDoc(String id,String value) {
-        coll.insert(new BasicDBObject("_id",id).append("field",value));
+        coll.insert(new BasicDBObject("_id",id).append("field",value).append("a", "b"));
     }
 
     /**
@@ -382,6 +381,85 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         Assert.assertEquals(1,errors.size());
         Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE,errors.get(3).getErrorCode());
         
+    }
+
+    @Test
+    public void noConcurrentUpdateErrorsWhenQueryDoesNotMatchOnRetry() {
+        insert50();
+
+        final int retryCount[] = new int[] {0};
+
+        // Thread1 reads first 10 docs and updates them in memory
+
+        List<DBObject> criteria = new ArrayList<>();
+        criteria.add(new BasicDBObject("_id",new BasicDBObject("$lte","19")));
+        criteria.add(new BasicDBObject("a", "b"));
+        DBObject query = new BasicDBObject("$and", criteria);
+
+        TestUpdater updater=new TestUpdater(coll, query) {
+
+                protected DBObject reapplyChanges(int docIndex,DBObject doc) {
+                    Assert.fail("Expecting no reapply, since origin query not matching after concurrent update");
+                    return null;
+                }
+
+                @Override
+                public void retryConcurrentUpdateErrorsIfNeeded(Map<Integer, Error> results) {
+                    retryCount[0]++;
+                    super.retryConcurrentUpdateErrorsIfNeeded(results);
+                }
+            };
+        updater.getCfg().setFailureRetryCount(100);
+
+        DBCursor cursor=coll.find(query);
+
+        while(cursor.hasNext()) {
+            DBObject doc=cursor.next();
+            doc.put("field","updated1"+doc.get("_id").toString());
+            updater.addDoc(doc);
+        }
+        cursor.close();
+
+        // Thread 2 updates first 5 docs so that thread1's query does not match anymore
+
+        TestUpdater updater2 = new TestUpdater(coll);
+
+        cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","14")));
+
+        while(cursor.hasNext()) {
+            DBObject doc=cursor.next();
+            doc.put("a", "c");
+            updater2.addDoc(doc);
+        }
+        cursor.close();
+
+        Map<Integer, Error> result = updater2.commit();
+        Assert.assertEquals(0, result.size());
+
+        // Thread1 persists it's updates
+        Map<Integer,Error> err=updater.commit();
+        // https://github.com/lightblue-platform/lightblue-mongo/issues/365
+        Assert.assertTrue("Expecting no ConcurrentUpdate errors sent to client, because docs do not match the original query anymore", err.isEmpty());
+
+        cursor=coll.find();
+        while(cursor.hasNext()) {
+            DBObject doc=cursor.next();
+
+            System.out.println(doc.get("_id")+" "+doc.get("a")+" "+doc.get("field"));
+
+            if (Integer.parseInt(doc.get("_id").toString()) < 20) {
+                if (doc.get("a").toString().equals("b")) {
+                    Assert.assertTrue("a: b docs should be updated by thread1", doc.get("field").toString().startsWith("updated1"));
+                }
+                if (doc.get("a").toString().equals("c")) {
+                    Assert.assertFalse("a: c docs should NOT be updated by thread1", doc.get("field").toString().startsWith("updated1"));
+                }
+
+            }
+        }
+        cursor.close();
+
+        Assert.assertEquals("Thread 1 should have retried only once", 1, retryCount[0]);
     }
 }
 
