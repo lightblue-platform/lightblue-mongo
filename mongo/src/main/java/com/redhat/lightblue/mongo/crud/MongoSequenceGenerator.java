@@ -18,8 +18,11 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
-import java.util.Set;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,23 +48,49 @@ public class MongoSequenceGenerator {
     public static final String VALUE = "value";
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoSequenceGenerator.class);
+    private static final ReentrantReadWriteLock rwl=new ReentrantReadWriteLock();
 
     private final DBCollection coll;
 
     // a set of sequances collections which were already initialized
-    private static Set<String> initializedCollections = new CopyOnWriteArraySet<>();
+    static Map<String,SequenceInfo> sequenceInfo = new HashMap<>();
+    static CopyOnWriteArraySet<String> initializedCollections = new CopyOnWriteArraySet<>();
+
+    static class SequenceInfo {
+        final String name;        
+        final ReentrantLock lock=new ReentrantLock();
+
+        long poolSize;
+        long nextIdInPool;
+        long inc;
+
+        SequenceInfo(String name) {
+            this.name=name;
+        }
+
+        Long nextId() {
+            if(poolSize>0) {
+                poolSize--;
+                long ret=nextIdInPool;
+                nextIdInPool+=inc;
+                return Long.valueOf(ret);
+            } else {
+                return null;
+            }
+        }
+    }
 
     public MongoSequenceGenerator(DBCollection coll) {
         this.coll = coll;
 
-        if (!initializedCollections.contains(coll.getFullName())) {
-            // Here, we also make sure we have the indexes setup properly
+        String name=coll.getFullName();
+        if(!initializedCollections.contains(name)) {
             initIndex();
-            initializedCollections.add(coll.getFullName());
-            LOGGER.info("Initialized sequances collection {}", coll.getFullName());
+            initializedCollections.add(name);
+            LOGGER.info("Initialized sequances collection {}", name);
         }
     }
-
+    
     private void initIndex() {
         // Make sure we have a unique index on name
         BasicDBObject keys = new BasicDBObject(NAME, 1);
@@ -80,48 +109,96 @@ public class MongoSequenceGenerator {
      * @param inc The increment, Could be negative or positive. If 0, it is
      * assumed to be 1. Used only if the sequence does not exist prior to this
      * call
+     * @param poolSize If the sequence already has a pool associated
+     * with it, this is ignored, and the next id is used from the
+     * pool. Otherwise, a new pool with this size is initialized for
+     * the sequence
      *
      * If the sequence already exists, the <code>init</code> and
      * <code>inc</code> are ignored.
      *
      * @return The value of the sequence before the call
      */
-    public long getNextSequenceValue(String name, long init, long inc) {
+    public long getNextSequenceValue(String name, long init, long inc, long poolSize) {
         LOGGER.debug("getNextSequenceValue({})", name);
-        // Read the sequence document
-        BasicDBObject q = new BasicDBObject(NAME, name);
-        DBObject doc = coll.findOne(q,null,ReadPreference.primary());
-        if (doc == null) {
-            // Sequence document does not exist. Insert a new document using the init and inc
-            LOGGER.debug("inserting sequence record name={}, init={}, inc={}", name, init, inc);
-            if (inc == 0) {
-                inc = 1;
+        // First check if there is already a pool of ids available
+        String fullName=coll.getFullName()+"."+name;
+        rwl.readLock().lock();
+        SequenceInfo si=sequenceInfo.get(fullName);
+        rwl.readLock().unlock();
+        if(si==null) {
+            rwl.writeLock().lock();
+            si=sequenceInfo.get(fullName);
+            if(si==null) {
+                si=new SequenceInfo(fullName);
+                sequenceInfo.put(fullName,si);
             }
+            rwl.writeLock().unlock();
+        }
 
-            BasicDBObject u = new BasicDBObject().
+        si.lock.lock();
+
+        long ret=0;
+
+        try {
+            // If there are ids in the pool, use one
+            if(si!=null) {
+                Long next=si.nextId();
+                if(next!=null) {
+                    return next;
+                }
+            }
+            // No ids in the pool
+            
+            // Read the sequence document
+            BasicDBObject q = new BasicDBObject(NAME, name);
+            DBObject doc = coll.findOne(q,null,ReadPreference.primary());
+            if (doc == null) {
+                // Sequence document does not exist. Insert a new document using the init and inc
+                LOGGER.debug("inserting sequence record name={}, init={}, inc={}", name, init, inc);
+                if (inc == 0) {
+                    inc = 1;
+                }
+                
+                BasicDBObject u = new BasicDBObject().
                     append(NAME, name).
                     append(INIT, init).
                     append(INC, inc).
                     append(VALUE, init);
-            try {
-                coll.insert(u, WriteConcern.ACKNOWLEDGED);
-            } catch (Exception e) {
-                // Someone else might have inserted already, try to re-read
-                LOGGER.debug("Insertion failed with {}, trying to read", e);
+                try {
+                    coll.insert(u, WriteConcern.ACKNOWLEDGED);
+                } catch (Exception e) {
+                    // Someone else might have inserted already, try to re-read
+                    LOGGER.debug("Insertion failed with {}, trying to read", e);
+                }
+                doc = coll.findOne(q,null,ReadPreference.primary());
+                if (doc == null) {
+                    throw new RuntimeException("Cannot generate value for " + name);
+                }
             }
-            doc = coll.findOne(q,null,ReadPreference.primary());
-            if (doc == null) {
-                throw new RuntimeException("Cannot generate value for " + name);
+            LOGGER.debug("Sequence doc={}", doc);
+            Long increment = (Long) doc.get(INC);
+            
+            if(poolSize>1&&si!=null) {
+                si.inc=increment;
+                increment*=poolSize;
+            }
+            BasicDBObject u = new BasicDBObject().
+                append("$inc", new BasicDBObject(VALUE, increment));
+            // This call returns the unmodified document
+            doc = coll.findAndModify(q, u);
+            ret  = (Long) doc.get(VALUE);
+            // Here, ret is the next id to return
+            if(poolSize>1&&si!=null) {
+                si.poolSize=poolSize-1;
+                si.nextIdInPool=ret+si.inc;
+            }
+            LOGGER.debug("{} -> {}", name, ret);
+        } finally {
+            if(si!=null) {
+                si.lock.unlock();
             }
         }
-        LOGGER.debug("Sequence doc={}", doc);
-        Long increment = (Long) doc.get(INC);
-        BasicDBObject u = new BasicDBObject().
-                append("$inc", new BasicDBObject(VALUE, increment));
-        // This call returns the unmodified document
-        doc = coll.findAndModify(q, u);
-        Long l = (Long) doc.get(VALUE);
-        LOGGER.debug("{} -> {}", name, l);
-        return l;
+        return ret;
     }
 }
