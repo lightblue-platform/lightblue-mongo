@@ -99,43 +99,43 @@
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-metadata</artifactId>
-                <version>2.9.0-SNAPSHOT</version>
+                <version>${lightblue.core.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-crud</artifactId>
-                <version>2.9.0-SNAPSHOT</version>
+                <version>${lightblue.core.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-api</artifactId>
-                <version>2.9.0-SNAPSHOT</version>
+                <version>${lightblue.core.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-util</artifactId>
-                <version>2.9.0-SNAPSHOT</version>
+                <version>${lightblue.core.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-query-api</artifactId>
-                <version>2.9.0-SNAPSHOT</version>
+                <version>${lightblue.core.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-config</artifactId>
-                <version>2.9.0-SNAPSHOT</version>
+                <version>${lightblue.core.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-test</artifactId>
-                <version>2.9.0-SNAPSHOT</version>
+                <version>${lightblue.core.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>com.redhat.lightblue</groupId>
                 <artifactId>lightblue-core-extensions</artifactId>
-                <version>2.9.0-SNAPSHOT</version>
+                <version>${lightblue.core.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.mockito</groupId>
@@ -215,7 +215,7 @@
         <maven.compiler.debuglevel>lines,vars,source</maven.compiler.debuglevel>
         <maven.compiler.verbose>true</maven.compiler.verbose>
 
-        <lightblue.core.version>2.0.1-SNAPSHOT</lightblue.core.version>
+        <lightblue.core.version>2.9.0</lightblue.core.version>
     </properties>
     <build>
         <plugins>
