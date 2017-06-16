@@ -69,6 +69,7 @@ public class MongoSequenceSupport implements ValueGeneratorSupport {
     public static final String PROP_COLLECTION = "collection";
     public static final String PROP_INITIAL_VALUE = "initialValue";
     public static final String PROP_INCREMENT = "increment";
+    public static final String PROP_POOLSIZE="poolSize";
 
     private static final ValueGenerator.ValueGeneratorType[] TYPES = {ValueGenerator.ValueGeneratorType.IntSequence};
 
@@ -107,9 +108,20 @@ public class MongoSequenceSupport implements ValueGeneratorSupport {
         } else {
             increment = Long.valueOf(incrementStr).longValue();
         }
+        String poolSizeStr=p.getProperty(PROP_POOLSIZE);
+        long poolSize;
+        if(poolSizeStr==null) {
+            poolSize=0;
+        } else {
+            poolSize=Long.valueOf(poolSizeStr).longValue();
+            // A poolsize=1 is meaningless, don't pool IDs for poolsize=1
+            if(poolSize<=1)
+                poolSize=0;
+        }
+        
         DB db = controller.getDbResolver().get((MongoDataStore) md.getDataStore());
         DBCollection coll = db.getCollection(collection);
         MongoSequenceGenerator gen = new MongoSequenceGenerator(coll);
-        return gen.getNextSequenceValue(name, initialValue, increment);
+        return gen.getNextSequenceValue(name, initialValue, increment, poolSize);
     }
 }
