@@ -22,7 +22,7 @@
     <parent>
         <groupId>com.redhat.lightblue.mongo</groupId>
         <artifactId>lightblue-mongo-pom</artifactId>
-        <version>1.28.0-SNAPSHOT</version>
+        <version>1.28.0</version>
     </parent>
     <groupId>com.redhat.lightblue.mongo</groupId>
     <artifactId>lightblue-mongo-test</artifactId>
