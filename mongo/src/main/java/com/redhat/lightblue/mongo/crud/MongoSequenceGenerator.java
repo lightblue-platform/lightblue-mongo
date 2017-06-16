@@ -142,11 +142,9 @@ public class MongoSequenceGenerator {
 
         try {
             // If there are ids in the pool, use one
-            if(si!=null) {
-                Long next=si.nextId();
-                if(next!=null) {
-                    return next;
-                }
+            Long next=si.nextId();
+            if(next!=null) {
+                return next;
             }
             // No ids in the pool
             
@@ -179,7 +177,7 @@ public class MongoSequenceGenerator {
             LOGGER.debug("Sequence doc={}", doc);
             Long increment = (Long) doc.get(INC);
             
-            if(poolSize>1&&si!=null) {
+            if(poolSize>1) {
                 si.inc=increment;
                 increment*=poolSize;
             }
@@ -189,15 +187,13 @@ public class MongoSequenceGenerator {
             doc = coll.findAndModify(q, u);
             ret  = (Long) doc.get(VALUE);
             // Here, ret is the next id to return
-            if(poolSize>1&&si!=null) {
+            if(poolSize>1) {
                 si.poolSize=poolSize-1;
                 si.nextIdInPool=ret+si.inc;
             }
             LOGGER.debug("{} -> {}", name, ret);
         } finally {
-            if(si!=null) {
-                si.lock.unlock();
-            }
+            si.lock.unlock();
         }
         return ret;
     }
