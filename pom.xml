@@ -214,8 +214,6 @@
         <maven.compiler.showDeprecation>true</maven.compiler.showDeprecation>
         <maven.compiler.debuglevel>lines,vars,source</maven.compiler.debuglevel>
         <maven.compiler.verbose>true</maven.compiler.verbose>
-
-        <lightblue.core.version>2.0.1-SNAPSHOT</lightblue.core.version>
     </properties>
     <build>
         <plugins>
