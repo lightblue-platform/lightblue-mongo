@@ -250,7 +250,14 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
             } else {
                 break;
             }
+
+            if (nRetries == 0) {
+                // retried failureRetryCount and still not able to update, the error will reach the client
+                LOGGER.error("Retried docs.id in {} {} times, all times failed", failedDocs, cfg.getFailureRetryCount());
+            }
         }
+
+
     }
 
 
@@ -289,16 +296,28 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
                     nestedBwo.find(replaceQuery).replaceOne(newDoc);
                     try {
                         if(nestedBwo.execute().getMatchedCount()==1) {
+                            if (LOGGER.isDebugEnabled()) {
+                                LOGGER.debug("Successfully retried to update a doc: replaceQuery={} newDoc={}", replaceQuery, newDoc);
+                            }
                             // Successful update
                             results.remove(index);
                         }
                     } catch(Exception e) {
+                        if (LOGGER.isDebugEnabled()) {
+                            LOGGER.debug("Failed retrying to update a doc: replaceQuery={} newDoc={} error={}", replaceQuery, newDoc, e.toString());
+                        }
                         newFailedDocs.add(index);
                     }
                 } else {
                     // reapllyChanges removed the doc from the resultset
                     results.remove(index);
                 }
+            } else {
+                // Doc no longer exists
+                if (LOGGER.isDebugEnabled()) {
+                    LOGGER.debug("Removing doc id={} from retry queue, because it does not exist or match anymore", index);
+                }
+                results.remove(index);
             }
         }
         return newFailedDocs;

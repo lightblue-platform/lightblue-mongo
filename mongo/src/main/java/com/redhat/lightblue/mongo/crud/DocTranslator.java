@@ -22,13 +22,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.Date;
+import java.util.List;
 import java.util.stream.Stream;
 
 import org.bson.types.ObjectId;
@@ -39,7 +34,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
-import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ValueNode;
 import com.mongodb.BasicDBList;
@@ -47,7 +41,6 @@ import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import com.redhat.lightblue.ResultMetadata;
 import com.redhat.lightblue.crud.MetadataResolver;
-import com.redhat.lightblue.metadata.MetadataObject;
 import com.redhat.lightblue.metadata.ArrayElement;
 import com.redhat.lightblue.metadata.ArrayField;
 import com.redhat.lightblue.metadata.EntityMetadata;
@@ -55,18 +48,21 @@ import com.redhat.lightblue.metadata.FieldCursor;
 import com.redhat.lightblue.metadata.FieldTreeNode;
 import com.redhat.lightblue.metadata.Index;
 import com.redhat.lightblue.metadata.IndexSortKey;
-import com.redhat.lightblue.metadata.ObjectArrayElement;
+import com.redhat.lightblue.metadata.MetadataObject;
 import com.redhat.lightblue.metadata.ObjectField;
 import com.redhat.lightblue.metadata.ReferenceField;
 import com.redhat.lightblue.metadata.ResolvedReferenceField;
 import com.redhat.lightblue.metadata.SimpleArrayElement;
 import com.redhat.lightblue.metadata.SimpleField;
 import com.redhat.lightblue.metadata.Type;
-import com.redhat.lightblue.metadata.types.*;
+import com.redhat.lightblue.metadata.types.BooleanType;
+import com.redhat.lightblue.metadata.types.DateType;
+import com.redhat.lightblue.metadata.types.DoubleType;
+import com.redhat.lightblue.metadata.types.IntegerType;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.JsonNodeCursor;
-import com.redhat.lightblue.util.MutablePath;
+import com.redhat.lightblue.util.JsonUtils;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.Util;
 
@@ -602,28 +598,8 @@ public class DocTranslator {
         }
     }
 
-    public static int size(JsonNode node) {
-        int size = 0;
-        if (node instanceof ArrayNode) {
-            for (Iterator<JsonNode> elements = ((ArrayNode) node).elements(); elements.hasNext();) {
-                size += size(elements.next());
-            }
-        } else if (node instanceof ObjectNode) {
-            for (Iterator<Map.Entry<String, JsonNode>> fields = ((ObjectNode) node).fields(); fields.hasNext();) {
-                Map.Entry<String, JsonNode> field = fields.next();
-                size += field.getKey().length();
-                size += size(field.getValue());
-            }
-        } else if (node instanceof NumericNode) {
-            size += 4;
-        } else {
-            size += node.asText().length();
-        }
-        return size;
-    }
-
     public static int size(JsonDoc doc) {
-        return size(doc.getRoot());
+        return JsonUtils.size(doc.getRoot());
     }
 
     public static int jsonDocListSize(List<JsonDoc> list) {
@@ -635,7 +611,7 @@ public class DocTranslator {
     }
 
     public static int size(TranslatedDoc doc) {
-        return size(doc.doc.getRoot());
+        return JsonUtils.size(doc.doc.getRoot());
     }
 
     public static int translatedDocListSize(List<TranslatedDoc> list) {
