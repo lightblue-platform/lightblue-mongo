@@ -2872,9 +2872,47 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
     
     @Test
-    public void checkHealth() throws Exception{
+    public void healthyIfControllerIsHealthy() throws Exception{
     	CRUDHealth healthCheck = controller.checkHealth();
-    	System.out.println("CRUDHealthCheck Details : " + healthCheck.details());
     	Assert.assertTrue(healthCheck.isHealthy());
+    }
+
+    @Test
+    public void unhealthyIfControllerIsUnhealthy() throws Exception{
+        
+        /*
+         * A deliberate attempt to initialize MongoCRUDController with wrong
+         * port 27776 (in memory mongo is running on 27777). The ping to the
+         * mongo should fail resulting in health not OK
+         */
+        MongoCRUDController unhealthyController = new MongoCRUDController(null, new DBResolver() {
+            @Override
+            public DB get(MongoDataStore store) {
+                return null;
+            }
+
+            @Override
+            public MongoConfiguration getConfiguration(MongoDataStore store) {
+                MongoConfiguration configuration = new MongoConfiguration();
+                try {
+                    configuration.addServerAddress("localhost", 27776); // adding wrong server port
+                    configuration.setDatabase("mongo");
+                } catch (UnknownHostException e) {
+                    return null;
+                }
+                return configuration;
+            }
+
+            @Override
+            public Collection<MongoConfiguration> getConfigurations() {
+
+                List<MongoConfiguration> configs = new ArrayList<>();
+                configs.add(getConfiguration(null));
+                return configs;
+            }
+        });
+        
+        CRUDHealth healthCheck = unhealthyController.checkHealth();
+        Assert.assertFalse(healthCheck.isHealthy());
     }
 }

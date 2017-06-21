@@ -1,17 +1,22 @@
 /*
  Copyright 2013 Red Hat, Inc. and/or its affiliates.
+ 
  This file is part of lightblue.
+ 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
+ 
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
+ 
  You should have received a copy of the GNU General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package com.redhat.lightblue.mongo.crud;
 
 import java.io.IOException;
@@ -42,6 +47,7 @@ import com.mongodb.MongoException;
 import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
+import com.mongodb.ServerAddress;
 import com.mongodb.util.JSON;
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.CRUDController;
@@ -1120,16 +1126,37 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 CommandResult result = config.getDB().command(ping);
                 if (!result.get("ok").equals(1.0)) {
                     isHealthy = false;
-                    details.add(new StringBuilder(config.toString()).append("\n").append("ping:NOK").toString());
+                    details.add(new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping:NOT_OK")
+                            .toString());
                 } else {
-                    details.add(new StringBuilder(config.toString()).append("\n").append("ping:OK").toString());
+                    details.add(
+                            new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping:OK").toString());
                 }
             } catch (Exception e) {
                 isHealthy = false;
-                details.add(new StringBuilder(config.toString()).append("\n").append("ping:").append(e).toString());
+                details.add(new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping:").append(e)
+                        .toString());
             }
         }
 
         return new CRUDHealth(isHealthy, details.toString());
+    }
+    
+    private String getMongoConfigDetails(MongoConfiguration config) {
+        StringBuilder detailsBuilder = new StringBuilder("Mongo Config [");
+
+        if (config.getServer() != null) {
+            detailsBuilder.append(config.getServer());
+        } else {
+            Iterator<ServerAddress> iterator = config.getServerAddresses();
+            while(iterator.hasNext()){
+                detailsBuilder.append(iterator.next());
+            }
+        }
+        detailsBuilder.append(", DatabaseName: ");
+        detailsBuilder.append(config.getDatabase());
+        detailsBuilder.append("]");
+        
+        return detailsBuilder.toString();
     }
 }
