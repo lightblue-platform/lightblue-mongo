@@ -99,7 +99,7 @@ public class BasicDocFinder implements DocFinder {
 
             int numMatched=0;
             int nRetrieve=0;
-            if(ctx.isComputeMatchCount()) {
+            if(ctx.isComputeCounts()) {
                 numMatched = cursor.count();
             }
 
@@ -116,7 +116,7 @@ public class BasicDocFinder implements DocFinder {
                } else {
                    cursor.skip(f);
                    nRetrieve=to.intValue()-f+1;
-                   if(ctx.isComputeMatchCount()) {
+                   if(ctx.isComputeCounts()) {
                        if(to.intValue()>numMatched) {
                            nRetrieve=numMatched-f+1;
                        }
@@ -125,12 +125,12 @@ public class BasicDocFinder implements DocFinder {
                }
            } else {
                cursor.skip(f);
-               if(ctx.isComputeMatchCount()) {
+               if(ctx.isComputeCounts()) {
                    nRetrieve=numMatched-f+1;
                }
            }
             if(!empty) {
-                if (ctx.isComputeMatchCount() && maxResultSetSize > 0 && nRetrieve > maxResultSetSize) {
+                if (ctx.isComputeCounts() && maxResultSetSize > 0 && nRetrieve > maxResultSetSize) {
                     LOGGER.warn("Too many results:{} of {}", nRetrieve, numMatched);
                     RESULTSET_LOGGER.debug("resultset_size={}, requested={}, query={}", numMatched, nRetrieve, mongoQuery);
                     throw Error.get(MongoCrudConstants.ERR_TOO_MANY_RESULTS, Integer.toString(nRetrieve));
