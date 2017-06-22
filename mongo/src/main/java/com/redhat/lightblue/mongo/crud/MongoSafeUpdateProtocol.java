@@ -251,7 +251,7 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
                 break;
             }
 
-            if (nRetries == 0) {
+            if (nRetries == 0 && !failedDocs.isEmpty()) {
                 // retried failureRetryCount and still not able to update, the error will reach the client
                 LOGGER.error("Retried docs.id in {} {} times, all times failed", failedDocs, cfg.getFailureRetryCount());
             }
