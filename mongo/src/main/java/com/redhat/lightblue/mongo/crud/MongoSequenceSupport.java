@@ -94,26 +94,26 @@ public class MongoSequenceSupport implements ValueGeneratorSupport {
         if (collection == null) {
             collection = DEFAULT_COLLECTION_NAME;
         }
-        String initialValueStr = p.getProperty(PROP_INITIAL_VALUE);
+        Object initialValueStr = p.get(PROP_INITIAL_VALUE);
         long initialValue;
         if (initialValueStr == null) {
             initialValue = 1;
         } else {
-            initialValue = Long.valueOf(initialValueStr).longValue();
+            initialValue = Long.valueOf(initialValueStr.toString()).longValue();
         }
-        String incrementStr = p.getProperty(PROP_INCREMENT);
+        Object incrementStr = p.get(PROP_INCREMENT);
         long increment;
         if (incrementStr == null) {
             increment = 1;
         } else {
-            increment = Long.valueOf(incrementStr).longValue();
+            increment = Long.valueOf(incrementStr.toString()).longValue();
         }
-        String poolSizeStr=p.getProperty(PROP_POOLSIZE);
+        Object poolSizeStr=p.get(PROP_POOLSIZE);
         long poolSize;
         if(poolSizeStr==null) {
             poolSize=0;
         } else {
-            poolSize=Long.valueOf(poolSizeStr).longValue();
+            poolSize=Long.valueOf(poolSizeStr.toString()).longValue();
             // A poolsize=1 is meaningless, don't pool IDs for poolsize=1
             if(poolSize<=1)
                 poolSize=0;

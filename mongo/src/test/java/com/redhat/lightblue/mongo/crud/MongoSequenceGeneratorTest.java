@@ -115,6 +115,7 @@ public class MongoSequenceGeneratorTest extends AbstractMongoCrudTest {
         validateId("s3",-940);
     }
 
+
     private void validateId(String seq,long expected) throws Exception {
         DBObject obj=coll.findOne(new BasicDBObject("name",seq));
         Long l=(Long)obj.get("value");
