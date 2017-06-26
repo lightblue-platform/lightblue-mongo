@@ -18,6 +18,9 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
+import java.util.Map;
+import java.util.HashMap;
+
 import org.junit.Test;
 import org.junit.Before;
 
@@ -113,6 +116,63 @@ public class MongoSequenceGeneratorTest extends AbstractMongoCrudTest {
         validateId("s3",-970);
         Assert.assertEquals(-970, g.getNextSequenceValue("s3", -1000, 10,3));
         validateId("s3",-940);
+    }
+
+    @Test
+    public void multipleGeneratorsTest() throws Exception {
+        // Simulate two different machines by swapping sequenceInfo
+        Map<String,MongoSequenceGenerator.SequenceInfo> s1=new HashMap<>();
+        Map<String,MongoSequenceGenerator.SequenceInfo> s2=new HashMap<>();
+        MongoSequenceGenerator g = new MongoSequenceGenerator(coll);
+
+        g.sequenceInfo=s1;
+        Assert.assertEquals(1, g.getNextSequenceValue("s1", 1, 1,5));
+        validateId("s1",6);
+
+        g.sequenceInfo=s2;
+        Assert.assertEquals(6, g.getNextSequenceValue("s1", 1, 1,5));
+        validateId("s1",11);
+
+        g.sequenceInfo=s1;
+        Assert.assertEquals(2, g.getNextSequenceValue("s1", 1, 1,5));
+        validateId("s1",11);
+        
+        g.sequenceInfo=s2;
+        Assert.assertEquals(7, g.getNextSequenceValue("s1", 1, 1,5));
+        validateId("s1",11);
+
+        g.sequenceInfo=s1;
+        Assert.assertEquals(3, g.getNextSequenceValue("s1", 1, 1,5));
+        validateId("s1",11);
+        
+        g.sequenceInfo=s2;
+        Assert.assertEquals(8, g.getNextSequenceValue("s1", 1, 1,5));
+        validateId("s1",11);
+
+        g.sequenceInfo=s1;
+        Assert.assertEquals(4, g.getNextSequenceValue("s1", 1, 1,5));
+        validateId("s1",11);
+        
+        g.sequenceInfo=s2;
+        Assert.assertEquals(9, g.getNextSequenceValue("s1", 1, 1,5));
+        validateId("s1",11);
+
+        g.sequenceInfo=s1;
+        Assert.assertEquals(5, g.getNextSequenceValue("s1", 1, 1,5));
+        validateId("s1",11);
+        
+        g.sequenceInfo=s2;
+        Assert.assertEquals(10, g.getNextSequenceValue("s1", 1, 1,5));
+        validateId("s1",11);
+        
+        g.sequenceInfo=s1;
+        Assert.assertEquals(11, g.getNextSequenceValue("s1", 1, 1,5));
+        validateId("s1",16);
+
+        g.sequenceInfo=s2;
+        Assert.assertEquals(16, g.getNextSequenceValue("s1", 1, 1,5));
+        validateId("s1",21);
+        
     }
 
     private void validateId(String seq,long expected) throws Exception {
