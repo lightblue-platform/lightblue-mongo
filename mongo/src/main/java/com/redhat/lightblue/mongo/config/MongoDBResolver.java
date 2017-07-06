@@ -18,6 +18,8 @@
  */
 package com.redhat.lightblue.mongo.config;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -54,6 +56,12 @@ public class MongoDBResolver implements DBResolver {
             }
         }
         return null;
+    }
+    
+    @Override
+    public Collection<MongoConfiguration> getConfigurations() {
+
+        return Collections.unmodifiableCollection(datasources.values());
     }
 
     @Override
