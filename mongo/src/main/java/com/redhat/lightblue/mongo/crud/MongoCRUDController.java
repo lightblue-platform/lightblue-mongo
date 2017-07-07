@@ -1,28 +1,26 @@
 /*
  Copyright 2013 Red Hat, Inc. and/or its affiliates.
- 
+
  This file is part of lightblue.
- 
+
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
  the Free Software Foundation, either version 3 of the License, or
  (at your option) any later version.
- 
+
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  GNU General Public License for more details.
- 
+
  You should have received a copy of the GNU General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package com.redhat.lightblue.mongo.crud;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +35,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.BasicDBObject;
-import com.mongodb.CommandResult;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
@@ -47,7 +44,6 @@ import com.mongodb.MongoException;
 import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
-import com.mongodb.ServerAddress;
 import com.mongodb.util.JSON;
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.CRUDController;
@@ -62,7 +58,6 @@ import com.redhat.lightblue.crud.ConstraintValidator;
 import com.redhat.lightblue.crud.CrudConstants;
 import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.crud.ExplainQuerySupport;
-import com.redhat.lightblue.crud.CRUDHealth;
 import com.redhat.lightblue.crud.DocumentStream;
 import com.redhat.lightblue.crud.MetadataResolver;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
@@ -1112,51 +1107,5 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         } else {
             return Error.get(otherwise, msg);
         }
-    }
-
-    @Override
-    public CRUDHealth checkHealth() {
-        boolean isHealthy = true;
-        Collection<MongoConfiguration> configs = dbResolver.getConfigurations();
-        List<String> details = new ArrayList<>(configs.size());
-        DBObject ping = new BasicDBObject("ping", 1);
-
-        for (MongoConfiguration config : configs) {
-            try {
-                CommandResult result = config.getDB().command(ping);
-                if (!result.get("ok").equals(1.0)) {
-                    isHealthy = false;
-                    details.add(new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping:NOT_OK")
-                            .toString());
-                } else {
-                    details.add(
-                            new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping:OK").toString());
-                }
-            } catch (Exception e) {
-                isHealthy = false;
-                details.add(new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping:").append(e)
-                        .toString());
-            }
-        }
-
-        return new CRUDHealth(isHealthy, details.toString());
-    }
-    
-    private String getMongoConfigDetails(MongoConfiguration config) {
-        StringBuilder detailsBuilder = new StringBuilder("Mongo Config [");
-
-        if (config.getServer() != null) {
-            detailsBuilder.append(config.getServer());
-        } else {
-            Iterator<ServerAddress> iterator = config.getServerAddresses();
-            while(iterator.hasNext()){
-                detailsBuilder.append(iterator.next());
-            }
-        }
-        detailsBuilder.append(", DatabaseName: ");
-        detailsBuilder.append(config.getDatabase());
-        detailsBuilder.append("]");
-        
-        return detailsBuilder.toString();
     }
 }
