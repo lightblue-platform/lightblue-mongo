@@ -24,9 +24,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -55,7 +53,6 @@ import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDSaveResponse;
 import com.redhat.lightblue.crud.DocumentStream;
-import com.redhat.lightblue.crud.CRUDHealth;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.metadata.ArrayField;
@@ -105,23 +102,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
             @Override
             public MongoConfiguration getConfiguration(MongoDataStore store) {
-                MongoConfiguration configuration = new MongoConfiguration();
-                try {
-                    configuration.addServerAddress(db.getMongo().getAddress().getHost(),
-                            db.getMongo().getAddress().getPort());
-                    configuration.setDatabase("mongo");
-                } catch (UnknownHostException e) {
-                    return null;
-                }
-                return configuration;
-            }
-
-            @Override
-            public Collection<MongoConfiguration> getConfigurations() {
-
-                List<MongoConfiguration> configs = new ArrayList<>();
-                configs.add(getConfiguration(null));
-                return configs;
+                return null;
             }
         });
     }
@@ -2869,50 +2850,5 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Index index = new Index(new IndexSortKey(new Path("a.*.b"), false, false));
         DBObject existingIndex = new BasicDBObject("key", new BasicDBObject("a.b", 1));
         Assert.assertTrue(controller.indexFieldsMatch(index, existingIndex));
-    }
-    
-    @Test
-    public void healthyIfControllerIsHealthy() throws Exception{
-    	CRUDHealth healthCheck = controller.checkHealth();
-    	Assert.assertTrue(healthCheck.isHealthy());
-    }
-
-    @Test
-    public void unhealthyIfControllerIsUnhealthy() throws Exception{
-        
-        /*
-         * A deliberate attempt to initialize MongoCRUDController with wrong
-         * port 27776 (in memory mongo is running on 27777). The ping to the
-         * mongo should fail resulting in health not OK
-         */
-        MongoCRUDController unhealthyController = new MongoCRUDController(null, new DBResolver() {
-            @Override
-            public DB get(MongoDataStore store) {
-                return null;
-            }
-
-            @Override
-            public MongoConfiguration getConfiguration(MongoDataStore store) {
-                MongoConfiguration configuration = new MongoConfiguration();
-                try {
-                    configuration.addServerAddress("localhost", 27776); // adding wrong server port
-                    configuration.setDatabase("mongo");
-                } catch (UnknownHostException e) {
-                    return null;
-                }
-                return configuration;
-            }
-
-            @Override
-            public Collection<MongoConfiguration> getConfigurations() {
-
-                List<MongoConfiguration> configs = new ArrayList<>();
-                configs.add(getConfiguration(null));
-                return configs;
-            }
-        });
-        
-        CRUDHealth healthCheck = unhealthyController.checkHealth();
-        Assert.assertFalse(healthCheck.isHealthy());
     }
 }
