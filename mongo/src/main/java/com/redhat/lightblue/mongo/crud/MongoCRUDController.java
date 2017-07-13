@@ -21,6 +21,7 @@ package com.redhat.lightblue.mongo.crud;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.BasicDBObject;
+import com.mongodb.CommandResult;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
@@ -44,11 +46,13 @@ import com.mongodb.MongoException;
 import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
+import com.mongodb.ServerAddress;
 import com.mongodb.util.JSON;
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.CRUDController;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDFindResponse;
+import com.redhat.lightblue.crud.CRUDHealth;
 import com.redhat.lightblue.crud.CRUDInsertionResponse;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
@@ -1107,5 +1111,53 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         } else {
             return Error.get(otherwise, msg);
         }
+    }
+    
+    @Override
+    public CRUDHealth checkHealth() {
+        boolean isHealthy = true;
+        Collection<MongoConfiguration> configs = dbResolver.getConfigurations();
+        List<String> details = new ArrayList<>(configs.size());
+        DBObject ping = new BasicDBObject("ping", 1);
+
+        DB db = null;
+        for (MongoConfiguration config : configs) {
+            try {
+                db = dbResolver.get(new MongoDataStore(config.getDatabase(), null, null));
+                CommandResult result = db.command(ping);
+                if (!result.get("ok").equals(1.0)) {
+                    isHealthy = false;
+                    details.add(new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping:NOT_OK")
+                            .toString());
+                } else {
+                    details.add(
+                            new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping:OK").toString());
+                }
+            } catch (Exception e) {
+                isHealthy = false;
+                details.add(new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping_error:")
+                        .append(e.getMessage()).toString());
+            }
+        }
+
+        return new CRUDHealth(isHealthy, details.toString());
+    }
+    
+    private String getMongoConfigDetails(MongoConfiguration config) {
+        StringBuilder detailsBuilder = new StringBuilder("Mongo Config [");
+
+        if (config.getServer() != null) {
+            detailsBuilder.append(config.getServer());
+        } else {
+            Iterator<ServerAddress> iterator = config.getServerAddresses();
+            while(iterator.hasNext()){
+                detailsBuilder.append(iterator.next());
+            }
+        }
+        detailsBuilder.append(", DatabaseName: ");
+        detailsBuilder.append(config.getDatabase());
+        detailsBuilder.append("]");
+        
+        return detailsBuilder.toString();
     }
 }
