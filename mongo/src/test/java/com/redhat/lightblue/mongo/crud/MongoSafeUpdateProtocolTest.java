@@ -90,12 +90,18 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
             DBObject doc=cursor.next();
             updater.addDoc(doc);
             doc.put("field","updated"+doc.get("_id").toString());
-            if(updater.getSize()>8)
-                Assert.assertTrue(updater.commit().isEmpty());
+            if(updater.getSize()>8) {
+                BatchUpdate.CommitInfo ci=updater.commit();
+                Assert.assertTrue(ci.errors.isEmpty());
+                Assert.assertTrue(ci.lostDocs.isEmpty());
+            }
         }
         cursor.close();
         
-        Assert.assertTrue(updater.commit().isEmpty());
+        BatchUpdate.CommitInfo ci=updater.commit();
+        Assert.assertTrue(ci.errors.isEmpty());
+        Assert.assertTrue(ci.lostDocs.isEmpty());
+        
         cursor=coll.find();
         while(cursor.hasNext()) {
             DBObject doc=cursor.next();
@@ -122,10 +128,10 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
             updater.addDoc(doc);
         }
         cursor.close();
-        Map<Integer,Error> err=updater.commit();
-        Assert.assertEquals(1,err.size());
-        Assert.assertTrue(err.containsKey(5));
-        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE,err.get(5).getErrorCode());        
+        BatchUpdate.CommitInfo ci=updater.commit();
+        Assert.assertEquals(1,ci.errors.size());
+        Assert.assertTrue(ci.errors.containsKey(5));
+        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE,ci.errors.get(5).getErrorCode());        
     }
 
     @Test
@@ -154,17 +160,16 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         cursor.close();
 
         // Thread2 updates first 5 docs
-        Map<Integer,Error> err=updater2.commit();
-        Assert.assertTrue(err.isEmpty());
+        Assert.assertFalse(updater2.commit().hasErrors());
 
-        err=updater.commit();
-        Assert.assertEquals(6,err.size());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(0).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(1).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(2).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(3).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(4).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(5).getErrorCode());
+        BatchUpdate.CommitInfo ci=updater.commit();
+        Assert.assertEquals(6,ci.errors.size());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(0).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(1).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(2).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(3).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(4).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(5).getErrorCode());
     }
     
     @Test
@@ -199,18 +204,17 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         cursor.close();
 
         // Thread2 updates first 5 docs
-        Map<Integer,Error> err=updater2.commit();
-        Assert.assertTrue(err.isEmpty());
+        Assert.assertFalse(updater2.commit().hasErrors());
 
-        err=updater.commit();
-        Assert.assertEquals(7,err.size());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(0).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(1).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(2).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(3).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(4).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(5).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE,err.get(6).getErrorCode());
+        BatchUpdate.CommitInfo ci=updater.commit();
+        Assert.assertEquals(7,ci.errors.size());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(0).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(1).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(2).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(3).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(4).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(5).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE,ci.errors.get(6).getErrorCode());
     }
 
     @Test
@@ -261,8 +265,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         
 
         // Thread2 updates first 5 docs
-        Map<Integer,Error> err=updater2.commit();
-        Assert.assertTrue(err.isEmpty());
+        Assert.assertFalse(updater2.commit().hasErrors());
         System.out.println("All docs:");
         cursor=coll.find();
         while(cursor.hasNext()) {
@@ -271,8 +274,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         }
         cursor.close();
 
-        err=updater.commit();
-        Assert.assertEquals(0,err.size());
+        Assert.assertFalse(updater.commit().hasErrors());
 
         // Check if the updates worked
         cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","19")));
@@ -316,17 +318,17 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         cursor.close();
 
         // Thread2 updates first 5 docs
-        Map<Integer,Error> err=updater2.commit();
-        Assert.assertTrue(err.isEmpty());
+        BatchUpdate.CommitInfo ci=updater2.commit();
+        Assert.assertFalse(ci.hasErrors());
 
-        err=updater.commit();
-        Assert.assertEquals(6,err.size());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(0).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(1).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(2).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(3).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(4).getErrorCode());
-        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,err.get(5).getErrorCode());
+        ci=updater.commit();
+        Assert.assertEquals(6,ci.errors.size());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(0).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(1).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(2).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(3).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(4).getErrorCode());
+        Assert.assertEquals(MongoCrudConstants.ERR_CONCURRENT_UPDATE,ci.errors.get(5).getErrorCode());
     }
 
 
@@ -377,9 +379,9 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
             u.addDoc(doc);
         }        
         cursor.close();
-        Map<Integer,Error> errors=u.commit();
-        Assert.assertEquals(1,errors.size());
-        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE,errors.get(3).getErrorCode());
+        BatchUpdate.CommitInfo ci=u.commit();
+        Assert.assertEquals(1,ci.errors.size());
+        Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE,ci.errors.get(3).getErrorCode());
         
     }
 
@@ -404,7 +406,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
                 }
 
                 @Override
-                public void retryConcurrentUpdateErrorsIfNeeded(Map<Integer, Error> results) {
+                public void retryConcurrentUpdateErrorsIfNeeded(CommitInfo results) {
                     retryCount[0]++;
                     super.retryConcurrentUpdateErrorsIfNeeded(results);
                 }
@@ -433,13 +435,16 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         }
         cursor.close();
 
-        Map<Integer, Error> result = updater2.commit();
-        Assert.assertEquals(0, result.size());
+        Assert.assertFalse(updater2.commit().hasErrors());
 
         // Thread1 persists it's updates
-        Map<Integer,Error> err=updater.commit();
+        BatchUpdate.CommitInfo ci=updater.commit();
         // https://github.com/lightblue-platform/lightblue-mongo/issues/365
-        Assert.assertTrue("Expecting no ConcurrentUpdate errors sent to client, because docs do not match the original query anymore", err.isEmpty());
+        Assert.assertTrue("Expecting no ConcurrentUpdate errors sent to client, because docs do not match the original query anymore",
+                          ci.errors.isEmpty());
+        System.out.println("Lost docs:"+ci.lostDocs);
+        Assert.assertTrue("Documents are lost",ci.lostDocs.size()==5);
+                          
 
         cursor=coll.find();
         while(cursor.hasNext()) {

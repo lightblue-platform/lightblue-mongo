@@ -358,10 +358,13 @@ public class BasicDocSaver implements DocSaver {
                         doc.inputDoc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                     }
                     try {
-                        Map<Integer,Error> errorMap=upd.commit();
-                        for(Map.Entry<Integer,Error> entry:errorMap.entrySet()) {
+                        BatchUpdate.CommitInfo ci=upd.commit();
+                        for(Map.Entry<Integer,Error> entry:ci.errors.entrySet()) {
                             updateAttemptList.get(entry.getKey()).inputDoc.addError(entry.getValue());
-                        }                        
+                        }
+                        for(Integer i:ci.lostDocs) {
+                            updateAttemptList.get(i).inputDoc.addError(Error.get("update",MongoCrudConstants.ERR_DOC_NO_LONGER_AVAILABLE,""));
+                        }
                     } catch (RuntimeException e) {
                     } finally {
                     }

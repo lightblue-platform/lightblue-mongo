@@ -229,24 +229,24 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
      * index.
      */
     @Override
-    public Map<Integer,Error> commit() {
-        Map<Integer,Error> results=new HashMap<>();
+    public CommitInfo  commit() {
+        CommitInfo ci=new CommitInfo();
         if(!batch.isEmpty()) {
-            if(!BatchUpdate.batchUpdate(bwo,writeConcern,batch.size(),results,LOGGER))
-                findConcurrentModifications(results);
+            if(!BatchUpdate.batchUpdate(bwo,writeConcern,batch.size(),ci.errors,LOGGER))
+                findConcurrentModifications(ci.errors);
         }
-        retryConcurrentUpdateErrorsIfNeeded(results);
+        retryConcurrentUpdateErrorsIfNeeded(ci);
         reset();
-        return results;
+        return ci;
     }
 
-    public void retryConcurrentUpdateErrorsIfNeeded(Map<Integer,Error> results) {
+    public void retryConcurrentUpdateErrorsIfNeeded(CommitInfo ci) {
         int nRetries=cfg.getFailureRetryCount();
         while(nRetries-->0) {
             // Get the documents with concurrent modification errors
-            List<Integer> failedDocs=getFailedDocIndexes(results);
+            List<Integer> failedDocs=getFailedDocIndexes(ci);
             if(!failedDocs.isEmpty()) {
-                failedDocs=retryFailedDocs(failedDocs,results);
+                failedDocs=retryFailedDocs(failedDocs,ci);
             } else {
                 break;
             }
@@ -261,7 +261,7 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
     }
 
 
-    private List<Integer> retryFailedDocs(List<Integer> failedDocs,Map<Integer,Error> results) {
+    private List<Integer> retryFailedDocs(List<Integer> failedDocs,CommitInfo ci) {
         List<Integer> newFailedDocs=new ArrayList<>(failedDocs.size());
         for(Integer index:failedDocs) {            
             BatchDoc doc=batch.get(index);
@@ -300,7 +300,7 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
                                 LOGGER.debug("Successfully retried to update a doc: replaceQuery={} newDoc={}", replaceQuery, newDoc);
                             }
                             // Successful update
-                            results.remove(index);
+                            ci.errors.remove(index);
                         }
                     } catch(Exception e) {
                         if (LOGGER.isDebugEnabled()) {
@@ -310,14 +310,15 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
                     }
                 } else {
                     // reapllyChanges removed the doc from the resultset
-                    results.remove(index);
+                    ci.errors.remove(index);
                 }
             } else {
                 // Doc no longer exists
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("Removing doc id={} from retry queue, because it does not exist or match anymore", index);
                 }
-                results.remove(index);
+                ci.errors.remove(index);
+                ci.lostDocs.add(index);
             }
         }
         return newFailedDocs;
@@ -326,9 +327,9 @@ public abstract class MongoSafeUpdateProtocol implements BatchUpdate {
     /**
      * Returns a list of indexes into the current batch containing the docs that failed because of concurrent update errors
      */    
-    private List<Integer> getFailedDocIndexes(Map<Integer,Error> results) {
-        List<Integer> ret=new ArrayList<>(results.size());
-        for(Map.Entry<Integer,Error> entry:results.entrySet()) {
+    private List<Integer> getFailedDocIndexes(CommitInfo ci) {
+        List<Integer> ret=new ArrayList<>(ci.errors.size());
+        for(Map.Entry<Integer,Error> entry:ci.errors.entrySet()) {
             if(entry.getValue().getErrorCode().equals(MongoCrudConstants.ERR_CONCURRENT_UPDATE)) {
                 ret.add(entry.getKey());
             }
