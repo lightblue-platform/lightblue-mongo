@@ -1121,9 +1121,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
         List<String> details = new ArrayList<>(configs.size());
         DBObject ping = new BasicDBObject("ping", 1);
 
+        DB db = null;
         for (MongoConfiguration config : configs) {
             try {
-                CommandResult result = config.getDB().command(ping);
+                db = dbResolver.get(new MongoDataStore(config.getDatabase(), null, null));
+                CommandResult result = db.command(ping);
                 if (!result.get("ok").equals(1.0)) {
                     isHealthy = false;
                     details.add(new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping:NOT_OK")
@@ -1134,8 +1136,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 }
             } catch (Exception e) {
                 isHealthy = false;
-                details.add(new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping:").append(e)
-                        .toString());
+                details.add(new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping_error:")
+                        .append(e.getMessage()).toString());
             }
         }
 
