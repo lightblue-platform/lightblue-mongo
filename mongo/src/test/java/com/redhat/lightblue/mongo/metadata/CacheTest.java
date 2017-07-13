@@ -126,6 +126,11 @@ public class CacheTest {
         @Override
         public void updatePredefinedFields(CRUDOperationContext ctx, JsonDoc doc) {
         }
+
+        @Override
+        public CRUDHealth checkHealth() {
+            return new CRUDHealth(true, "Return always healthy for test");
+        }
     }
 
     @Test

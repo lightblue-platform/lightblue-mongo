@@ -20,6 +20,7 @@ package com.redhat.lightblue.mongo.crud;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
 
@@ -94,6 +95,11 @@ public class AssocTest extends AbstractMongoCrudTest {
                 public MongoConfiguration getConfiguration(MongoDataStore store) {
                     return null;
                 }
+ 
+                @Override
+                public Collection<MongoConfiguration> getConfigurations() {
+                    return null;
+                }                
             }));
         return new Mediator(new DatabaseMetadata(), factory);
     }
