@@ -233,7 +233,7 @@ public class BasicDocSaver implements DocSaver {
         }
         LOGGER.debug("Save docs={}, insert docs={}, error docs={}", saveList.size(), insertList.size(), batch.size() - saveList.size() - insertList.size());
         insertDocs(ctx, collection, insertList);
-        updateDocs(ctx, collection, saveList);
+        updateDocs(ctx, collection, saveList, upsert);
     }
 
     private void insertDocs(CRUDOperationContext ctx,
@@ -315,10 +315,11 @@ public class BasicDocSaver implements DocSaver {
                                                       updateAttemptList);
         }
     }
-
+    
     private void updateDocs(CRUDOperationContext ctx,
                             DBCollection collection,
-                            List<DocInfo> list) {
+                            List<DocInfo> list,
+                            boolean upsert) {
         if (!list.isEmpty()) {
             LOGGER.debug("Updating {} docs", list.size());
             if (!md.getAccess().getUpdate().hasAccess(ctx.getCallerRoles())) {
@@ -362,8 +363,21 @@ public class BasicDocSaver implements DocSaver {
                         for(Map.Entry<Integer,Error> entry:ci.errors.entrySet()) {
                             updateAttemptList.get(entry.getKey()).inputDoc.addError(entry.getValue());
                         }
-                        for(Integer i:ci.lostDocs) {
-                            updateAttemptList.get(i).inputDoc.addError(Error.get("update",MongoCrudConstants.ERR_DOC_NO_LONGER_AVAILABLE,""));
+                        // If there are docs that were read, but then removed from the db before we updated them:
+                        //   If upsert=false, error
+                        //   If upsert=true, try reinserting them
+                        if(!upsert) {
+                            for(Integer i:ci.lostDocs) {
+                                updateAttemptList.get(i).inputDoc.addError(Error.get("update",MongoCrudConstants.ERR_SAVE_ERROR_INS_WITH_NO_UPSERT,""));
+
+                            }
+                        } else {
+                            // Try inserting these docs
+                            List<DocInfo> insList=new ArrayList<>(ci.lostDocs.size());
+                            for(Integer i:ci.lostDocs) {
+                                insList.add(updateAttemptList.get(i));
+                            }
+                            insertDocs(ctx,collection,insList);
                         }
                     } catch (RuntimeException e) {
                     } finally {
