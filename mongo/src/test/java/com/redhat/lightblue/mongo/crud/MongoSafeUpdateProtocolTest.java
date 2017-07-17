@@ -134,6 +134,10 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         Assert.assertEquals(MongoCrudConstants.ERR_DUPLICATE,ci.errors.get(5).getErrorCode());        
     }
 
+    private boolean hasErrors(BatchUpdate.CommitInfo ci) {
+        return !ci.errors.isEmpty()||!ci.lostDocs.isEmpty();
+    }
+
     @Test
     public void concurrentUpdateTest() throws Exception {
         insert50();
@@ -160,7 +164,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         cursor.close();
 
         // Thread2 updates first 5 docs
-        Assert.assertFalse(updater2.commit().hasErrors());
+        Assert.assertFalse(hasErrors(updater2.commit()));
 
         BatchUpdate.CommitInfo ci=updater.commit();
         Assert.assertEquals(6,ci.errors.size());
@@ -204,7 +208,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         cursor.close();
 
         // Thread2 updates first 5 docs
-        Assert.assertFalse(updater2.commit().hasErrors());
+        Assert.assertFalse(hasErrors(updater2.commit()));
 
         BatchUpdate.CommitInfo ci=updater.commit();
         Assert.assertEquals(7,ci.errors.size());
@@ -265,7 +269,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         
 
         // Thread2 updates first 5 docs
-        Assert.assertFalse(updater2.commit().hasErrors());
+        Assert.assertFalse(hasErrors(updater2.commit()));
         System.out.println("All docs:");
         cursor=coll.find();
         while(cursor.hasNext()) {
@@ -274,7 +278,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         }
         cursor.close();
 
-        Assert.assertFalse(updater.commit().hasErrors());
+        Assert.assertFalse(hasErrors(updater.commit()));
 
         // Check if the updates worked
         cursor=coll.find(new BasicDBObject("_id",new BasicDBObject("$lte","19")));
@@ -319,7 +323,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
 
         // Thread2 updates first 5 docs
         BatchUpdate.CommitInfo ci=updater2.commit();
-        Assert.assertFalse(ci.hasErrors());
+        Assert.assertFalse(hasErrors(ci));
 
         ci=updater.commit();
         Assert.assertEquals(6,ci.errors.size());
@@ -435,7 +439,7 @@ public class MongoSafeUpdateProtocolTest extends AbstractMongoCrudTest {
         }
         cursor.close();
 
-        Assert.assertFalse(updater2.commit().hasErrors());
+        Assert.assertFalse(hasErrors(updater2.commit()));
 
         // Thread1 persists it's updates
         BatchUpdate.CommitInfo ci=updater.commit();

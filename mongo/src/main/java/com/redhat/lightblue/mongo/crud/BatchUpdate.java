@@ -55,9 +55,6 @@ public interface BatchUpdate {
         // An element of lostDocs is an index to a document in the current batch that is lost
         final public Set<Integer> lostDocs=new HashSet<>();
 
-        public boolean hasErrors() {
-            return !errors.isEmpty()||!lostDocs.isEmpty();
-        }
     }
 
     /**
