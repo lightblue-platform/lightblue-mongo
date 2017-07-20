@@ -129,15 +129,15 @@ public class UpdateIfSameProtocol implements BatchUpdate {
     }
 
     @Override
-    public Map<Integer,Error> commit() {
-        Map<Integer,Error> results=new HashMap<>();
+    public CommitInfo commit() {
+        CommitInfo ci=new CommitInfo();
         if(!batch.isEmpty()) {
-            if(!BatchUpdate.batchUpdate(bwo,writeConcern,batch.size(),results,LOGGER))
-                findConcurrentModifications(results);
+            if(!BatchUpdate.batchUpdate(bwo,writeConcern,batch.size(),ci.errors,LOGGER))
+                findConcurrentModifications(ci.errors);
         }
         batch.clear();
         bwo=collection.initializeUnorderedBulkOperation();
-        return results;
+        return ci;
     }
     
      /**

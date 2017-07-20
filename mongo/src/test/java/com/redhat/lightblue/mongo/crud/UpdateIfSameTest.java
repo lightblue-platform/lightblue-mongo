@@ -97,7 +97,8 @@ public class UpdateIfSameTest extends AbstractMongoCrudTest {
         updater.addDoc(doc);
         doc.put("field","updated"+doc.get("_id").toString());
         
-        Assert.assertTrue(updater.commit().isEmpty());
+        Assert.assertTrue(updater.commit().errors.isEmpty());
+        Assert.assertTrue(updater.commit().lostDocs.isEmpty());
 
         DBCursor cursor=coll.find();
         while(cursor.hasNext()) {
@@ -143,7 +144,8 @@ public class UpdateIfSameTest extends AbstractMongoCrudTest {
         updater.addDoc(doc);
         doc.put("field","updated"+doc.get("_id").toString());
         
-        Assert.assertTrue(updater.commit().isEmpty());
+        Assert.assertTrue(updater.commit().errors.isEmpty());
+        Assert.assertTrue(updater.commit().lostDocs.isEmpty());
 
         DBCursor cursor=coll.find();
         while(cursor.hasNext()) {
@@ -186,7 +188,8 @@ public class UpdateIfSameTest extends AbstractMongoCrudTest {
         updater.addDoc(doc);
         doc.put("field","updated"+doc.get("_id").toString());
         
-        Assert.assertTrue(updater.commit().isEmpty());
+        Assert.assertTrue(updater.commit().errors.isEmpty());
+        Assert.assertTrue(updater.commit().lostDocs.isEmpty());
 
         DBCursor cursor=coll.find();
         while(cursor.hasNext()) {
@@ -242,7 +245,7 @@ public class UpdateIfSameTest extends AbstractMongoCrudTest {
                     new BasicDBObject("$set",new BasicDBObject(DocTranslator.HIDDEN_SUB_PATH.toString()+"."+DocVerUtil.DOCVER,elems)));
         
 
-        Map<Integer,Error> errors=updater.commit();
+        Map<Integer,Error> errors=updater.commit().errors;
         Assert.assertEquals(1,errors.size());
         Error e=errors.get(1);
         Assert.assertNotNull(e);

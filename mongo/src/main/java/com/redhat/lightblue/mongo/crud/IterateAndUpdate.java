@@ -186,7 +186,6 @@ public class IterateAndUpdate implements DocUpdater {
                 measure.begin("ctx.addDocument");
                 DocTranslator.TranslatedDoc translatedDoc=translator.toJson(document);
                 DocCtx doc=new DocCtx(translatedDoc.doc,translatedDoc.rmd);
-                resultDocs.add(doc);
                 doc.startModifications();
                 measure.end("ctx.addDocument");
                 // From now on: doc contains the working copy, and doc.originalDoc contains the original copy
@@ -223,15 +222,21 @@ public class IterateAndUpdate implements DocUpdater {
                             // update in batches
                             if (docUpdateAttempts.size()-batchStartIndex>= batchSize) {
                                 measure.begin("bulkUpdate");
-                                Map<Integer,Error> updateErrors=sup.commit();
+                                BatchUpdate.CommitInfo ci=sup.commit();
                                 measure.end("bulkUpdate");
-                                for(Map.Entry<Integer,Error> entry:updateErrors.entrySet()) {
+                                for(Map.Entry<Integer,Error> entry:ci.errors.entrySet()) {
                                     docUpdateAttempts.get(entry.getKey()+batchStartIndex).addError(entry.getValue());
                                 }
-                                int k=updateErrors.size();
-                                numFailed+=k;
-                                numUpdated+=docUpdateAttempts.size()-batchStartIndex-k;
+                                numFailed+=ci.errors.size();
+                                numUpdated+=docUpdateAttempts.size()-batchStartIndex-ci.errors.size()-ci.lostDocs.size();
                                 batchStartIndex=docUpdateAttempts.size();
+                                int di=0;
+                                // Only add the docs that were not lost
+                                for(DocCtx d:docUpdateAttempts) {
+                                    if(!ci.lostDocs.contains(di))
+                                        resultDocs.add(d);
+                                    di++;
+                                }
                             }
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             doc.setUpdatedDocument(doc);
@@ -258,13 +263,18 @@ public class IterateAndUpdate implements DocUpdater {
             measure.end("iteration");
             // if we have any remaining items to update
             if (docUpdateAttempts.size() > batchStartIndex) {
-                Map<Integer,Error> updateErrors=sup.commit();
-                for(Map.Entry<Integer,Error> entry:updateErrors.entrySet()) {
+                BatchUpdate.CommitInfo ci=sup.commit();
+                for(Map.Entry<Integer,Error> entry:ci.errors.entrySet()) {
                     docUpdateAttempts.get(entry.getKey()+batchStartIndex).addError(entry.getValue());
                 }
-                int k=updateErrors.size();
-                numFailed+=k;
-                numUpdated+=docUpdateAttempts.size()-batchStartIndex-k;
+                numFailed+=ci.errors.size();
+                numUpdated+=docUpdateAttempts.size()-batchStartIndex-ci.errors.size()-ci.lostDocs.size();
+                int di=0;
+                for(DocCtx d:docUpdateAttempts) {
+                    if(!ci.lostDocs.contains(di))
+                        resultDocs.add(d);
+                    di++;
+                }
            }
         } finally {
             if (cursor != null) {

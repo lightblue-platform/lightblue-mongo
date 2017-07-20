@@ -20,6 +20,8 @@
 package com.redhat.lightblue.mongo.crud;
 
 import java.util.Map;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.HashSet;
@@ -47,6 +49,14 @@ public interface BatchUpdate {
     public static final String DOCVER_FLD0=DocTranslator.HIDDEN_SUB_PATH.toString()+"."+DocVerUtil.DOCVER+".0";
 
 
+    public static class CommitInfo {
+        // errors[i] gives the error for the document i in the current batch
+        final public Map<Integer,Error> errors=new HashMap<>();
+        // An element of lostDocs is an index to a document in the current batch that is lost
+        final public Set<Integer> lostDocs=new HashSet<>();
+
+    }
+
     /**
      * Adds a document to the current batch. The document should
      * contain the original docver as read from the db
@@ -64,7 +74,7 @@ public interface BatchUpdate {
      * errors and associate them with the documents using the document
      * index.
      */
-    Map<Integer,Error> commit();
+    CommitInfo commit();
 
     /**
      * Runs a batch update using bwo
