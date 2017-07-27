@@ -55,6 +55,9 @@ public final class MongoCrudConstants {
     public static final String ERR_TOO_MANY_RESULTS = "mongo-crud:TooManyResults";
     public static final String ERR_RESERVED_FIELD = "mongo-crud:ReservedFieldInMetadata";
 
+    public static final String WARN_RESULT_SIZE_LARGE = "mongo-crud:ResultSizeIsLarge";
+    public static final String ERROR_RESULT_SIZE_TOO_LARGE = "mongo-crud:ResultSizeTooLarge";
+
     public static boolean isDuplicate(int code) {
         return code==11000||code==11001;
     }

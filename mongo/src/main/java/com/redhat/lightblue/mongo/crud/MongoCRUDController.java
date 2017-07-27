@@ -142,13 +142,14 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private final DBResolver dbResolver;
     private final ControllerConfiguration controllerCfg;
 
+    public static final int DEFAULT_BATCH_SIZE = 64;
     private final int batchSize;
     private final ConcurrentModificationDetectionCfg concurrentModificationDetection;
 
     public MongoCRUDController(ControllerConfiguration controllerCfg, DBResolver dbResolver) {        
         this.dbResolver = dbResolver;
         this.controllerCfg = controllerCfg;
-        this.batchSize=getIntOption("updateBatchSize",64);
+        this.batchSize=getIntOption("updateBatchSize",DEFAULT_BATCH_SIZE);
         this.concurrentModificationDetection=new ConcurrentModificationDetectionCfg(controllerCfg);
     }
     
@@ -345,13 +346,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 // If there are any constraints for updated fields, or if we're updating arrays, we have to use iterate-update
                 Updater updater = Updater.getInstance(ctx.getFactory().getNodeFactory(), md, update);
 
-                DocUpdater docUpdater = new IterateAndUpdate(ctx.getFactory().getNodeFactory(), validator, roleEval, translator, updater,
+                IterateAndUpdate docUpdater = new IterateAndUpdate(ctx.getFactory().getNodeFactory(), validator, roleEval, translator, updater,
                                                              projector, errorProjector,
                                                              MongoExecutionOptions.getWriteConcern(ctx.getExecutionOptions()),
                                                              batchSize,
                                                              concurrentModificationDetection);
+                docUpdater.setResultSizeThresholds(ctx.getFactory().getMaxResultSetSizeForWritesB(), ctx.getFactory().getWarnResultSetSizeB(), query);
                 ctx.setProperty(PROP_UPDATER, docUpdater);
                 docUpdater.update(ctx, coll, md, response, mongoQuery);
+                ctx.getHookManager().setQueuedHooksSizeThresholds(ctx.getFactory().getMaxResultSetSizeForWritesB(), ctx.getFactory().getWarnResultSetSizeB(), query);
                 ctx.getHookManager().queueHooks(ctx);
             } else {
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "update:" + ctx.getEntityName()));
@@ -489,6 +492,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                             ctx.measure.end("projectFound");
                             return d;
                         }));
+                ctx.getHookManager().setQueuedHooksSizeThresholds(ctx.getFactory().getMaxResultSetSizeForReadsB(), ctx.getFactory().getWarnResultSetSizeB(), query);
                 ctx.getHookManager().queueHooks(ctx);
             } else {
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "find:" + ctx.getEntityName()));

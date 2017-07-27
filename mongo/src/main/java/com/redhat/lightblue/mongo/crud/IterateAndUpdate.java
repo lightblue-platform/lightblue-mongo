@@ -20,30 +20,26 @@ package com.redhat.lightblue.mongo.crud;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.mongodb.BasicDBObject;
-import com.mongodb.BulkWriteError;
-import com.mongodb.BulkWriteException;
-import com.mongodb.BulkWriteOperation;
-import com.mongodb.BulkWriteResult;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
-import com.mongodb.WriteConcern;
 import com.mongodb.ReadPreference;
+import com.mongodb.WriteConcern;
+import com.redhat.lightblue.Response;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.ConstraintValidator;
 import com.redhat.lightblue.crud.CrudConstants;
-import com.redhat.lightblue.crud.ListDocumentStream;
 import com.redhat.lightblue.crud.DocCtx;
+import com.redhat.lightblue.crud.ListDocumentStream;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
@@ -51,10 +47,14 @@ import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.PredefinedFields;
 import com.redhat.lightblue.metadata.Type;
+import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.util.Error;
-import com.redhat.lightblue.util.Path;
-import com.redhat.lightblue.util.Measure;
 import com.redhat.lightblue.util.JsonDoc;
+import com.redhat.lightblue.util.JsonUtils;
+import com.redhat.lightblue.util.Measure;
+import com.redhat.lightblue.util.MemoryMonitor;
+import com.redhat.lightblue.util.MemoryMonitor.ThresholdMonitor;
+import com.redhat.lightblue.util.Path;
 
 /**
  * Non-atomic updater that evaluates the query, and updates the documents one by
@@ -126,6 +126,20 @@ public class IterateAndUpdate implements DocUpdater {
         this.concurrentModificationDetection = concurrentModificationDetection;
     }
 
+    MemoryMonitor<DocCtx> memoryMonitor = null;
+
+    public void setResultSizeThresholds(int maxResultSetSizeB, int warnResultSetSizeB, final QueryExpression forQuery) {
+        this.memoryMonitor = new MemoryMonitor<>((doc) -> JsonUtils.size(doc.getRoot()));
+
+        memoryMonitor.registerMonitor(new ThresholdMonitor<DocCtx>(warnResultSetSizeB, (current, threshold, doc) -> {
+            LOGGER.warn("{}: query={}, responseDataSizeB={}", MongoCrudConstants.WARN_RESULT_SIZE_LARGE,forQuery, current);
+        }));
+
+        memoryMonitor.registerMonitor(new ThresholdMonitor<DocCtx>(maxResultSetSizeB, (current, threshold, doc) -> {
+            throw Error.get(MongoCrudConstants.ERROR_RESULT_SIZE_TOO_LARGE, current+"B > "+threshold+"B");
+        }));
+    }
+
     private BatchUpdate getUpdateProtocol(CRUDOperationContext ctx,
                                           DBCollection collection,
                                           DBObject query,
@@ -186,6 +200,16 @@ public class IterateAndUpdate implements DocUpdater {
                 measure.begin("ctx.addDocument");
                 DocTranslator.TranslatedDoc translatedDoc=translator.toJson(document);
                 DocCtx doc=new DocCtx(translatedDoc.doc,translatedDoc.rmd);
+                if (memoryMonitor != null) {
+                    // if memory threshold is exceeded, this will throw an Error
+                    memoryMonitor.apply(doc);
+                    // an Error means *inconsistent update operation*:
+                    // some batches will be updated, some don't
+                    // no hooks will fire for updated batches
+                    // counts sent to client will be set to zero
+                    // TODO: I perceive this as a problem with updates and hooks impl in general
+                    // we need to run hooks per batch (see https://github.com/lightblue-platform/lightblue-mongo/issues/378)
+                }
                 doc.startModifications();
                 measure.end("ctx.addDocument");
                 // From now on: doc contains the working copy, and doc.originalDoc contains the original copy
