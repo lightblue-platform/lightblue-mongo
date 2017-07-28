@@ -142,12 +142,12 @@ public class IterateAndUpdate implements DocUpdater {
             return size;
         });
 
-        memoryMonitor.registerMonitor(new ThresholdMonitor<DocCtx>(warnResultSetSizeB, (current, threshold, doc) -> {
-            LOGGER.warn("{}: query={}, responseDataSizeB={}", MongoCrudConstants.WARN_RESULT_SIZE_LARGE,forQuery, current);
-        }));
-
         memoryMonitor.registerMonitor(new ThresholdMonitor<DocCtx>(maxResultSetSizeB, (current, threshold, doc) -> {
             throw Error.get(MongoCrudConstants.ERROR_RESULT_SIZE_TOO_LARGE, current+"B > "+threshold+"B");
+        }));
+
+        memoryMonitor.registerMonitor(new ThresholdMonitor<DocCtx>(warnResultSetSizeB, (current, threshold, doc) -> {
+            LOGGER.warn("{}: query={}, responseDataSizeB={}", MongoCrudConstants.WARN_RESULT_SIZE_LARGE,forQuery, current);
         }));
     }
 
