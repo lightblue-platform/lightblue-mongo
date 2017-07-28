@@ -20,30 +20,25 @@ package com.redhat.lightblue.mongo.crud;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.Map;
+import java.util.Set;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import com.mongodb.BasicDBObject;
-import com.mongodb.BulkWriteError;
-import com.mongodb.BulkWriteException;
-import com.mongodb.BulkWriteOperation;
-import com.mongodb.BulkWriteResult;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
-import com.mongodb.WriteConcern;
 import com.mongodb.ReadPreference;
+import com.mongodb.WriteConcern;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.ConstraintValidator;
 import com.redhat.lightblue.crud.CrudConstants;
-import com.redhat.lightblue.crud.ListDocumentStream;
 import com.redhat.lightblue.crud.DocCtx;
+import com.redhat.lightblue.crud.ListDocumentStream;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
@@ -51,10 +46,14 @@ import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.PredefinedFields;
 import com.redhat.lightblue.metadata.Type;
+import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.util.Error;
-import com.redhat.lightblue.util.Path;
-import com.redhat.lightblue.util.Measure;
 import com.redhat.lightblue.util.JsonDoc;
+import com.redhat.lightblue.util.JsonUtils;
+import com.redhat.lightblue.util.Measure;
+import com.redhat.lightblue.util.MemoryMonitor;
+import com.redhat.lightblue.util.MemoryMonitor.ThresholdMonitor;
+import com.redhat.lightblue.util.Path;
 
 /**
  * Non-atomic updater that evaluates the query, and updates the documents one by
@@ -124,6 +123,32 @@ public class IterateAndUpdate implements DocUpdater {
         this.writeConcern = writeConcern;
         this.batchSize = batchSize;
         this.concurrentModificationDetection = concurrentModificationDetection;
+    }
+
+    MemoryMonitor<DocCtx> memoryMonitor = null;
+
+    public void setResultSizeThresholds(int maxResultSetSizeB, int warnResultSetSizeB, final QueryExpression forQuery) {
+
+        this.memoryMonitor = new MemoryMonitor<>((doc) -> {
+            int size = JsonUtils.size(doc.getRoot());
+
+            // account for docs copied by DocCtx.startModifications()
+            if (doc.getOriginalDocument() != null) {
+                size += JsonUtils.size(doc.getOriginalDocument().getRoot());
+            }
+            if (doc.getUpdatedDocument() != null) {
+                size += JsonUtils.size(doc.getUpdatedDocument().getRoot());
+            }
+            return size;
+        });
+
+        memoryMonitor.registerMonitor(new ThresholdMonitor<DocCtx>(maxResultSetSizeB, (current, threshold, doc) -> {
+            throw Error.get(MongoCrudConstants.ERROR_RESULT_SIZE_TOO_LARGE, current+"B > "+threshold+"B");
+        }));
+
+        memoryMonitor.registerMonitor(new ThresholdMonitor<DocCtx>(warnResultSetSizeB, (current, threshold, doc) -> {
+            LOGGER.warn("{}: query={}, responseDataSizeB={}", MongoCrudConstants.WARN_RESULT_SIZE_LARGE,forQuery, current);
+        }));
     }
 
     private BatchUpdate getUpdateProtocol(CRUDOperationContext ctx,
@@ -233,13 +258,23 @@ public class IterateAndUpdate implements DocUpdater {
                                 int di=0;
                                 // Only add the docs that were not lost
                                 for(DocCtx d:docUpdateAttempts) {
-                                    if(!ci.lostDocs.contains(di))
+                                    if(!ci.lostDocs.contains(di)) {
+                                        enforceMemoryLimit(d);
                                         resultDocs.add(d);
+                                    }
                                     di++;
                                 }
                             }
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             doc.setUpdatedDocument(doc);
+                        } catch (Error e) {
+                            if (MongoCrudConstants.ERROR_RESULT_SIZE_TOO_LARGE.equals(e.getErrorCode())) {
+                                throw e;
+                            } else {
+                                LOGGER.warn("Update exception for document {}: {}", docIndex, e);
+                                doc.addError(Error.get(MongoCrudConstants.ERR_UPDATE_ERROR, e.toString()));
+                                hasErrors = true;
+                            }
                         } catch (Exception e) {
                             LOGGER.warn("Update exception for document {}: {}", docIndex, e);
                             doc.addError(Error.get(MongoCrudConstants.ERR_UPDATE_ERROR, e.toString()));
@@ -271,8 +306,10 @@ public class IterateAndUpdate implements DocUpdater {
                 numUpdated+=docUpdateAttempts.size()-batchStartIndex-ci.errors.size()-ci.lostDocs.size();
                 int di=0;
                 for(DocCtx d:docUpdateAttempts) {
-                    if(!ci.lostDocs.contains(di))
+                    if(!ci.lostDocs.contains(di)) {
+                        enforceMemoryLimit(d);
                         resultDocs.add(d);
+                    }
                     di++;
                 }
            }
@@ -288,6 +325,19 @@ public class IterateAndUpdate implements DocUpdater {
         response.setNumFailed(numFailed);
         response.setNumMatched(numMatched);
         METRICS.debug("IterateAndUpdate:\n{}",measure);
+    }
+
+    private void enforceMemoryLimit(DocCtx doc) {
+        if (memoryMonitor != null) {
+            // if memory threshold is exceeded, this will throw an Error
+            memoryMonitor.apply(doc);
+            // an Error means *inconsistent update operation*:
+            // some batches will be updated, some don't
+            // no hooks will fire for updated batches
+            // counts sent to client will be set to zero
+            // TODO: I perceive this as a problem with updates and hooks impl in general
+            // we need to run hooks per batch (see https://github.com/lightblue-platform/lightblue-mongo/issues/378)
+        }
     }
 
 
@@ -328,5 +378,13 @@ public class IterateAndUpdate implements DocUpdater {
             return true;
         }
         return false;
+    }
+
+    public int getDataSizeB() {
+        if (memoryMonitor != null) {
+            return memoryMonitor.getDataSizeB();
+        } else {
+            return 0;
+        }
     }
 }
