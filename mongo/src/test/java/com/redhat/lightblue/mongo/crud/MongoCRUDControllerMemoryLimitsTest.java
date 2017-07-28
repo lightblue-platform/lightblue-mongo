@@ -50,7 +50,6 @@ import com.redhat.lightblue.mongo.common.DBResolver;
 import com.redhat.lightblue.mongo.common.MongoDataStore;
 import com.redhat.lightblue.mongo.config.MongoConfiguration;
 import com.redhat.lightblue.util.JsonDoc;
-import com.redhat.lightblue.util.JsonUtils;
 
 /**
  * Memory limit tests.
@@ -129,14 +128,12 @@ public class MongoCRUDControllerMemoryLimitsTest extends AbstractMongoCrudTest {
         emd = getMd("./testMetadata_cap.json");
         controller.afterUpdateEntityInfo(null, emd.getEntityInfo(), false);
         testDoc = new JsonDoc(loadJsonNode("./testData_cap.json"));
-        testDocSize = JsonUtils.size(testDoc.getRoot())+27; // 27 is for mongo generated _id
     }
 
     private void setupTestDataAndMetadataWithHook() throws IOException {
         emd = getMd("./testMetadata_cap_hook.json");
         controller.afterUpdateEntityInfo(null, emd.getEntityInfo(), false);
         testDoc = new JsonDoc(loadJsonNode("./testData_cap.json"));
-        testDocSize = JsonUtils.size(testDoc.getRoot())+27; // 27 is for mongo generated _id
     }
 
     private void addDocument(CRUDOperationContext ctx,JsonDoc doc) {
@@ -162,8 +159,6 @@ public class MongoCRUDControllerMemoryLimitsTest extends AbstractMongoCrudTest {
 
     EntityMetadata emd;
     JsonDoc testDoc;
-    int testDocSize;
-    final int updaterDocCopies = 3;
 
     private void insertDocs(int count) throws IOException {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("test", CRUDOperation.INSERT);
@@ -223,7 +218,8 @@ public class MongoCRUDControllerMemoryLimitsTest extends AbstractMongoCrudTest {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("test", CRUDOperation.UPDATE);
         ctx.add(emd);
 
-        ctx.getFactory().setMaxResultSetSizeForWritesB(11*updaterDocCopies*testDocSize);
+        // 74 docs is 25798, 11 docs is ~3835B
+        ctx.getFactory().setMaxResultSetSizeForWritesB(3835);
         CRUDUpdateResponse response = controller.update(ctx,
                 query("{'field':'field1','op':'$eq','rvalue':'f1'}"),
                 update("{ '$set': { 'field2' : 'f2-updated' } }"),
@@ -252,7 +248,8 @@ public class MongoCRUDControllerMemoryLimitsTest extends AbstractMongoCrudTest {
     @Test
     public void updateDocuments_LimitExceeded() throws Exception {
 
-        int count = MongoCRUDController.DEFAULT_BATCH_SIZE+10;
+        // 2 batches. One batch + 10 would be updated in full, because the memory limit is enforced after commit.
+        int count = 2*MongoCRUDController.DEFAULT_BATCH_SIZE+10;
 
         setupTestDataAndMetadata();
         insertDocs(count);
@@ -260,27 +257,28 @@ public class MongoCRUDControllerMemoryLimitsTest extends AbstractMongoCrudTest {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("test", CRUDOperation.UPDATE);
         ctx.add(emd);
 
-        ctx.getFactory().setMaxResultSetSizeForWritesB((MongoCRUDController.DEFAULT_BATCH_SIZE+1)*updaterDocCopies*testDocSize);
+        // 74 docs is 25798, 66 docs is ~22310
+        ctx.getFactory().setMaxResultSetSizeForWritesB(22310);
         CRUDUpdateResponse response = controller.update(ctx,
                 query("{'field':'field1','op':'$eq','rvalue':'f1'}"),
                 update("{ '$set': { 'field2' : 'f2-updated' } }"),
                 projection("{'field':'*'}"));
 
-        // this is wrong - one batch was updated successfully
-        // see IterateAndUpdate.java:219 for more info
+        Assert.assertEquals(1, ctx.getErrors().size());
+        Assert.assertEquals(MongoCrudConstants.ERROR_RESULT_SIZE_TOO_LARGE, ctx.getErrors().get(0).getErrorCode());
+
+        // this is misleading - 2 batches was updated successfully
+        // see IterateAndUpdate#enforceMemoryLimit for more info
         Assert.assertEquals(0, response.getNumMatched());
         Assert.assertEquals(0, response.getNumUpdated());
         Assert.assertEquals(0, response.getNumFailed());
-
-        Assert.assertEquals(1, ctx.getErrors().size());
-        Assert.assertEquals(MongoCrudConstants.ERROR_RESULT_SIZE_TOO_LARGE, ctx.getErrors().get(0).getErrorCode());
 
         DBCursor cursor = db.getCollection("data").find();
 
         int i = 0;
         while (cursor.hasNext()) {
             String field2value = cursor.next().get("field2").toString();
-            if (i < MongoCRUDController.DEFAULT_BATCH_SIZE) {
+            if (i < 2*MongoCRUDController.DEFAULT_BATCH_SIZE) {
                 assertEquals("Expecting first batch to be updated successfully", "f2-updated", field2value);
             } else {
                 assertEquals("Expecting 2nd batch not to be updated, because this is where memory limit was reached", "f2", field2value);
@@ -308,21 +306,22 @@ public class MongoCRUDControllerMemoryLimitsTest extends AbstractMongoCrudTest {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("test", CRUDOperation.UPDATE);
         ctx.add(emd);
 
-        ctx.getFactory().setMaxResultSetSizeForWritesB((count+1)*updaterDocCopies*testDocSize); // setting threshold above the size of docs to update
+        // 25798 B is the ctx.inputDocuments size after update, but before hooks
+        ctx.getFactory().setMaxResultSetSizeForWritesB(25798+10);
 
         CRUDUpdateResponse response = controller.update(ctx,
                 query("{'field':'field1','op':'$eq','rvalue':'f1'}"),
                 update("{ '$set': { 'field2' : 'f2-updated' } }"),
                 projection("{'field':'*'}"));
 
+        // expecting memory limit to kick in during hook processing
+        Assert.assertEquals(1, ctx.getErrors().size());
+        Assert.assertEquals(Response.ERR_RESULT_SIZE_TOO_LARGE, ctx.getErrors().get(0).getErrorCode());
+
         // all updates applied successfully
         Assert.assertEquals(count, response.getNumMatched());
         Assert.assertEquals(count, response.getNumUpdated());
         Assert.assertEquals(0, response.getNumFailed());
-
-        // expecting memory limit to kick in during hook processing
-        Assert.assertEquals(1, ctx.getErrors().size());
-        Assert.assertEquals(Response.ERR_RESULT_SIZE_TOO_LARGE, ctx.getErrors().get(0).getErrorCode());
 
         DBCursor cursor = db.getCollection("data").find();
 

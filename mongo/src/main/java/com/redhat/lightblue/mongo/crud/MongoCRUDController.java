@@ -354,6 +354,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 docUpdater.setResultSizeThresholds(ctx.getFactory().getMaxResultSetSizeForWritesB(), ctx.getFactory().getWarnResultSetSizeB(), query);
                 ctx.setProperty(PROP_UPDATER, docUpdater);
                 docUpdater.update(ctx, coll, md, response, mongoQuery);
+                LOGGER.debug("ctx.inputDocuments size after update, before hooks: "+docUpdater.getDataSizeB()+"B");
                 ctx.getHookManager().setQueuedHooksSizeThresholds(ctx.getFactory().getMaxResultSetSizeForWritesB(), ctx.getFactory().getWarnResultSetSizeB(), query, docUpdater.getDataSizeB());
                 ctx.getHookManager().queueHooks(ctx);
             } else {

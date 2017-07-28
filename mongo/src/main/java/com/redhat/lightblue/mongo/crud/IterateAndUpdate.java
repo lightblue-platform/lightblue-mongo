@@ -211,18 +211,7 @@ public class IterateAndUpdate implements DocUpdater {
                 measure.begin("ctx.addDocument");
                 DocTranslator.TranslatedDoc translatedDoc=translator.toJson(document);
                 DocCtx doc=new DocCtx(translatedDoc.doc,translatedDoc.rmd);
-                resultDocs.add(doc);
                 doc.startModifications();
-                if (memoryMonitor != null) {
-                    // if memory threshold is exceeded, this will throw an Error
-                    memoryMonitor.apply(doc);
-                    // an Error means *inconsistent update operation*:
-                    // some batches will be updated, some don't
-                    // no hooks will fire for updated batches
-                    // counts sent to client will be set to zero
-                    // TODO: I perceive this as a problem with updates and hooks impl in general
-                    // we need to run hooks per batch (see https://github.com/lightblue-platform/lightblue-mongo/issues/378)
-                }
                 measure.end("ctx.addDocument");
                 // From now on: doc contains the working copy, and doc.originalDoc contains the original copy
                 if (updateDoc(md,doc,measure)) {
@@ -269,13 +258,23 @@ public class IterateAndUpdate implements DocUpdater {
                                 int di=0;
                                 // Only add the docs that were not lost
                                 for(DocCtx d:docUpdateAttempts) {
-                                    if(!ci.lostDocs.contains(di))
+                                    if(!ci.lostDocs.contains(di)) {
+                                        enforceMemoryLimit(d);
                                         resultDocs.add(d);
+                                    }
                                     di++;
                                 }
                             }
                             doc.setCRUDOperationPerformed(CRUDOperation.UPDATE);
                             doc.setUpdatedDocument(doc);
+                        } catch (Error e) {
+                            if (MongoCrudConstants.ERROR_RESULT_SIZE_TOO_LARGE.equals(e.getErrorCode())) {
+                                throw e;
+                            } else {
+                                LOGGER.warn("Update exception for document {}: {}", docIndex, e);
+                                doc.addError(Error.get(MongoCrudConstants.ERR_UPDATE_ERROR, e.toString()));
+                                hasErrors = true;
+                            }
                         } catch (Exception e) {
                             LOGGER.warn("Update exception for document {}: {}", docIndex, e);
                             doc.addError(Error.get(MongoCrudConstants.ERR_UPDATE_ERROR, e.toString()));
@@ -307,8 +306,10 @@ public class IterateAndUpdate implements DocUpdater {
                 numUpdated+=docUpdateAttempts.size()-batchStartIndex-ci.errors.size()-ci.lostDocs.size();
                 int di=0;
                 for(DocCtx d:docUpdateAttempts) {
-                    if(!ci.lostDocs.contains(di))
+                    if(!ci.lostDocs.contains(di)) {
+                        enforceMemoryLimit(d);
                         resultDocs.add(d);
+                    }
                     di++;
                 }
            }
@@ -324,6 +325,19 @@ public class IterateAndUpdate implements DocUpdater {
         response.setNumFailed(numFailed);
         response.setNumMatched(numMatched);
         METRICS.debug("IterateAndUpdate:\n{}",measure);
+    }
+
+    private void enforceMemoryLimit(DocCtx doc) {
+        if (memoryMonitor != null) {
+            // if memory threshold is exceeded, this will throw an Error
+            memoryMonitor.apply(doc);
+            // an Error means *inconsistent update operation*:
+            // some batches will be updated, some don't
+            // no hooks will fire for updated batches
+            // counts sent to client will be set to zero
+            // TODO: I perceive this as a problem with updates and hooks impl in general
+            // we need to run hooks per batch (see https://github.com/lightblue-platform/lightblue-mongo/issues/378)
+        }
     }
 
 
