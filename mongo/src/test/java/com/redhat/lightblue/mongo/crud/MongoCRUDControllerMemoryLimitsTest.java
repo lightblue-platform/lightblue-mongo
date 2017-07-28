@@ -163,6 +163,7 @@ public class MongoCRUDControllerMemoryLimitsTest extends AbstractMongoCrudTest {
     EntityMetadata emd;
     JsonDoc testDoc;
     int testDocSize;
+    final int updaterDocCopies = 3;
 
     private void insertDocs(int count) throws IOException {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("test", CRUDOperation.INSERT);
@@ -222,7 +223,7 @@ public class MongoCRUDControllerMemoryLimitsTest extends AbstractMongoCrudTest {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("test", CRUDOperation.UPDATE);
         ctx.add(emd);
 
-        ctx.getFactory().setMaxResultSetSizeForWritesB(11*testDocSize);
+        ctx.getFactory().setMaxResultSetSizeForWritesB(11*updaterDocCopies*testDocSize);
         CRUDUpdateResponse response = controller.update(ctx,
                 query("{'field':'field1','op':'$eq','rvalue':'f1'}"),
                 update("{ '$set': { 'field2' : 'f2-updated' } }"),
@@ -259,14 +260,14 @@ public class MongoCRUDControllerMemoryLimitsTest extends AbstractMongoCrudTest {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("test", CRUDOperation.UPDATE);
         ctx.add(emd);
 
-        ctx.getFactory().setMaxResultSetSizeForWritesB((MongoCRUDController.DEFAULT_BATCH_SIZE+1)*testDocSize);
+        ctx.getFactory().setMaxResultSetSizeForWritesB((MongoCRUDController.DEFAULT_BATCH_SIZE+1)*updaterDocCopies*testDocSize);
         CRUDUpdateResponse response = controller.update(ctx,
                 query("{'field':'field1','op':'$eq','rvalue':'f1'}"),
                 update("{ '$set': { 'field2' : 'f2-updated' } }"),
                 projection("{'field':'*'}"));
 
         // this is wrong - one batch was updated successfully
-        // see IterateAndUpdate.java:205 for more info
+        // see IterateAndUpdate.java:219 for more info
         Assert.assertEquals(0, response.getNumMatched());
         Assert.assertEquals(0, response.getNumUpdated());
         Assert.assertEquals(0, response.getNumFailed());
@@ -307,7 +308,7 @@ public class MongoCRUDControllerMemoryLimitsTest extends AbstractMongoCrudTest {
         TestCRUDOperationContext ctx = new TestCRUDOperationContext("test", CRUDOperation.UPDATE);
         ctx.add(emd);
 
-        ctx.getFactory().setMaxResultSetSizeForWritesB((count+1)*testDocSize); // setting threshold above the size of docs to update
+        ctx.getFactory().setMaxResultSetSizeForWritesB((count+1)*updaterDocCopies*testDocSize); // setting threshold above the size of docs to update
 
         CRUDUpdateResponse response = controller.update(ctx,
                 query("{'field':'field1','op':'$eq','rvalue':'f1'}"),

@@ -32,7 +32,6 @@ import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.ReadPreference;
 import com.mongodb.WriteConcern;
-import com.redhat.lightblue.Response;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
@@ -129,7 +128,19 @@ public class IterateAndUpdate implements DocUpdater {
     MemoryMonitor<DocCtx> memoryMonitor = null;
 
     public void setResultSizeThresholds(int maxResultSetSizeB, int warnResultSetSizeB, final QueryExpression forQuery) {
-        this.memoryMonitor = new MemoryMonitor<>((doc) -> JsonUtils.size(doc.getRoot()));
+
+        this.memoryMonitor = new MemoryMonitor<>((doc) -> {
+            int size = JsonUtils.size(doc.getRoot());
+
+            // account for docs copied by DocCtx.startModifications()
+            if (doc.getOriginalDocument() != null) {
+                size += JsonUtils.size(doc.getOriginalDocument().getRoot());
+            }
+            if (doc.getUpdatedDocument() != null) {
+                size += JsonUtils.size(doc.getUpdatedDocument().getRoot());
+            }
+            return size;
+        });
 
         memoryMonitor.registerMonitor(new ThresholdMonitor<DocCtx>(warnResultSetSizeB, (current, threshold, doc) -> {
             LOGGER.warn("{}: query={}, responseDataSizeB={}", MongoCrudConstants.WARN_RESULT_SIZE_LARGE,forQuery, current);
@@ -200,6 +211,8 @@ public class IterateAndUpdate implements DocUpdater {
                 measure.begin("ctx.addDocument");
                 DocTranslator.TranslatedDoc translatedDoc=translator.toJson(document);
                 DocCtx doc=new DocCtx(translatedDoc.doc,translatedDoc.rmd);
+                resultDocs.add(doc);
+                doc.startModifications();
                 if (memoryMonitor != null) {
                     // if memory threshold is exceeded, this will throw an Error
                     memoryMonitor.apply(doc);
@@ -210,7 +223,6 @@ public class IterateAndUpdate implements DocUpdater {
                     // TODO: I perceive this as a problem with updates and hooks impl in general
                     // we need to run hooks per batch (see https://github.com/lightblue-platform/lightblue-mongo/issues/378)
                 }
-                doc.startModifications();
                 measure.end("ctx.addDocument");
                 // From now on: doc contains the working copy, and doc.originalDoc contains the original copy
                 if (updateDoc(md,doc,measure)) {
@@ -352,5 +364,13 @@ public class IterateAndUpdate implements DocUpdater {
             return true;
         }
         return false;
+    }
+
+    public int getDataSizeB() {
+        if (memoryMonitor != null) {
+            return memoryMonitor.getDataSizeB();
+        } else {
+            return 0;
+        }
     }
 }

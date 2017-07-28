@@ -354,7 +354,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 docUpdater.setResultSizeThresholds(ctx.getFactory().getMaxResultSetSizeForWritesB(), ctx.getFactory().getWarnResultSetSizeB(), query);
                 ctx.setProperty(PROP_UPDATER, docUpdater);
                 docUpdater.update(ctx, coll, md, response, mongoQuery);
-                ctx.getHookManager().setQueuedHooksSizeThresholds(ctx.getFactory().getMaxResultSetSizeForWritesB(), ctx.getFactory().getWarnResultSetSizeB(), query);
+                ctx.getHookManager().setQueuedHooksSizeThresholds(ctx.getFactory().getMaxResultSetSizeForWritesB(), ctx.getFactory().getWarnResultSetSizeB(), query, docUpdater.getDataSizeB());
                 ctx.getHookManager().queueHooks(ctx);
             } else {
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "update:" + ctx.getEntityName()));
@@ -492,7 +492,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                             ctx.measure.end("projectFound");
                             return d;
                         }));
-                ctx.getHookManager().setQueuedHooksSizeThresholds(ctx.getFactory().getMaxResultSetSizeForReadsB(), ctx.getFactory().getWarnResultSetSizeB(), query);
+                ctx.getHookManager().setQueuedHooksSizeThresholds(ctx.getFactory().getMaxResultSetSizeForReadsB(), ctx.getFactory().getWarnResultSetSizeB(), query, 0);
                 ctx.getHookManager().queueHooks(ctx);
             } else {
                 ctx.addError(Error.get(MongoCrudConstants.ERR_NO_ACCESS, "find:" + ctx.getEntityName()));
