@@ -1149,15 +1149,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             configDetails.put("connectionsPerHost", config.getConnectionsPerHost());
             configDetails.put("credentials", config.getCredentials());
             configDetails.put("database", config.getDatabase());
-            configDetails.put("DB", config.getDB());
             configDetails.put("maxResultSetSize", config.getMaxResultSetSize());
             configDetails.put("maxQueryTimeMS", config.getMaxQueryTimeMS());
-            configDetails.put("metadataStoreParser", config.getMetadataDataStoreParser());
             configDetails.put("mongoClient", config.getMongoClient());
             configDetails.put("mongoClientOptions", config.getMongoClientOptions());
             configDetails.put("readPreference", config.getReadPreference());
             configDetails.put("server", config.getServer());
-            configDetails.put("serverAddresses", config.getServerAddresses());
+            List<ServerAddress> serverAddresses = new ArrayList<>();
+            config.getServerAddresses().forEachRemaining(serverAddresses::add);
+            configDetails.put("serverAddresses", serverAddresses);
             configDetails.put("writeConcern", config.getWriteConcern());
         } catch (Exception e) {
             LOGGER.error("Error reading Mongo config details");
