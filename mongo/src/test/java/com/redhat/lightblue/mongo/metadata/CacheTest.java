@@ -18,35 +18,43 @@
  */
 package com.redhat.lightblue.mongo.metadata;
 
-import com.redhat.lightblue.crud.*;
-import com.redhat.lightblue.metadata.*;
-import com.redhat.lightblue.mongo.common.MongoDataStore;
+import com.mongodb.BasicDBObject;
+import com.mongodb.DB;
+import com.mongodb.DBCollection;
+import com.redhat.lightblue.crud.CRUDController;
+import com.redhat.lightblue.crud.CRUDDeleteResponse;
+import com.redhat.lightblue.crud.CRUDFindResponse;
+import com.redhat.lightblue.crud.CRUDHealth;
+import com.redhat.lightblue.crud.CRUDInsertionResponse;
+import com.redhat.lightblue.crud.CRUDOperationContext;
+import com.redhat.lightblue.crud.CRUDSaveResponse;
+import com.redhat.lightblue.crud.CRUDUpdateResponse;
+import com.redhat.lightblue.crud.Factory;
+import com.redhat.lightblue.metadata.EntityMetadata;
+import com.redhat.lightblue.metadata.MetadataListener;
+import com.redhat.lightblue.metadata.MetadataStatus;
+import com.redhat.lightblue.metadata.ObjectField;
+import com.redhat.lightblue.metadata.SimpleField;
+import com.redhat.lightblue.metadata.Version;
 import com.redhat.lightblue.metadata.parser.Extensions;
 import com.redhat.lightblue.metadata.types.DefaultTypes;
 import com.redhat.lightblue.metadata.types.IntegerType;
 import com.redhat.lightblue.metadata.types.StringType;
+import com.redhat.lightblue.mongo.common.MongoDataStore;
+import com.redhat.lightblue.mongo.test.MongoServerExternalResource;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
 import com.redhat.lightblue.query.Sort;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.JsonDoc;
-
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Test;
 import org.junit.ClassRule;
+import org.junit.Test;
 
-import org.bson.BSONObject;
-
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBCollection;
-import com.mongodb.DB;
-import com.redhat.lightblue.mongo.metadata.MetadataCache;
-import com.redhat.lightblue.mongo.metadata.MongoDataStoreParser;
-import com.redhat.lightblue.mongo.metadata.MongoMetadata;
-
-import com.redhat.lightblue.mongo.test.MongoServerExternalResource;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class CacheTest {
 
@@ -129,7 +137,9 @@ public class CacheTest {
 
         @Override
         public CRUDHealth checkHealth() {
-            return new CRUDHealth(true, "Return always healthy for test");
+            Map<String, Object> details = new LinkedHashMap<>();
+            details.put("ping", "OK");
+            return new CRUDHealth(true, details);
         }
     }
 

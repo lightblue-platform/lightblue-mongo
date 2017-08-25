@@ -18,19 +18,6 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
-import java.io.IOException;
-import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import org.bson.types.ObjectId;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
@@ -47,7 +34,6 @@ import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
 import com.mongodb.MongoTimeoutException;
 import com.mongodb.ServerAddress;
-import com.mongodb.util.JSON;
 import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.CRUDController;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
@@ -61,8 +47,8 @@ import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.ConstraintValidator;
 import com.redhat.lightblue.crud.CrudConstants;
 import com.redhat.lightblue.crud.DocCtx;
-import com.redhat.lightblue.crud.ExplainQuerySupport;
 import com.redhat.lightblue.crud.DocumentStream;
+import com.redhat.lightblue.crud.ExplainQuerySupport;
 import com.redhat.lightblue.crud.MetadataResolver;
 import com.redhat.lightblue.eval.FieldAccessRoleEvaluator;
 import com.redhat.lightblue.eval.Projector;
@@ -99,6 +85,19 @@ import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
+import org.bson.types.ObjectId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport, ExplainQuerySupport {
 
@@ -1122,9 +1121,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     public CRUDHealth checkHealth() {
         boolean isHealthy = true;
         Collection<MongoConfiguration> configs = dbResolver.getConfigurations();
-        List<String> details = new ArrayList<>(configs.size());
+        Map<String, Object> details = new LinkedHashMap<>();
         DBObject ping = new BasicDBObject("ping", 1);
-
         DB db = null;
         for (MongoConfiguration config : configs) {
             try {
@@ -1132,37 +1130,16 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 CommandResult result = db.command(ping);
                 if (!result.get("ok").equals(1.0)) {
                     isHealthy = false;
-                    details.add(new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping:NOT_OK")
-                            .toString());
                 } else {
-                    details.add(
-                            new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping:OK").toString());
+                    isHealthy = true;
                 }
             } catch (Exception e) {
                 isHealthy = false;
-                details.add(new StringBuilder(getMongoConfigDetails(config)).append("=>").append("ping_error:")
-                        .append(e.getMessage()).toString());
+                details.put("stackTrace", e);
             }
+            details.put("mongoConfig", config);
         }
 
-        return new CRUDHealth(isHealthy, details.toString());
-    }
-    
-    private String getMongoConfigDetails(MongoConfiguration config) {
-        StringBuilder detailsBuilder = new StringBuilder("Mongo Config [");
-
-        if (config.getServer() != null) {
-            detailsBuilder.append(config.getServer());
-        } else {
-            Iterator<ServerAddress> iterator = config.getServerAddresses();
-            while(iterator.hasNext()){
-                detailsBuilder.append(iterator.next());
-            }
-        }
-        detailsBuilder.append(", DatabaseName: ");
-        detailsBuilder.append(config.getDatabase());
-        detailsBuilder.append("]");
-        
-        return detailsBuilder.toString();
+        return new CRUDHealth(isHealthy, details);
     }
 }
