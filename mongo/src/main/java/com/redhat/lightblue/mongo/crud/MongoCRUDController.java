@@ -1137,9 +1137,31 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 isHealthy = false;
                 details.put("stackTrace", e);
             }
-            details.put("mongoConfig", config);
+            details.putAll(getMongoConfigDetails(config));
         }
 
         return new CRUDHealth(isHealthy, details);
+    }
+
+    private Map<String, Object> getMongoConfigDetails(MongoConfiguration config) {
+        Map<String, Object> configDetails = new LinkedHashMap<>();
+        try {
+            configDetails.put("connectionsPerHost", config.getConnectionsPerHost());
+            configDetails.put("credentials", config.getCredentials());
+            configDetails.put("database", config.getDatabase());
+            configDetails.put("DB", config.getDB());
+            configDetails.put("maxResultSetSize", config.getMaxResultSetSize());
+            configDetails.put("maxQueryTimeMS", config.getMaxQueryTimeMS());
+            configDetails.put("metadataStoreParser", config.getMetadataDataStoreParser());
+            configDetails.put("mongoClient", config.getMongoClient());
+            configDetails.put("mongoClientOptions", config.getMongoClientOptions());
+            configDetails.put("readPreference", config.getReadPreference());
+            configDetails.put("server", config.getServer());
+            configDetails.put("serverAddresses", config.getServerAddresses());
+            configDetails.put("writeConcern", config.getWriteConcern());
+        } catch (Exception e) {
+            LOGGER.error("Error reading Mongo config details");
+        }
+        return configDetails;
     }
 }
