@@ -18,25 +18,9 @@
  */
 package com.redhat.lightblue.mongo.config;
 
-import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-
-import javax.net.SocketFactory;
-import javax.net.ssl.SSLSocketFactory;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.X509TrustManager;
-
-import java.security.cert.X509Certificate;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.mongodb.DB;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
@@ -45,11 +29,23 @@ import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
 import com.mongodb.WriteConcern;
 import com.redhat.lightblue.config.DataSourceConfiguration;
-import com.redhat.lightblue.mongo.metadata.MongoDataStoreParser;
 import com.redhat.lightblue.metadata.parser.DataStoreParser;
+import com.redhat.lightblue.mongo.metadata.MongoDataStoreParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import javax.net.SocketFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import java.net.UnknownHostException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 
 /**
  * Mongo client makes a distinction between constructing using a list of
@@ -271,9 +267,9 @@ public class MongoConfiguration implements DataSourceConfiguration {
         return builder.build();
     }
 
-    public MongoClient getMongoClient() throws UnknownHostException {
+    public MongoClient getNewMongoClient() throws UnknownHostException {
         MongoClientOptions options = getMongoClientOptions();
-        LOGGER.debug("getMongoClient with server: {}, servers:{} and options:{}", theServer, servers, options);
+        LOGGER.debug("getNewMongoClient with server: {}, servers:{} and options:{}", theServer, servers, options);
         if (theServer != null) {
             return new MongoClient(theServer, credentials, options);
         } else {
@@ -282,7 +278,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
     }
 
     public DB getDB() throws UnknownHostException {
-        return getMongoClient().getDB(database);
+        return getNewMongoClient().getDB(database);
     }
 
     @Override

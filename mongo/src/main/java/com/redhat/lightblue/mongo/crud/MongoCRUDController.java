@@ -29,6 +29,7 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.DuplicateKeyException;
+import com.mongodb.MongoClient;
 import com.mongodb.MongoException;
 import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
@@ -1146,12 +1147,22 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private Map<String, Object> getMongoConfigDetails(MongoConfiguration config) {
         Map<String, Object> configDetails = new LinkedHashMap<>();
         try {
+
             configDetails.put("connectionsPerHost", config.getConnectionsPerHost());
             configDetails.put("credentials", config.getCredentials());
             configDetails.put("database", config.getDatabase());
             configDetails.put("maxResultSetSize", config.getMaxResultSetSize());
             configDetails.put("maxQueryTimeMS", config.getMaxQueryTimeMS());
-            configDetails.put("mongoClient", config.getMongoClient());
+            /*
+            ///////////BEGIN WARNING///////////
+            Resist the urge to add configDetails.put("mongoClient", config.getNewMongoClient());
+            The getNewMongoClient() method actually returns a new instance of a MongoClient and
+            will create a Mongo connection leak if called successively, so just don't do it.
+            Everything you would need to know about the client is in mongoClientOptions anyway.
+            This warning might seem very obvious to you, but at the time of writing, that method
+            was called getMongoClient()   :-(
+            ///////////END WARNING///////////
+            */
             configDetails.put("mongoClientOptions", config.getMongoClientOptions());
             configDetails.put("readPreference", config.getReadPreference());
             configDetails.put("server", config.getServer());
