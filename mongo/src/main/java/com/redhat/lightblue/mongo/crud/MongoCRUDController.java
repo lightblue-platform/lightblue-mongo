@@ -1136,7 +1136,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 }
             } catch (Exception e) {
                 isHealthy = false;
-                details.put("stackTrace", e);
+                details.put("exception", e);
             }
             details.putAll(getMongoConfigDetails(config));
         }
