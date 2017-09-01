@@ -18,26 +18,11 @@
  */
 package com.redhat.lightblue.mongo.metadata;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
-
-import org.json.JSONException;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
-import org.skyscreamer.jsonassert.JSONAssert;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
-import com.mongodb.util.JSON;
 import com.redhat.lightblue.OperationStatus;
 import com.redhat.lightblue.Response;
 import com.redhat.lightblue.crud.CRUDController;
@@ -78,6 +63,21 @@ import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.util.test.AbstractJsonNodeTest;
+import org.json.JSONException;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.ClassRule;
+import org.junit.Test;
+import org.skyscreamer.jsonassert.JSONAssert;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
 
 public class MongoMetadataTest {
 
@@ -156,7 +156,9 @@ public class MongoMetadataTest {
 
         @Override
         public CRUDHealth checkHealth() {
-            return new CRUDHealth(true, "Return always healthy for test");
+            Map<String, Object> details = new LinkedHashMap<>();
+            details.put("ping", "OK");
+            return new CRUDHealth(true, details);
         }
     }
 
