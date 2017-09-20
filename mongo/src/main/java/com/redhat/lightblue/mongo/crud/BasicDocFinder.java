@@ -85,7 +85,7 @@ public class BasicDocFinder implements DocFinder {
                 cursor.setReadPreference(readPreference);
             }
 
-            if (maxQueryTimeMS > 0) {
+            if (ctx.isLimitQueryTime()&&maxQueryTimeMS > 0) {
                 cursor.maxTime(maxQueryTimeMS, TimeUnit.MILLISECONDS);
             }
 
@@ -96,26 +96,38 @@ public class BasicDocFinder implements DocFinder {
                 cursor = cursor.sort(mongoSort);
                 LOGGER.debug("Result set sorted");
             }
-            int numMatched = cursor.count();
-            int nRetrieve=numMatched;
-
-           LOGGER.debug("Applying limits: {} - {}", from, to);
-
+            
+            LOGGER.debug("Applying limits: {} - {}", from, to);
+            boolean retrieve=true;
+            int nRetrieve=0;
+            int numMatched=0;
             // f and t are from and to indexes, both inclusive
             int f=from==null?0:from.intValue();
-            int t=to==null?numMatched-1:to.intValue();
-            if(f<0)
+            if(f<0) {
                 f=0;
-            if(t>=numMatched)
-                t=numMatched-1;
-            if(t<f)
-                nRetrieve=0;
-            
-            if(nRetrieve>0) {
-                nRetrieve=t-f+1;                
-                cursor.skip(f);
-                cursor.limit(nRetrieve);
-                if (maxResultSetSize > 0 && nRetrieve > maxResultSetSize) {
+            }
+            cursor.skip(f);
+            if(ctx.isComputeCounts()) {
+                numMatched=cursor.count();
+            }
+            int t;
+            if(to!=null) {
+                t=to.intValue();
+                if(t<f) {
+                    retrieve=false;
+                } else {
+                    cursor.limit(nRetrieve=t-f+1);
+                }
+            } else {                
+                if(ctx.isComputeCounts()) {
+                    t=numMatched-1;
+                    nRetrieve=numMatched-f;
+                } else {
+                    t=Integer.MAX_VALUE;
+                }
+            }
+            if(retrieve) {
+                if (ctx.isComputeCounts()&& maxResultSetSize > 0 && nRetrieve > maxResultSetSize) {
                     LOGGER.warn("Too many results:{} of {}", nRetrieve, numMatched);
                     RESULTSET_LOGGER.debug("resultset_size={}, requested={}, query={}", numMatched, nRetrieve, mongoQuery);
                     throw Error.get(MongoCrudConstants.ERR_TOO_MANY_RESULTS, Integer.toString(nRetrieve));
