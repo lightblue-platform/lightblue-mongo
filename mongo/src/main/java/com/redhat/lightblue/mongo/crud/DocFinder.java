@@ -62,6 +62,7 @@ public interface DocFinder {
      *
      * result set size, or lte 0 for no limit
      */
+    @Deprecated
     void setMaxResultSetSize(int size);
 
     /**
