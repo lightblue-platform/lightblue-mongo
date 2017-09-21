@@ -316,26 +316,7 @@ public class BasicDocFinderTest extends AbstractMongoCrudTest {
         }
 
         BasicDocFinder finder = new BasicDocFinder(translator, null);
-        finder.setMaxResultSetSize(10);
 
-        try {
-            finder.find(
-                    // CRUDOperationContext
-                    ctx,
-                    //DBCollection
-                    coll,
-                    // DBObject (query)
-                    null, // all
-                    null,
-                    // DBObject (sort)
-                    null,
-                    // Long (from)
-                    0l,
-                    // Long (to)
-                    null);
-            Assert.fail();
-        } catch (Exception e) {
-        }
         long count = finder.find(
                 // CRUDOperationContext
                 ctx,

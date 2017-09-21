@@ -30,6 +30,7 @@ import com.mongodb.ServerAddress;
 import com.mongodb.WriteConcern;
 import com.redhat.lightblue.config.DataSourceConfiguration;
 import com.redhat.lightblue.metadata.parser.DataStoreParser;
+import com.redhat.lightblue.mongo.crud.BasicDocFinder;
 import com.redhat.lightblue.mongo.metadata.MongoDataStoreParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,9 +61,9 @@ import java.util.List;
  * @author nmalik
  */
 public class MongoConfiguration implements DataSourceConfiguration {
+
     public static final ReadPreference DEFAULT_READ_PREFERENCE = ReadPreference.primaryPreferred();
     public static final WriteConcern DEFAULT_WRITE_CONCERN = WriteConcern.W1;
-    public static final int DEFAULT_MAX_RESULT_SET_SIZE = 10000;
     public static final long DEFAULT_MAX_QUERY_TIME_MS = 75000;
 
     public static final String PROPERTY_NAME_MAX_QUERY_TIME_MS = "maxQueryTimeMS";
@@ -83,7 +84,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
 
     private ReadPreference readPreference = DEFAULT_READ_PREFERENCE;
     private WriteConcern writeConcern = DEFAULT_WRITE_CONCERN;
-    private int maxResultSetSize = DEFAULT_MAX_RESULT_SET_SIZE;
+    @Deprecated private int maxResultSetSize = 0;
     private long maxQueryTimeMS = DEFAULT_MAX_QUERY_TIME_MS;
 
     public void addServerAddress(String hostname, int port) throws UnknownHostException {
@@ -117,10 +118,12 @@ public class MongoConfiguration implements DataSourceConfiguration {
         return theServer;
     }
 
+    @Deprecated
     public int getMaxResultSetSize() {
         return maxResultSetSize;
     }
 
+    @Deprecated
     public void setMaxResultSetSize(int size) {
         maxResultSetSize = size;
     }
@@ -431,11 +434,6 @@ public class MongoConfiguration implements DataSourceConfiguration {
                 writeConcern = WriteConcern.valueOf(x.asText());
             }
 
-            // DEPRECATED see driverOptions
-            x = node.get("maxResultSetSize");
-            if (x != null) {
-                maxResultSetSize = x.asInt();
-            }
             JsonNode jsonNodeServers = node.get("servers");
             if (jsonNodeServers != null && jsonNodeServers.isArray()) {
                 Iterator<JsonNode> elements = jsonNodeServers.elements();
@@ -500,9 +498,11 @@ public class MongoConfiguration implements DataSourceConfiguration {
                     this.writeConcern = WriteConcern.valueOf(writeConcernOption.asText());
                 }
 
+                // deprecated, use https://docs.lightblue.io/tuning/limits.html instead
                 JsonNode maxResultSetSizeOption = jsonNodeOptions.get("maxResultSetSize");
                 if (maxResultSetSizeOption != null) {
-                    this.maxResultSetSize = maxResultSetSizeOption.asInt();
+                    LOGGER.warn("maxResultSetSize is deprecated and not enforced. Use memory limits (https://docs.lightblue.io/tuning/limits.html) instead");
+                    this.maxResultSetSize = 0;
                 }
             }
         }

@@ -19,24 +19,19 @@
 package com.redhat.lightblue.mongo.crud;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.ReadPreference;
-import com.mongodb.DBCursor;
-
-import com.redhat.lightblue.interceptor.InterceptPoint;
 import com.redhat.lightblue.crud.CRUDOperationContext;
-import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.DocCtx;
 import com.redhat.lightblue.crud.ListDocumentStream;
-import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Error;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Basic doc search operation
@@ -127,12 +122,6 @@ public class BasicDocFinder implements DocFinder {
                 }
             }
             if(retrieve) {
-                if (ctx.isComputeCounts()&& maxResultSetSize > 0 && nRetrieve > maxResultSetSize) {
-                    LOGGER.warn("Too many results:{} of {}", nRetrieve, numMatched);
-                    RESULTSET_LOGGER.debug("resultset_size={}, requested={}, query={}", numMatched, nRetrieve, mongoQuery);
-                    throw Error.get(MongoCrudConstants.ERR_TOO_MANY_RESULTS, Integer.toString(nRetrieve));
-                }
-                
                 LOGGER.debug("Retrieving results");
                 CursorStream stream=new CursorStream(cursor,translator,mongoQuery,executionTime,f,t);
                 ctx.setDocumentStream(stream);
