@@ -1122,26 +1122,29 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     public CRUDHealth checkHealth() {
         boolean isHealthy = true;
         Collection<MongoConfiguration> configs = dbResolver.getConfigurations();
-        Map<String, Object> details = new LinkedHashMap<>();
+        Map<String, Object> healthDetails = new LinkedHashMap<>();
         DBObject ping = new BasicDBObject("ping", 1);
         DB db = null;
         for (MongoConfiguration config : configs) {
+            boolean isDbHealthy = true;
+            Map<String, Object> dbDetails = new LinkedHashMap<>();
             try {
                 db = dbResolver.get(new MongoDataStore(config.getDatabase(), null, null));
                 CommandResult result = db.command(ping);
                 if (!result.get("ok").equals(1.0)) {
+                    isDbHealthy = false;
                     isHealthy = false;
-                } else {
-                    isHealthy = true;
                 }
             } catch (Exception e) {
+                isDbHealthy = false;
                 isHealthy = false;
-                details.put("exception", e);
+                dbDetails.put("exception", e);
             }
-            details.putAll(getMongoConfigDetails(config));
+            dbDetails.put("isHealthy", isDbHealthy);
+            dbDetails.putAll(getMongoConfigDetails(config));
+            healthDetails.put(config.getDatabase(), dbDetails);
         }
-
-        return new CRUDHealth(isHealthy, details);
+        return new CRUDHealth(isHealthy, healthDetails);
     }
 
     private Map<String, Object> getMongoConfigDetails(MongoConfiguration config) {
