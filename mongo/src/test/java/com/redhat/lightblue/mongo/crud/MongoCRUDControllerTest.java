@@ -28,6 +28,7 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.junit.Assert;
@@ -45,6 +46,7 @@ import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
+import com.mongodb.Mongo;
 import com.redhat.lightblue.DataError;
 import com.redhat.lightblue.ExecutionOptions;
 import com.redhat.lightblue.ResultMetadata;
@@ -2877,18 +2879,23 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertTrue(healthCheck.isHealthy());
     }
 
-    @Test
-    public void unhealthyIfControllerIsUnhealthy() throws Exception{
+
+	@Test
+	@SuppressWarnings("deprecation")
+	public void unhealthyIfControllerIsUnhealthy() throws Exception{
         
         /*
          * A deliberate attempt to initialize MongoCRUDController with wrong
          * port 27776 (in memory mongo is running on 27777). The ping to the
          * mongo should fail resulting in health not OK
          */
+        final DB dbx =  new DB(new Mongo(db.getMongo().getAddress().getHost(),
+    			27776), "mongo");
+        
         MongoCRUDController unhealthyController = new MongoCRUDController(null, new DBResolver() {
             @Override
             public DB get(MongoDataStore store) {
-                return null;
+                return dbx;
             }
 
             @Override
@@ -2913,6 +2920,69 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         });
         
         CRUDHealth healthCheck = unhealthyController.checkHealth();
+        Assert.assertFalse(healthCheck.isHealthy());
+    }
+    
+	@Test
+	@SuppressWarnings("deprecation")
+	public void unhealthyIfDatabaseIsUnhealthy() throws Exception{ 
+
+        final DB validDB =  new DB(new Mongo(db.getMongo().getAddress().getHost(),
+                db.getMongo().getAddress().getPort()), "valid-mongo");
+        
+        final DB invalidDB =  new DB(new Mongo(db.getMongo().getAddress().getHost(),
+    			27776), "invalid-mongo");
+
+    	MongoCRUDController unhealthyController = new MongoCRUDController(null, new DBResolver() {
+            @Override
+            public DB get(MongoDataStore store) {
+            	if (store.getDatabaseName().equalsIgnoreCase("valid-mongo")) {
+            		return validDB;
+            	}
+            	else {
+            		return invalidDB;
+            	}
+            }
+
+            @Override
+            public MongoConfiguration getConfiguration(MongoDataStore store) {
+                return null;
+            }
+
+            @Override
+            public Collection<MongoConfiguration> getConfigurations() {
+
+                List<MongoConfiguration> configs = new ArrayList<>();
+                MongoConfiguration validMongoConfiguration = new MongoConfiguration();
+                MongoConfiguration invalidMongoConfiguration = new MongoConfiguration();
+                try {
+                	validMongoConfiguration.addServerAddress(db.getMongo().getAddress().getHost(),
+                            db.getMongo().getAddress().getPort());
+                	validMongoConfiguration.setDatabase("valid-mongo");
+                	
+                	invalidMongoConfiguration.addServerAddress(db.getMongo().getAddress().getHost(),
+                			27776); // adding wrong server port
+                	invalidMongoConfiguration.setDatabase("invalid-mongo");
+                } catch (UnknownHostException e) {
+                    return null;
+                }
+                configs.add(validMongoConfiguration);
+                configs.add(invalidMongoConfiguration);
+                return configs;
+            }
+        });
+        
+        CRUDHealth healthCheck = unhealthyController.checkHealth();
+        
+		Map<String, Object> validMongoMap = (Map<String, Object>) healthCheck.details().get("valid-mongo");
+        Map<String, Object> invalidMongoMap = (Map<String, Object>) healthCheck.details().get("invalid-mongo");
+        
+        Assert.assertTrue((boolean) validMongoMap.get("isHealthy"));
+        Assert.assertNull(validMongoMap.get("exception"));
+        
+        Assert.assertFalse((boolean) invalidMongoMap.get("isHealthy"));
+        Assert.assertNotNull(invalidMongoMap.get("exception"));
+
         Assert.assertFalse(healthCheck.isHealthy());
     }
 }
