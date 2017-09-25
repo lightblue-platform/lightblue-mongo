@@ -2974,7 +2974,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         
         CRUDHealth healthCheck = unhealthyController.checkHealth();
         
-		Map<String, Object> validMongoMap = (Map<String, Object>) healthCheck.details().get("valid-mongo");
+        Map<String, Object> validMongoMap = (Map<String, Object>) healthCheck.details().get("valid-mongo");
         Map<String, Object> invalidMongoMap = (Map<String, Object>) healthCheck.details().get("invalid-mongo");
         
         Assert.assertTrue((boolean) validMongoMap.get("isHealthy"));
