@@ -173,6 +173,9 @@ public class IterateAndUpdate implements DocUpdater {
         }
     }
 
+    // used for testing
+    protected void preCommit() {}
+
     @Override
     public void update(CRUDOperationContext ctx,
                        DBCollection collection,
@@ -246,6 +249,7 @@ public class IterateAndUpdate implements DocUpdater {
                             docUpdateAttempts.add(doc);
                             // update in batches
                             if (docUpdateAttempts.size()-batchStartIndex>= batchSize) {
+                                preCommit();
                                 measure.begin("bulkUpdate");
                                 BatchUpdate.CommitInfo ci=sup.commit();
                                 measure.end("bulkUpdate");
@@ -299,6 +303,7 @@ public class IterateAndUpdate implements DocUpdater {
             measure.end("iteration");
             // if we have any remaining items to update
             if (docUpdateAttempts.size() > batchStartIndex) {
+                preCommit();
                 BatchUpdate.CommitInfo ci=sup.commit();
                 for(Map.Entry<Integer,Error> entry:ci.errors.entrySet()) {
                     docUpdateAttempts.get(entry.getKey()+batchStartIndex).addError(entry.getValue());
