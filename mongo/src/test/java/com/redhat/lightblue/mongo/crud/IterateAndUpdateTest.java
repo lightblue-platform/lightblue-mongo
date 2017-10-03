@@ -27,8 +27,21 @@ import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.JsonUtils;
 
+/**
+ * IterateAndUpdate backed by mongo.
+ *
+ * @author mpatercz
+ *
+ */
 public class IterateAndUpdateTest extends AbstractMongoCrudTest {
 
+    /**
+     * A test IterateAndUpdate implementation which - if run in a separate thread - can be stopped and resumed just before commit.
+     * This is needed to simulate concurrent update scenarios.
+     *
+     * @author mpatercz
+     *
+     */
     class TestIterateAndUpdate extends IterateAndUpdate {
 
         // 0 means a release is needed prior successful acquire
