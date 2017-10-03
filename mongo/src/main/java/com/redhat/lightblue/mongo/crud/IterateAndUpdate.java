@@ -282,6 +282,7 @@ public class IterateAndUpdate implements DocUpdater {
                         }
                     } else {
                         numFailed++;
+                        resultDocs.add(doc);
                     }
                 } else {
                     LOGGER.debug("Document {} was not modified", docIndex);

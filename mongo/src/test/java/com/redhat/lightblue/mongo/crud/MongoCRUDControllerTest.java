@@ -1422,6 +1422,12 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 projection("{'field':'*','recursive':1}"));
         Assert.assertEquals(0, upd.getNumUpdated());
         Assert.assertEquals(1, upd.getNumFailed());
+
+        Assert.assertEquals(1, getDataErrors(ctx).size());
+        Assert.assertEquals(1, getDataErrors(ctx).get(0).getErrors().size());
+        Error error = getDataErrors(ctx).get(0).getErrors().get(0);
+        Assert.assertEquals("crud:Required", error.getErrorCode());
+        Assert.assertEquals("field1", error.getMsg());
     }
 
     @Test
