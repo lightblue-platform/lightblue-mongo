@@ -258,6 +258,7 @@ public class IterateAndUpdate implements DocUpdater {
                                 }
                                 numFailed+=ci.errors.size();
                                 numUpdated+=docUpdateAttempts.size()-batchStartIndex-ci.errors.size()-ci.lostDocs.size();
+                                numMatched-=ci.lostDocs.size();
                                 batchStartIndex=docUpdateAttempts.size();
                                 int di=0;
                                 // Only add the docs that were not lost
@@ -310,6 +311,7 @@ public class IterateAndUpdate implements DocUpdater {
                 }
                 numFailed+=ci.errors.size();
                 numUpdated+=docUpdateAttempts.size()-batchStartIndex-ci.errors.size()-ci.lostDocs.size();
+                numMatched-=ci.lostDocs.size();
                 int di=0;
                 for(DocCtx d:docUpdateAttempts) {
                     if(!ci.lostDocs.contains(di)) {

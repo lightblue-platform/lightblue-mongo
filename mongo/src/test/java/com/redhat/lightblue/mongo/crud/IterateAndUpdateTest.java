@@ -3,7 +3,6 @@ package com.redhat.lightblue.mongo.crud;
 import static org.mockito.Mockito.mock;
 
 import java.util.Collections;
-import java.util.Set;
 import java.util.concurrent.Semaphore;
 
 import org.bson.types.ObjectId;
@@ -26,9 +25,7 @@ import com.redhat.lightblue.eval.Projector;
 import com.redhat.lightblue.eval.Updater;
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.query.UpdateExpression;
-import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.JsonUtils;
-import com.redhat.lightblue.util.Path;
 
 public class IterateAndUpdateTest extends AbstractMongoCrudTest {
 
@@ -132,8 +129,8 @@ public class IterateAndUpdateTest extends AbstractMongoCrudTest {
 
         DBCollection collection = db.getCollection(COLL_NAME);
 
-        // insert 10 test docs
-        for (int i = 0; i < 10; i++) {
+        // insert 5 test docs
+        for (int i = 0; i < 5; i++) {
             DBObject insertDoc = new BasicDBObject("field1", "initialValue").append("objectType", "test");
             collection.insert(insertDoc);
         }
@@ -155,7 +152,7 @@ public class IterateAndUpdateTest extends AbstractMongoCrudTest {
         // so that the update query does not match them anymore
         DBCursor cursor = coll.find();
         ObjectId docVer = new ObjectId();
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 4; i++) {
             DBObject doc = cursor.next();
             DBObject modified = new BasicDBObject("_id", doc.get("_id")).append("objectType", "test").append("field1", "changed-by-other-thread");
             DocVerUtil.setDocVer(modified, docVer);
@@ -164,8 +161,8 @@ public class IterateAndUpdateTest extends AbstractMongoCrudTest {
         }
         cursor.close();
 
-        // batch size is 3, so it will take 4 batches to process all 10 documents
-        iterateAndUpdate.attemptToPersistUpdatedBatch(4);
+        // batch size is 3, so it will take 2 batches to process all 5 documents
+        iterateAndUpdate.attemptToPersistUpdatedBatch(2);
 
         // wait until update completes
         while(updateThread.isAlive()) {
@@ -174,8 +171,8 @@ public class IterateAndUpdateTest extends AbstractMongoCrudTest {
 
         // make sure counts in response (in CRUDOperationContext passed to IterateAndUpdate.update) are set properly
         Assert.assertEquals(0, response.getNumFailed());
-        Assert.assertEquals(10, response.getNumMatched()); // https://github.com/lightblue-platform/lightblue-mongo/issues/386
-        Assert.assertEquals(5, response.getNumUpdated());
+        Assert.assertEquals("Expecting 1 docs to match eventually, even though initially 5 matched", 1, response.getNumMatched()); // https://github.com/lightblue-platform/lightblue-mongo/issues/386
+        Assert.assertEquals(1, response.getNumUpdated());
 
         int docsUpdatedByIterateAndUpdate = 0, docsTotal = 0;
 
@@ -193,8 +190,8 @@ public class IterateAndUpdateTest extends AbstractMongoCrudTest {
         }
         cursor.close();
 
-        Assert.assertEquals("10 docs should have been procesed", 10, docsTotal);
-        Assert.assertEquals("Out of 10 processed docs, only 5 should have been updated due to concurrent update", 5, docsUpdatedByIterateAndUpdate);
+        Assert.assertEquals("5 docs should have been procesed", 5, docsTotal);
+        Assert.assertEquals("Out of 5 processed docs, only 1 should have been updated due to concurrent update", 1, docsUpdatedByIterateAndUpdate);
     }
 
 }
