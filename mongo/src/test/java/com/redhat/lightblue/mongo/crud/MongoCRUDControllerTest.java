@@ -27,6 +27,7 @@ import java.math.BigDecimal;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -52,17 +53,18 @@ import com.redhat.lightblue.ExecutionOptions;
 import com.redhat.lightblue.ResultMetadata;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDFindResponse;
+import com.redhat.lightblue.crud.CRUDHealth;
 import com.redhat.lightblue.crud.CRUDInsertionResponse;
 import com.redhat.lightblue.crud.CRUDOperation;
 import com.redhat.lightblue.crud.CRUDOperationContext;
 import com.redhat.lightblue.crud.CRUDSaveResponse;
-import com.redhat.lightblue.crud.DocumentStream;
-import com.redhat.lightblue.crud.CRUDHealth;
 import com.redhat.lightblue.crud.CRUDUpdateResponse;
 import com.redhat.lightblue.crud.DocCtx;
+import com.redhat.lightblue.crud.DocumentStream;
 import com.redhat.lightblue.metadata.ArrayField;
 import com.redhat.lightblue.metadata.CompositeMetadata;
 import com.redhat.lightblue.metadata.EntityMetadata;
+import com.redhat.lightblue.metadata.Field;
 import com.redhat.lightblue.metadata.FieldConstraint;
 import com.redhat.lightblue.metadata.FieldCursor;
 import com.redhat.lightblue.metadata.Index;
@@ -81,8 +83,10 @@ import com.redhat.lightblue.mongo.common.MongoDataStore;
 import com.redhat.lightblue.mongo.config.MongoConfiguration;
 import com.redhat.lightblue.query.Projection;
 import com.redhat.lightblue.query.QueryExpression;
+import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
+import com.redhat.lightblue.util.JsonUtils;
 import com.redhat.lightblue.util.Path;
 
 public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
@@ -2990,5 +2994,50 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         Assert.assertNotNull(invalidMongoMap.get("exception"));
 
         Assert.assertFalse(healthCheck.isHealthy());
+    }
+
+    @Test
+    public void updateInaccessibleFieldReturnsError() throws Exception {
+        // define metadata with a field that cannot be updated
+        EntityMetadata entityMetadata = new EntityMetadata("test");
+        entityMetadata.setVersion(new Version("1.0.0", null, null));
+        entityMetadata.setStatus(MetadataStatus.ACTIVE);
+        entityMetadata.setDataStore(new MongoDataStore(null, null, "test"));
+        SimpleField idField = new SimpleField("_id", StringType.TYPE);
+        List<FieldConstraint> clist = new ArrayList<>();
+        clist.add(new IdentityConstraint());
+        idField.setConstraints(clist);
+        entityMetadata.getFields().put(idField);
+
+        Field inaccessibleField = new SimpleField("inaccessibleField", StringType.TYPE);
+        inaccessibleField.getAccess().getUpdate().setRoles(Collections.singletonList("noone"));
+        entityMetadata.getFields().put(inaccessibleField);
+        entityMetadata.getFields().put(new SimpleField("objectType", StringType.TYPE));
+
+        entityMetadata.getEntityInfo().setDefaultVersion("1.0.0");
+        entityMetadata.getEntitySchema().getAccess().getUpdate().setRoles("anyone");
+
+        // create test document directly in mongo
+        DBObject testDoc = new BasicDBObject("inaccessibleField", "foo").append("objectType", "test");
+        db.getCollection("test").insert(testDoc);
+
+        // try to update inaccessibleField
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext("test", CRUDOperation.UPDATE);
+        ctx.add(entityMetadata);
+
+        CRUDUpdateResponse response = controller.update(ctx,
+                QueryExpression.fromJson(JsonUtils.json("{'field': 'objectType', 'op': '=', 'rvalue': 'test'}".replaceAll("'", "\""))),
+                UpdateExpression.fromJson(JsonUtils.json("{'$set': { 'inaccessibleField': 'changed'}}".replaceAll("'", "\""))),
+                projection("{'field':'_id'}"));
+
+        Assert.assertEquals(1, response.getNumMatched());
+        Assert.assertEquals(0, response.getNumUpdated());
+        Assert.assertEquals(1, response.getNumFailed());
+
+        Assert.assertTrue("Expecting a document in the results, so the data error can be associated with it", ctx.getDocumentStream().hasNext());
+        DocCtx docCtx = ctx.getDocumentStream().next();
+        ctx.getDocumentStream().close();
+        Assert.assertEquals("crud:update:NoFieldAccess", docCtx.getErrors().get(0).getErrorCode());
+        Assert.assertEquals("[inaccessibleField]", docCtx.getErrors().get(0).getMsg());
     }
 }
