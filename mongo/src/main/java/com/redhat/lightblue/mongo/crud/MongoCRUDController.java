@@ -136,7 +136,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MongoCRUDController.class);
 
-    private static final Projection ID_PROJECTION = new FieldProjection(new Path(ID_STR), true, false);
+    public static final Projection ID_PROJECTION = new FieldProjection(new Path(ID_STR), true, false);
     private static final Projection EMPTY_PROJECTION = new FieldProjection(new Path("*"), false, false);
 
     private final DBResolver dbResolver;
