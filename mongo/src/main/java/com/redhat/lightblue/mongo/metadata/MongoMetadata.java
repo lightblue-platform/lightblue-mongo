@@ -599,8 +599,7 @@ public class MongoMetadata extends AbstractMetadata {
         }
 
         // initialize response, assume will be completely successful
-        Response response = new Response(JsonNodeFactory.instance);
-        response.setStatus(OperationStatus.COMPLETE);
+        Response response = new Response(JsonNodeFactory.instance, OperationStatus.COMPLETE);
 
         // for each name get metadata
         for (String name : entityNames) {
