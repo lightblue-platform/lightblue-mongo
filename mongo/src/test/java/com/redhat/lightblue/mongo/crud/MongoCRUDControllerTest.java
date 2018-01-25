@@ -1408,6 +1408,27 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
+    public void updatingButNotModifyingReturnsProjection() throws Exception {
+        // issue #391
+        EntityMetadata md = getMd("./testMetadata.json");
+        TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
+        ctx.add(md);
+        addDocument(ctx,new JsonDoc(loadJsonNode("./testdata1.json")));
+        controller.insert(ctx, projection("{'field':'_id'}"));
+
+        ctx = new TestCRUDOperationContext(CRUDOperation.UPDATE);
+        ctx.add(md);
+        // Updating an array field will force use of IterateAndupdate
+        CRUDUpdateResponse upd = controller.update(ctx, query("{'field':'field3','op':'>','rvalue':0}"),
+                update("{ '$set': { 'field7.0.elemf1' : 'value0_1' } }"), projection("{'field':'_id'}"));
+        Assert.assertEquals(IterateAndUpdate.class, ctx.getProperty(MongoCRUDController.PROP_UPDATER).getClass());
+        Assert.assertEquals(0, upd.getNumUpdated());
+        Assert.assertEquals(1, upd.getNumMatched());
+        Assert.assertEquals(0, upd.getNumFailed());
+        Assert.assertTrue(ctx.getDocumentStream().hasNext());
+    }
+
+    @Test
     public void updateTest_nullReqField() throws Exception {
         EntityMetadata md = getMd("./testMetadata-requiredFields2.json");
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
