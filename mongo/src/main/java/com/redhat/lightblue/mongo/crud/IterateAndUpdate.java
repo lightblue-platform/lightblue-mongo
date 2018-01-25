@@ -206,6 +206,14 @@ public class IterateAndUpdate implements DocUpdater {
             // read-update-write
             measure.begin("iteration");
             int batchStartIndex=0; // docUpdateAttempts[batchStartIndex] is the first doc in this batch
+            // TODO: This code is very messy and probably has several logic bugs. I do not have time to fix it.
+            // Things I noticed:
+            // 1. numFailed is not updated consistently. Depending on where failure occurs, it may not be updated!
+            // 2. resultDocs are not updated consistently. Depending on the branch, the document may not end up in the response.
+            //    It is not clear from reading the code when it's expected to be in the response or not.
+            //    I know from some failing tests in dependent services that at least some cases are bugged.
+            // The amount of branching needs to be toned down, and low level state fiddling needs to be better abstracted
+            // so it can be expressed in fewer places.
             while (cursor.hasNext()) {
                 DBObject document = cursor.next();
                 numMatched++;
@@ -291,6 +299,7 @@ public class IterateAndUpdate implements DocUpdater {
                     }
                 } else {
                     LOGGER.debug("Document {} was not modified", docIndex);
+                    resultDocs.add(doc);
                 }
                 if (hasErrors) {
                     LOGGER.debug("Document {} has errors", docIndex);
