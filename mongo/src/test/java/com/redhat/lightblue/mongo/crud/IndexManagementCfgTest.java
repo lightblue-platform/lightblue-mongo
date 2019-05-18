@@ -22,7 +22,6 @@ public class IndexManagementCfgTest {
 
   interface CfgFactory {
     IndexManagementCfg create(Set<String> managed, Set<String> unmanaged);
-
   }
 
   @Parameterized.Parameter
