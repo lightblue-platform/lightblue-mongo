@@ -92,7 +92,7 @@ public class IndexManagementCfg {
 
     JsonNode value = node.get(optionName);
 
-    if (!value.isArray()) {
+    if (value == null || !value.isArray()) {
       return null;
     }
 
