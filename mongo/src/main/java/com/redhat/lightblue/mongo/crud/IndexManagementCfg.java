@@ -67,8 +67,8 @@ public class IndexManagementCfg {
    * @param unmanagedEntities May be null.
    */
   public IndexManagementCfg(Set<String> managedEntities, Set<String> unmanagedEntities) {
-    this.managed = managedEntities;
-    this.unmanaged = unmanagedEntities;
+    this.managed = new LinkedHashSet<>(managedEntities);
+    this.unmanaged = new LinkedHashSet<>(unmanagedEntities);
   }
 
   public boolean isManaged(String entityName) {
