@@ -3069,6 +3069,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     @Test
     public void entityIndexUpdateTest_default_unmanagedByControllerOptions() throws Exception {
+        db.getCollection("testCollectionIndex2").drop();
+
         ControllerConfiguration cfg = new ControllerConfiguration();
         JsonNode options = json("{'indexManagement': {'managedEntities': []}}");
         cfg.setOptions((ObjectNode) options);
