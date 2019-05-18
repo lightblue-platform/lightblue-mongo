@@ -109,4 +109,28 @@ public class IndexManagementCfgTest {
     IndexManagementCfg cfg = factory.create(Sets.newHashSet("managed"), Sets.newHashSet("unmanaged"));
     assertFalse(cfg.isManaged("entity"));
   }
+
+  @Test
+  public void noEntitiesManagedIfEmptyManagedSet() {
+    IndexManagementCfg cfg = factory.create(Sets.newHashSet(), null);
+    assertFalse(cfg.isManaged("entity"));
+  }
+
+  @Test
+  public void noEntitiesManagedIfEmptyManagedSetAndEmptyUnmanagedSet() {
+    IndexManagementCfg cfg = factory.create(Sets.newHashSet(), Sets.newHashSet());
+    assertFalse(cfg.isManaged("entity"));
+  }
+
+  @Test
+  public void allEntitiesManagedIfEmptyUnmanagedSet() {
+    IndexManagementCfg cfg = factory.create(null, Sets.newHashSet());
+    assertTrue(cfg.isManaged("entity"));
+  }
+
+  @Test
+  public void allEntitiesManagedIfBothSetsNull() {
+    IndexManagementCfg cfg = factory.create(null, null);
+    assertTrue(cfg.isManaged("entity"));
+  }
 }
