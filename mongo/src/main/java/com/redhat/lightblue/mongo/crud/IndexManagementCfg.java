@@ -1,6 +1,7 @@
 package com.redhat.lightblue.mongo.crud;
 
 import com.redhat.lightblue.config.ControllerConfiguration;
+import com.redhat.lightblue.metadata.EntityInfo;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -71,7 +72,17 @@ public class IndexManagementCfg {
     this.unmanaged = unmanagedEntities == null ? null : new LinkedHashSet<>(unmanagedEntities);
   }
 
-  public boolean isManaged(String entityName) {
+  public boolean isManaged(EntityInfo entity) {
+    Object manageIndexes = entity.getProperties().get("manageIndexes");
+
+    if (manageIndexes != null) {
+      return Boolean.TRUE.equals(manageIndexes);
+    }
+
+    return isManaged(entity.getName());
+  }
+
+  private boolean isManaged(String entityName) {
     boolean answer = true;
 
     if (managed != null) {

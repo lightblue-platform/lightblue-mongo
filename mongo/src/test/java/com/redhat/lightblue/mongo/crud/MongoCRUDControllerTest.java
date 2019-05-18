@@ -3068,7 +3068,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     }
 
     @Test
-    public void entityIndexUpdateTest_default_unmanaged() throws Exception {
+    public void entityIndexUpdateTest_default_unmanagedByControllerOptions() throws Exception {
         ControllerConfiguration cfg = new ControllerConfiguration();
         JsonNode options = json("{'indexManagement': {'managedEntities': []}}");
         cfg.setOptions((ObjectNode) options);
@@ -3085,6 +3085,48 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         o.getFields().put(new SimpleField("x", IntegerType.TYPE));
         e.getFields().put(o);
         e.getEntityInfo().setDefaultVersion("1.0.0");
+        Index index = new Index();
+        index.setName("testIndex");
+        index.setUnique(true);
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
+        index.setFields(indexFields);
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(), false);
+
+        DBCollection entityCollection = db.getCollection("testCollectionIndex2");
+
+        index = new Index();
+        index.setName("testIndex");
+        index.setUnique(false);
+        indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
+        index.setFields(indexFields);
+        indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(), false);
+
+        assertEquals(0, entityCollection.getIndexInfo().size());
+    }
+
+    @Test
+    public void entityIndexUpdateTest_default_unmanagedByEntityInfo() throws Exception {
+        db.getCollection("testCollectionIndex2").drop();
+
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex2"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+        e.getEntityInfo().getProperties().put("manageIndexes", false);
         Index index = new Index();
         index.setName("testIndex");
         index.setUnique(true);

@@ -594,7 +594,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     @Override
     public void afterUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
-        if (indexManagementCfg.isManaged(ei.getName())) {
+        if (indexManagementCfg.isManaged(ei)) {
             createUpdateEntityInfoIndexes(ei, md);
         } else {
             LOGGER.info("Not managing indexes for unmanaged entity '{}'", ei.getName());

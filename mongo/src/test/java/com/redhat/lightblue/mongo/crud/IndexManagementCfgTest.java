@@ -4,6 +4,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.redhat.lightblue.config.ControllerConfiguration;
+import com.redhat.lightblue.metadata.EntityInfo;
 
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -59,78 +60,118 @@ public class IndexManagementCfgTest {
   @Test
   public void managedEntitiesAreManaged() {
     IndexManagementCfg cfg = factory.create(Sets.newHashSet("managed"), null);
-    assertTrue(cfg.isManaged("managed"));
+    assertTrue(cfg.isManaged(new EntityInfo("managed")));
   }
 
   @Test
   public void managementIsCaseSensitive() {
     IndexManagementCfg cfg = factory.create(Sets.newHashSet("managed"), null);
-    assertFalse(cfg.isManaged("Managed"));
+    assertFalse(cfg.isManaged(new EntityInfo("Managed")));
   }
 
   @Test
   public void entitiesNotUnmanagedAreManaged() {
     IndexManagementCfg cfg = factory.create(null, Sets.newHashSet("unmanaged"));
-    assertTrue(cfg.isManaged("managed"));
+    assertTrue(cfg.isManaged(new EntityInfo("managed")));
   }
 
   @Test
   public void entitiesUnmanagedAreNotManaged() {
     IndexManagementCfg cfg = factory.create(null, Sets.newHashSet("unmanaged"));
-    assertFalse(cfg.isManaged("unmanaged"));
+    assertFalse(cfg.isManaged(new EntityInfo("unmanaged")));
   }
 
   @Test
   public void unmanagedEntitiesAreCaseSensitive() {
     IndexManagementCfg cfg = factory.create(null, Sets.newHashSet("unmanaged"));
-    assertTrue(cfg.isManaged("unManaged"));
+    assertTrue(cfg.isManaged(new EntityInfo("unManaged")));
   }
 
   @Test
   public void unmanagedTakesPrecedenceOverManaged() {
     IndexManagementCfg cfg = factory.create(Sets.newHashSet("entity"), Sets.newHashSet("entity"));
-    assertFalse(cfg.isManaged("entity"));
+    assertFalse(cfg.isManaged(new EntityInfo("entity")));
   }
 
   @Test
   public void entityIsManagedIfInManagedSetAndNotInUnmanagedSet() {
     IndexManagementCfg cfg = factory.create(Sets.newHashSet("managed"), Sets.newHashSet("unmanaged"));
-    assertTrue(cfg.isManaged("managed"));
+    assertTrue(cfg.isManaged(new EntityInfo("managed")));
   }
 
   @Test
   public void entityIsNotManagedIfNotInManagedSetAndInUnmanagedSet() {
     IndexManagementCfg cfg = factory.create(Sets.newHashSet("managed"), Sets.newHashSet("unmanaged"));
-    assertFalse(cfg.isManaged("unmanaged"));
+    assertFalse(cfg.isManaged(new EntityInfo("unmanaged")));
   }
 
   @Test
   public void entityIsNotManagedIfNotInManagedSetAndNotInUnmanagedSet() {
     IndexManagementCfg cfg = factory.create(Sets.newHashSet("managed"), Sets.newHashSet("unmanaged"));
-    assertFalse(cfg.isManaged("entity"));
+    assertFalse(cfg.isManaged(new EntityInfo("entity")));
   }
 
   @Test
   public void noEntitiesManagedIfEmptyManagedSet() {
     IndexManagementCfg cfg = factory.create(Sets.newHashSet(), null);
-    assertFalse(cfg.isManaged("entity"));
+    assertFalse(cfg.isManaged(new EntityInfo("entity")));
   }
 
   @Test
   public void noEntitiesManagedIfEmptyManagedSetAndEmptyUnmanagedSet() {
     IndexManagementCfg cfg = factory.create(Sets.newHashSet(), Sets.newHashSet());
-    assertFalse(cfg.isManaged("entity"));
+    assertFalse(cfg.isManaged(new EntityInfo("entity")));
   }
 
   @Test
   public void allEntitiesManagedIfEmptyUnmanagedSet() {
     IndexManagementCfg cfg = factory.create(null, Sets.newHashSet());
-    assertTrue(cfg.isManaged("entity"));
+    assertTrue(cfg.isManaged(new EntityInfo("entity")));
   }
 
   @Test
   public void allEntitiesManagedIfBothSetsNull() {
     IndexManagementCfg cfg = factory.create(null, null);
-    assertTrue(cfg.isManaged("entity"));
+    assertTrue(cfg.isManaged(new EntityInfo("entity")));
+  }
+
+  @Test
+  public void entityNotManagedIfConfiguredInEntityInfo() {
+    IndexManagementCfg cfg = factory.create(null, null);
+
+    EntityInfo info = new EntityInfo("entity");
+    info.getProperties().put("manageIndexes", false);
+
+    assertFalse(cfg.isManaged(info));
+  }
+
+  @Test
+  public void entityNotManagedIfOverriddenInEntityInfo() {
+    IndexManagementCfg cfg = factory.create(Sets.newHashSet("entity"), null);
+
+    EntityInfo info = new EntityInfo("entity");
+    info.getProperties().put("manageIndexes", false);
+
+    assertFalse(cfg.isManaged(info));
+  }
+
+  @Test
+  public void entityManagedIfOverriddenInEntityInfo() {
+    IndexManagementCfg cfg = factory.create(null, Sets.newHashSet("entity"));
+
+    EntityInfo info = new EntityInfo("entity");
+    info.getProperties().put("manageIndexes", true);
+
+    assertTrue(cfg.isManaged(info));
+  }
+
+  @Test
+  public void entityManagedIfConfiguredInEntityInfo() {
+    IndexManagementCfg cfg = factory.create(null, null);
+
+    EntityInfo info = new EntityInfo("entity");
+    info.getProperties().put("manageIndexes", true);
+
+    assertTrue(cfg.isManaged(info));
   }
 }
