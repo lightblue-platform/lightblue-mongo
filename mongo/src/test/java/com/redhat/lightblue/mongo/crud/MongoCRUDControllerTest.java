@@ -2426,6 +2426,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     @Test
     public void entityIndexUpdateTest_default() throws Exception {
+        db.getCollection("testCollectionIndex2").drop();
 
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
@@ -3072,6 +3073,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         JsonNode options = json("{'indexManagement': {'managedEntities': []}}");
         cfg.setOptions((ObjectNode) options);
         MongoCRUDController controller = new MongoCRUDController(cfg, dbResolver);
+
+        db.getCollection("testCollectionIndex2").drop();
 
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
