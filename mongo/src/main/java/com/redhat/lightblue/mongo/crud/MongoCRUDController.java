@@ -19,6 +19,7 @@
 package com.redhat.lightblue.mongo.crud;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -91,9 +92,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -146,13 +149,16 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private final int batchSize;
     private final ConcurrentModificationDetectionCfg concurrentModificationDetection;
 
-    public MongoCRUDController(ControllerConfiguration controllerCfg, DBResolver dbResolver) {        
+    private final IndexManagementCfg indexManagementCfg;
+
+    public MongoCRUDController(ControllerConfiguration controllerCfg, DBResolver dbResolver) {
         this.dbResolver = dbResolver;
         this.controllerCfg = controllerCfg;
         this.batchSize=getIntOption("updateBatchSize",DEFAULT_BATCH_SIZE);
+        this.indexManagementCfg = new IndexManagementCfg(controllerCfg);
         this.concurrentModificationDetection=new ConcurrentModificationDetectionCfg(controllerCfg);
     }
-    
+
     private String getOption(String optionName,String defaultValue) {
         if(controllerCfg!=null) {
             ObjectNode node=controllerCfg.getOptions();
@@ -588,7 +594,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     @Override
     public void afterUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
-        createUpdateEntityInfoIndexes(ei, md);
+        if (indexManagementCfg.isManaged(ei.getName())) {
+            createUpdateEntityInfoIndexes(ei, md);
+        } else {
+            LOGGER.info("Not managing indexes for unmanaged entity '{}'", ei.getName());
+        }
     }
 
     @Override
