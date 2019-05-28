@@ -21,7 +21,7 @@ import java.util.Set;
  *
  * <p>Entity names are matched exactly (case sensitive).</p>
  */
-public class IndexManagementCfg {
+class IndexManagementCfg {
   private final Set<String> managed;
   private final Set<String> unmanaged;
 
@@ -40,7 +40,7 @@ public class IndexManagementCfg {
    *
    * @param controllerCfg Controller configuration that contains options object.
    */
-  public IndexManagementCfg(ControllerConfiguration controllerCfg) {
+  IndexManagementCfg(ControllerConfiguration controllerCfg) {
     ObjectNode options = controllerCfg != null
         ? controllerCfg.getOptions()
         : null;
@@ -67,12 +67,12 @@ public class IndexManagementCfg {
    * @param managedEntities May be null.
    * @param unmanagedEntities May be null.
    */
-  public IndexManagementCfg(Set<String> managedEntities, Set<String> unmanagedEntities) {
+  IndexManagementCfg(Set<String> managedEntities, Set<String> unmanagedEntities) {
     this.managed = managedEntities == null ? null : new LinkedHashSet<>(managedEntities);
     this.unmanaged = unmanagedEntities == null ? null : new LinkedHashSet<>(unmanagedEntities);
   }
 
-  public boolean isManaged(EntityInfo entity) {
+  boolean isManaged(EntityInfo entity) {
     Object manageIndexes = entity.getProperties().get("manageIndexes");
 
     if (manageIndexes != null) {
