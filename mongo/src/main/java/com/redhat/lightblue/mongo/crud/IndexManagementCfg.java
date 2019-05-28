@@ -116,7 +116,10 @@ class IndexManagementCfg {
       JsonNode element = elements.next();
 
       if (element != null && !element.isNull()) {
-        answer.add(element.asText());
+        String entityName = element.asText();
+        if (!entityName.isEmpty()) {
+          answer.add(entityName);
+        }
       }
     }
 
