@@ -51,6 +51,7 @@ import com.mongodb.Mongo;
 import com.redhat.lightblue.DataError;
 import com.redhat.lightblue.ExecutionOptions;
 import com.redhat.lightblue.ResultMetadata;
+import com.redhat.lightblue.config.ControllerConfiguration;
 import com.redhat.lightblue.crud.CRUDDeleteResponse;
 import com.redhat.lightblue.crud.CRUDFindResponse;
 import com.redhat.lightblue.crud.CRUDHealth;
@@ -92,6 +93,7 @@ import com.redhat.lightblue.util.Path;
 public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     private MongoCRUDController controller;
+    private DBResolver dbResolver;
 
     @Override
     @Before
@@ -103,7 +105,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         dbx.getCollection(COLL_NAME).drop();
         dbx.createCollection(COLL_NAME, null);
 
-        controller = new MongoCRUDController(null, new DBResolver() {
+        dbResolver = new DBResolver() {
             @Override
             public DB get(MongoDataStore store) {
                 return dbx;
@@ -114,7 +116,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 MongoConfiguration configuration = new MongoConfiguration();
                 try {
                     configuration.addServerAddress(db.getMongo().getAddress().getHost(),
-                            db.getMongo().getAddress().getPort());
+                        db.getMongo().getAddress().getPort());
                     configuration.setDatabase("mongo");
                 } catch (UnknownHostException e) {
                     return null;
@@ -129,7 +131,9 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 configs.add(getConfiguration(null));
                 return configs;
             }
-        });
+        };
+
+        controller = new MongoCRUDController(null, dbResolver);
     }
 
     private void addDocument(CRUDOperationContext ctx,JsonDoc doc) {
@@ -2422,6 +2426,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
 
     @Test
     public void entityIndexUpdateTest_default() throws Exception {
+        db.getCollection("testCollectionIndex2").drop();
 
         EntityMetadata e = new EntityMetadata("testEntity");
         e.setVersion(new Version("1.0.0", null, "some text blah blah"));
@@ -3060,5 +3065,95 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         ctx.getDocumentStream().close();
         Assert.assertEquals("crud:update:NoFieldAccess", docCtx.getErrors().get(0).getErrorCode());
         Assert.assertEquals("[inaccessibleField]", docCtx.getErrors().get(0).getMsg());
+    }
+
+    @Test
+    public void entityIndexUpdateTest_default_unmanagedByControllerOptions() throws Exception {
+        db.getCollection("testCollectionIndex2").drop();
+
+        ControllerConfiguration cfg = new ControllerConfiguration();
+        JsonNode options = json("{'indexManagement': {'managedEntities': []}}");
+        cfg.setOptions((ObjectNode) options);
+        MongoCRUDController controller = new MongoCRUDController(cfg, dbResolver);
+
+        db.getCollection("testCollectionIndex2").drop();
+
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex2"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+        Index index = new Index();
+        index.setName("testIndex");
+        index.setUnique(true);
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
+        index.setFields(indexFields);
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(), false);
+
+        DBCollection entityCollection = db.getCollection("testCollectionIndex2");
+
+        index = new Index();
+        index.setName("testIndex");
+        index.setUnique(false);
+        indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
+        index.setFields(indexFields);
+        indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(), false);
+
+        assertEquals(0, entityCollection.getIndexInfo().size());
+    }
+
+    @Test
+    public void entityIndexUpdateTest_default_unmanagedByEntityInfo() throws Exception {
+        db.getCollection("testCollectionIndex2").drop();
+
+        EntityMetadata e = new EntityMetadata("testEntity");
+        e.setVersion(new Version("1.0.0", null, "some text blah blah"));
+        e.setStatus(MetadataStatus.ACTIVE);
+        e.setDataStore(new MongoDataStore(null, null, "testCollectionIndex2"));
+        e.getFields().put(new SimpleField("field1", StringType.TYPE));
+        ObjectField o = new ObjectField("field2");
+        o.getFields().put(new SimpleField("x", IntegerType.TYPE));
+        e.getFields().put(o);
+        e.getEntityInfo().setDefaultVersion("1.0.0");
+        e.getEntityInfo().getProperties().put("manageIndexes", false);
+        Index index = new Index();
+        index.setName("testIndex");
+        index.setUnique(true);
+        List<IndexSortKey> indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
+        index.setFields(indexFields);
+        List<Index> indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(), false);
+
+        DBCollection entityCollection = db.getCollection("testCollectionIndex2");
+
+        index = new Index();
+        index.setName("testIndex");
+        index.setUnique(false);
+        indexFields = new ArrayList<>();
+        indexFields.add(new IndexSortKey(new Path("field1"), true));
+        index.setFields(indexFields);
+        indexes = new ArrayList<>();
+        indexes.add(index);
+        e.getEntityInfo().getIndexes().setIndexes(indexes);
+
+        controller.afterUpdateEntityInfo(null, e.getEntityInfo(), false);
+
+        assertEquals(0, entityCollection.getIndexInfo().size());
     }
 }

@@ -29,7 +29,6 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.DuplicateKeyException;
-import com.mongodb.MongoClient;
 import com.mongodb.MongoException;
 import com.mongodb.MongoExecutionTimeoutException;
 import com.mongodb.MongoSocketException;
@@ -146,13 +145,16 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     private final int batchSize;
     private final ConcurrentModificationDetectionCfg concurrentModificationDetection;
 
-    public MongoCRUDController(ControllerConfiguration controllerCfg, DBResolver dbResolver) {        
+    private final IndexManagementCfg indexManagementCfg;
+
+    public MongoCRUDController(ControllerConfiguration controllerCfg, DBResolver dbResolver) {
         this.dbResolver = dbResolver;
         this.controllerCfg = controllerCfg;
         this.batchSize=getIntOption("updateBatchSize",DEFAULT_BATCH_SIZE);
+        this.indexManagementCfg = new IndexManagementCfg(controllerCfg);
         this.concurrentModificationDetection=new ConcurrentModificationDetectionCfg(controllerCfg);
     }
-    
+
     private String getOption(String optionName,String defaultValue) {
         if(controllerCfg!=null) {
             ObjectNode node=controllerCfg.getOptions();
@@ -588,7 +590,11 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
 
     @Override
     public void afterUpdateEntityInfo(Metadata md, EntityInfo ei, boolean newEntity) {
-        createUpdateEntityInfoIndexes(ei, md);
+        if (indexManagementCfg.isManaged(ei)) {
+            createUpdateEntityInfoIndexes(ei, md);
+        } else {
+            LOGGER.info("Not managing indexes for unmanaged entity '{}'", ei.getName());
+        }
     }
 
     @Override
