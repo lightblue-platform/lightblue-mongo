@@ -1,0 +1,39 @@
+{
+    "entityInfo": {
+        "name": "test",
+        "datastore": {
+            "backend":"mongo",
+            "collection": "data"
+        }
+    },
+    "schema": {
+        "name": "test",
+        "version": {
+            "value": "1.0",
+            "changelog": "blahblah"
+        },
+        "status": {
+            "value": "active"
+        },
+        "access" : {
+             "insert" : ["anyone"],
+             "update" : ["anyone"],
+             "delete" : [ "anyone" ] ,
+             "find" : [ "anyone" ]
+        },
+        "fields": {
+            "objectType": {"type": "string"},
+            "_id": {
+                "type": "integer",
+                "valueGenerator": {
+                    "configuration": {
+                        "initialValue": "100",
+                        "name": "testSequence",
+                        "poolSize": 50
+                    },
+                    "type": "IntSequence"
+                }
+            }
+        }
+    }
+}
