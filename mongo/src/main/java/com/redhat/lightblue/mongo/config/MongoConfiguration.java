@@ -243,6 +243,21 @@ public class MongoConfiguration implements DataSourceConfiguration {
         }
     }
 
+    private SSLContext getSSLContext() {
+        try {
+            if (noCertValidation) {
+                LOGGER.warn("Certificate validation is off, don't use this in production");
+                SSLContext sc = SSLContext.getInstance("SSL");
+                sc.init(null, trustAllCerts, new java.security.SecureRandom());
+                return sc;
+            } else {
+                return SSLContext.getDefault();
+            }
+        } catch (KeyManagementException | NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     /**
      * Returns an options object with defaults overriden where there is a valid
      * override.
@@ -263,7 +278,8 @@ public class MongoConfiguration implements DataSourceConfiguration {
         if (ssl) {
             // taken from MongoClientURI, written this way so we don't have to
             // construct a URI to connect
-            builder.socketFactory(getSocketFactory());
+            builder.sslEnabled(true);
+            builder.sslContext(getSSLContext());
         }
         builder.writeConcern(writeConcern);
 
@@ -274,9 +290,9 @@ public class MongoConfiguration implements DataSourceConfiguration {
         MongoClientOptions options = getMongoClientOptions();
         LOGGER.debug("getNewMongoClient with server: {}, servers:{} and options:{}", theServer, servers, options);
         if (theServer != null) {
-            return new MongoClient(theServer, credentials, options);
+            return new MongoClient(theServer, credentials.get(0), options);
         } else {
-            return new MongoClient(servers, credentials, options);
+            return new MongoClient(servers, credentials.get(0), options);
         }
     }
 
@@ -343,7 +359,10 @@ public class MongoConfiguration implements DataSourceConfiguration {
                 cr = MongoCredential.createGSSAPICredential(userName);
                 break;
             case "MONGODB_CR_MECHANISM":
-                cr = MongoCredential.createMongoCRCredential(userName, source,
+
+
+
+                cr = MongoCredential.createCredential(userName, source,
                                                              password == null ? null : password.toCharArray());
                 break;
             case "MONGODB_X509_MECHANISM":

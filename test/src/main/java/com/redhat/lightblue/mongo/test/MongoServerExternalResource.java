@@ -36,8 +36,7 @@ import com.mongodb.MongoClient;
 import de.flapdoodle.embed.mongo.MongodExecutable;
 import de.flapdoodle.embed.mongo.MongodProcess;
 import de.flapdoodle.embed.mongo.MongodStarter;
-import de.flapdoodle.embed.mongo.config.IMongodConfig;
-import de.flapdoodle.embed.mongo.config.MongodConfigBuilder;
+import de.flapdoodle.embed.mongo.config.MongodConfig;
 import de.flapdoodle.embed.mongo.config.Net;
 import de.flapdoodle.embed.mongo.distribution.Version;
 import de.flapdoodle.embed.process.runtime.Network;
@@ -121,7 +120,7 @@ public class MongoServerExternalResource extends ExternalResource {
     @Override
     protected void before() throws IOException {
         MongodStarter runtime = MongodStarter.getDefaultInstance();
-        IMongodConfig config = new MongodConfigBuilder().
+        MongodConfig config = MongodConfig.builder().
                 version(getMongoVersion()).
                 net(new Net(getPort(), Network.localhostIsIPv6())).
                 build();

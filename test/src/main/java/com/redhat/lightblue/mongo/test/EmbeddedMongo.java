@@ -5,19 +5,20 @@ import de.flapdoodle.embed.mongo.Command;
 import de.flapdoodle.embed.mongo.MongodExecutable;
 import de.flapdoodle.embed.mongo.MongodProcess;
 import de.flapdoodle.embed.mongo.MongodStarter;
-import de.flapdoodle.embed.mongo.config.MongodConfigBuilder;
+import de.flapdoodle.embed.mongo.config.Defaults;
+import de.flapdoodle.embed.mongo.config.MongodConfig;
 import de.flapdoodle.embed.mongo.config.Net;
-import de.flapdoodle.embed.mongo.config.RuntimeConfigBuilder;
-import de.flapdoodle.embed.process.config.IRuntimeConfig;
+import de.flapdoodle.embed.process.config.RuntimeConfig;
 import de.flapdoodle.embed.process.config.io.ProcessOutput;
-import de.flapdoodle.embed.process.io.IStreamProcessor;
 import de.flapdoodle.embed.process.io.Processors;
+import de.flapdoodle.embed.process.io.StreamProcessor;
 import de.flapdoodle.embed.process.runtime.Network;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -32,11 +33,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Deprecated
 public final class EmbeddedMongo {
 
-    /**
-     * This field is used only once during the bootstrap of the singleton
-     * instance of this class
-     */
-    public static final List<MongoCredential> MONGO_CREDENTIALS = new CopyOnWriteArrayList<>();
+//    /**
+//     * This field is used only once during the bootstrap of the singleton
+//     * instance of this class
+//     */
+//    public static final List<MongoCredential> MONGO_CREDENTIALS = new CopyOnWriteArrayList<>();
 
     /**
      * This field is used only once during the bootstrap of the singleton
@@ -68,7 +69,7 @@ public final class EmbeddedMongo {
         this.dbName = dbName;
     }
 
-    protected static class FileStreamProcessor implements IStreamProcessor {
+    protected static class FileStreamProcessor implements StreamProcessor {
         private final FileOutputStream outputStream;
 
         public FileStreamProcessor(File file) throws FileNotFoundException {
@@ -125,19 +126,18 @@ public final class EmbeddedMongo {
         System.setProperty("mongodb.port", String.valueOf(mongoPort));
 
         try {
-            IStreamProcessor mongodOutput = Processors.named("[mongod>]",
+            StreamProcessor mongodOutput = Processors.named("[mongod>]",
                     new FileStreamProcessor(File.createTempFile("mongod", "log")));
-            IStreamProcessor mongodError = new FileStreamProcessor(File.createTempFile("mongod-error", "log"));
-            IStreamProcessor commandsOutput = Processors.namedConsole("[console>]");
+            StreamProcessor mongodError = new FileStreamProcessor(File.createTempFile("mongod-error", "log"));
+            StreamProcessor commandsOutput = Processors.namedConsole("[console>]");
 
-            IRuntimeConfig runtimeConfig = new RuntimeConfigBuilder()
-                    .defaults(Command.MongoD)
+            RuntimeConfig runtimeConfig = Defaults.runtimeConfigFor(Command.MongoD)
                     .processOutput(new ProcessOutput(mongodOutput, mongodError, commandsOutput))
                     .build();
 
             MongodStarter runtime = MongodStarter.getInstance(runtimeConfig);
             mongodExe = runtime.prepare(
-                    new MongodConfigBuilder()
+                    MongodConfig.builder()
                     .version(de.flapdoodle.embed.mongo.distribution.Version.V2_6_8)
                     .net(new Net(mongoPort, Network.localhostIsIPv6()))
                     .build()
@@ -149,12 +149,14 @@ public final class EmbeddedMongo {
                 mongod = mongodExe.start();
             }
 
-            if (MONGO_CREDENTIALS.isEmpty()) {
+//            if (MONGO_CREDENTIALS.isEmpty()) {
                 client = new MongoClient(mongoHostname + ":" + mongoPort);
-            } else {
-                client = new MongoClient(new ServerAddress(mongoHostname + ":" + mongoPort), MONGO_CREDENTIALS);
-                client.getDB("admin").command("{ user: \"siteUserAdmin\", pwd: \"password\", roles: [ { role: \"userAdminAnyDatabase\", db: \"admin\" } , { role: \"userAdminAnyDatabase\", db: \"" + dbName + "\" } ] }");
-            }
+//            } else {
+//                List<ServerAddress> serverAddresses = new ArrayList<>();
+//                serverAddresses.add(new ServerAddress(mongoHostname + ":" + mongoPort));
+//                client = new MongoClient(serverAddresses, MONGO_CREDENTIALS);
+//                client.getDB("admin").command("{ user: \"siteUserAdmin\", pwd: \"password\", roles: [ { role: \"userAdminAnyDatabase\", db: \"admin\" } , { role: \"userAdminAnyDatabase\", db: \"" + dbName + "\" } ] }");
+//            }
 
             Runtime.getRuntime().addShutdownHook(new Thread() {
                 @Override

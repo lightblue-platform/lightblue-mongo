@@ -182,7 +182,7 @@ public class BasicDocSaver implements DocSaver {
             if (!idQueries.isEmpty()) {
                 BasicDBObject retrievalq = new BasicDBObject("$or", idQueries);
                 LOGGER.debug("Existing document retrieval query={}", retrievalq);
-                try (DBCursor cursor = collection.find(retrievalq, null)) {
+                try (DBCursor cursor = collection.find(retrievalq)) {
                     // Make sure we read from primary, because that's where we'll write
                     cursor.setReadPreference(ReadPreference.primary());
                     List<DBObject> results = cursor.toArray();

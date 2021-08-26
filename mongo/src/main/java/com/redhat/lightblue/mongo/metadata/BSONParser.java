@@ -18,19 +18,19 @@
  */
 package com.redhat.lightblue.mongo.metadata;
 
+import com.mongodb.BasicDBList;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.bson.BSONObject;
+import org.bson.BsonArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
-import com.mongodb.util.JSON;
 import com.redhat.lightblue.metadata.EntityInfo;
 import com.redhat.lightblue.metadata.EntitySchema;
 import com.redhat.lightblue.metadata.Index;
@@ -140,7 +140,12 @@ public class BSONParser extends MetadataParser<Object> {
         if (partialFilterExpression != null) {
             // convert string to json
             // https://github.com/lightblue-platform/lightblue-mongo/issues/329
-            index.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, (Map<String,Object>)JSON.parse(partialFilterExpression));
+            BsonArray parse = BsonArray.parse(partialFilterExpression);
+            BasicDBList dbList = new BasicDBList();
+            dbList.addAll(parse);
+            DBObject dbObject = dbList;
+
+            index.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, dbObject.toMap());
         }
 
         return index;
