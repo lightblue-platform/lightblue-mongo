@@ -37,11 +37,6 @@ public class MongoServerExternalResourceTest {
     @ClassRule
     public static final MongoServerExternalResource mongoServer = new MongoServerExternalResource();
 
-    @Before
-    public void before() throws IOException {
-        mongoServer.before();
-    }
-
     @After
     public void after() throws IOException {
         mongoServer.after();
