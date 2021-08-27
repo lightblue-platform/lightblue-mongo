@@ -81,8 +81,7 @@ public class MongoCRUDControllerMemoryLimitsTest extends AbstractMongoCrudTest {
             public MongoConfiguration getConfiguration(MongoDataStore store) {
                 MongoConfiguration configuration = new MongoConfiguration();
                 try {
-                    configuration.addServerAddress(db.getMongo().getAddress().getHost(),
-                            db.getMongo().getAddress().getPort());
+                    configuration.addServerAddress("localhost", 27777   );
                     configuration.setDatabase("mongo");
                 } catch (UnknownHostException e) {
                     return null;

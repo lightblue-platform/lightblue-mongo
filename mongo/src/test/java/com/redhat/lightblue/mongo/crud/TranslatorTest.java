@@ -337,7 +337,7 @@ public class TranslatorTest extends AbstractMongoCrudTest {
     @Test
     public void translateNullCmp() throws Exception {
         DBObject obj = expressionTranslator.translate(md, query("{'field':'field6','op':'=','rvalue':null}"));
-        Assert.assertEquals("{ \"field6\" :  null }", obj.toString());
+        Assert.assertEquals("{\"field6\": null}", obj.toString());
     }
 
     @Test

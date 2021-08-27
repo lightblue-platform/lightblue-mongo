@@ -18,13 +18,11 @@
  */
 package com.redhat.lightblue.mongo.metadata;
 
-import com.mongodb.BasicDBList;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 import org.bson.BSONObject;
-import org.bson.BsonArray;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -140,12 +138,8 @@ public class BSONParser extends MetadataParser<Object> {
         if (partialFilterExpression != null) {
             // convert string to json
             // https://github.com/lightblue-platform/lightblue-mongo/issues/329
-            BsonArray parse = BsonArray.parse(partialFilterExpression);
-            BasicDBList dbList = new BasicDBList();
-            dbList.addAll(parse);
-            DBObject dbObject = dbList;
-
-            index.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, dbObject.toMap());
+            index.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME,
+                BasicDBObject.parse(partialFilterExpression).toJson());
         }
 
         return index;

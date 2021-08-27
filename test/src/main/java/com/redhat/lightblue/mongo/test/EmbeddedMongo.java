@@ -33,11 +33,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @Deprecated
 public final class EmbeddedMongo {
 
-//    /**
-//     * This field is used only once during the bootstrap of the singleton
-//     * instance of this class
-//     */
-//    public static final List<MongoCredential> MONGO_CREDENTIALS = new CopyOnWriteArrayList<>();
+    /**
+     * This field is used only once during the bootstrap of the singleton
+     * instance of this class
+     */
+    public static final List<MongoCredential> MONGO_CREDENTIALS = new CopyOnWriteArrayList<>();
 
     /**
      * This field is used only once during the bootstrap of the singleton
@@ -149,14 +149,14 @@ public final class EmbeddedMongo {
                 mongod = mongodExe.start();
             }
 
-//            if (MONGO_CREDENTIALS.isEmpty()) {
+            if (MONGO_CREDENTIALS.isEmpty()) {
                 client = new MongoClient(mongoHostname + ":" + mongoPort);
-//            } else {
-//                List<ServerAddress> serverAddresses = new ArrayList<>();
-//                serverAddresses.add(new ServerAddress(mongoHostname + ":" + mongoPort));
-//                client = new MongoClient(serverAddresses, MONGO_CREDENTIALS);
-//                client.getDB("admin").command("{ user: \"siteUserAdmin\", pwd: \"password\", roles: [ { role: \"userAdminAnyDatabase\", db: \"admin\" } , { role: \"userAdminAnyDatabase\", db: \"" + dbName + "\" } ] }");
-//            }
+            } else {
+                List<ServerAddress> serverAddresses = new ArrayList<>();
+                serverAddresses.add(new ServerAddress(mongoHostname + ":" + mongoPort));
+                client = new MongoClient(serverAddresses, MONGO_CREDENTIALS.get(0), new MongoClientOptions.Builder().build());
+                client.getDB("admin").command("{ user: \"siteUserAdmin\", pwd: \"password\", roles: [ { role: \"userAdminAnyDatabase\", db: \"admin\" } , { role: \"userAdminAnyDatabase\", db: \"" + dbName + "\" } ] }");
+            }
 
             Runtime.getRuntime().addShutdownHook(new Thread() {
                 @Override

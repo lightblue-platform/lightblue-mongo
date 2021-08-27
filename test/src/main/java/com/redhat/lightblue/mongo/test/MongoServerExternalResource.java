@@ -137,6 +137,7 @@ public class MongoServerExternalResource extends ExternalResource {
     @Override
     protected void after() {
         if (mongodExe != null) {
+
             mongodExe.stop();
         }
 

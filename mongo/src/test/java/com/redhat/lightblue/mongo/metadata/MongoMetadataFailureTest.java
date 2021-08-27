@@ -44,7 +44,7 @@ public class MongoMetadataFailureTest {
     @Ignore
     public void mongoAuthFailureTest() throws Exception {
         EmbeddedMongo.PORT = 2888;
-        EmbeddedMongo.MONGO_CREDENTIALS.add(MongoCredential.createMongoCRCredential("usera", EmbeddedMongo.DATABASE_NAME, "passworda".toCharArray()));
+        EmbeddedMongo.MONGO_CREDENTIALS.add(MongoCredential.createCredential("usera", EmbeddedMongo.DATABASE_NAME, "passworda".toCharArray()));
         EmbeddedMongo mongo = EmbeddedMongo.getInstance();
         MongoMetadata md;
         Factory factory = new Factory();
