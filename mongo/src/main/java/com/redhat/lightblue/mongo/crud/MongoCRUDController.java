@@ -853,7 +853,8 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 // partial index
                 if (index.getProperties().containsKey(PARTIAL_FILTER_EXPRESSION_OPTION_NAME)) {
                     try {
-                        DBObject filter = BasicDBObject.parse(index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME).toString());
+                        @SuppressWarnings("unchecked")
+                        DBObject filter = new BasicDBObject((Map<String,Object>)index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
                         options.append(PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter);
                     } catch (ClassCastException e) {
                         throw new RuntimeException("Index property "+PARTIAL_FILTER_EXPRESSION_OPTION_NAME +" needs to be a mongo query in json format", e);
