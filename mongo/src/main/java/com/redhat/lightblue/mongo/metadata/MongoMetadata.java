@@ -94,11 +94,14 @@ public class MongoMetadata extends AbstractMetadata {
             }
 
             EntityInfo info = getEntityInfo(entityName);
-            if (version == null || version.length() == 0) {
-                if (info.getDefaultVersion() == null || info.getDefaultVersion().length() == 0) {
-                    throw new IllegalArgumentException(LITERAL_VERSION);
-                } else {
-                    version = info.getDefaultVersion();
+            if (info != null) {
+                if (version == null || version.length() == 0) {
+                    if (info.getDefaultVersion() == null
+                        || info.getDefaultVersion().length() == 0) {
+                        throw new IllegalArgumentException(LITERAL_VERSION);
+                    } else {
+                        version = info.getDefaultVersion();
+                    }
                 }
             }
 

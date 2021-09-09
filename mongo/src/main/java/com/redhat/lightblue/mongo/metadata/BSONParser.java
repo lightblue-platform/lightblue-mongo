@@ -157,12 +157,15 @@ public class BSONParser extends MetadataParser<Object> {
 
         if (dbIndexes != null) {
             for (DBObject index: dbIndexes) {
-                DBObject partialFilterExpression = (DBObject) index.get(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME);
-
-                if (partialFilterExpression != null) {
-                    // convert to string to support dots in field names
-                    // https://github.com/lightblue-platform/lightblue-mongo/issues/329
-                    index.put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, partialFilterExpression.toString());
+                Object partialFilterExpressionObject = index.get(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME);
+                if(partialFilterExpressionObject != null) {
+                    String partialFilterExpressionString = partialFilterExpressionObject.toString();
+                    DBObject partialFilterExpression = BasicDBObject.parse(partialFilterExpressionString);
+                    if (partialFilterExpression != null) {
+                        // convert to string to support dots in field names
+                        // https://github.com/lightblue-platform/lightblue-mongo/issues/329
+                        index.put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, BasicDBObject.parse(partialFilterExpression.toString()).toJson());
+                    }
                 }
             }
         }
