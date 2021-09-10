@@ -19,6 +19,8 @@
 package com.redhat.lightblue.mongo.crud;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -85,6 +87,8 @@ import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
+import java.util.Arrays;
+import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -853,8 +857,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 // partial index
                 if (index.getProperties().containsKey(PARTIAL_FILTER_EXPRESSION_OPTION_NAME)) {
                     try {
-                        @SuppressWarnings("unchecked")
-                        DBObject filter = new BasicDBObject((Map<String,Object>)index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
+                        Object partialFilterExpressionObject = index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME);
+                        ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
+                        String partialFilterExpressionJson = ow.writeValueAsString(partialFilterExpressionObject);
+                        DBObject filter = BasicDBObject.parse(partialFilterExpressionJson);
                         options.append(PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter);
                     } catch (ClassCastException e) {
                         throw new RuntimeException("Index property "+PARTIAL_FILTER_EXPRESSION_OPTION_NAME +" needs to be a mongo query in json format", e);
