@@ -88,6 +88,8 @@ import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
 import java.util.Arrays;
+import java.util.HashMap;
+import org.bson.BasicBSONObject;
 import org.bson.Document;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
@@ -858,11 +860,15 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 if (index.getProperties().containsKey(PARTIAL_FILTER_EXPRESSION_OPTION_NAME)) {
                     try {
                         Object partialFilterExpressionObject = index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME);
-                        ObjectWriter ow = new ObjectMapper().writer().withDefaultPrettyPrinter();
-                        String partialFilterExpressionJson = ow.writeValueAsString(partialFilterExpressionObject);
-                        DBObject filter = BasicDBObject.parse(partialFilterExpressionJson);
+                        BasicBSONObject object = null;
+                        if (partialFilterExpressionObject instanceof Map) {
+                            object = new BasicBSONObject((Map) partialFilterExpressionObject);
+                        } else {
+                            object = new BasicBSONObject(new ObjectMapper().readValue((String)partialFilterExpressionObject, HashMap.class));
+                        }
+                        BasicDBObject filter = new BasicDBObject(object);
                         options.append(PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter);
-                    } catch (ClassCastException e) {
+                    } catch (Throwable e) {
                         throw new RuntimeException("Index property "+PARTIAL_FILTER_EXPRESSION_OPTION_NAME +" needs to be a mongo query in json format", e);
                     }
                 }
