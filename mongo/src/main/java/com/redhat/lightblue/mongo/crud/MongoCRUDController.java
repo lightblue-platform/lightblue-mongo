@@ -855,7 +855,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 if (index.getProperties().containsKey(PARTIAL_FILTER_EXPRESSION_OPTION_NAME)) {
                     try {
                         Object partialFilterExpressionObject = index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME);
-                        BasicDBObject filter = extractFilter(partialFilterExpressionObject);
+                        BasicDBObject filter = extractPartialFilter(partialFilterExpressionObject);
                         options.append(PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter);
                     } catch (Throwable e) {
                         throw new RuntimeException("Index property "+PARTIAL_FILTER_EXPRESSION_OPTION_NAME +" needs to be a mongo query in json format", e);
@@ -1187,7 +1187,7 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
     }
 
     @SuppressWarnings("unchecked")
-    private BasicDBObject extractFilter(Object partialFilterExpressionObject)
+    private BasicDBObject extractPartialFilter(Object partialFilterExpressionObject)
         throws IOException {
         if (partialFilterExpressionObject instanceof Map) {
             return new BasicDBObject((Map<String,Object>) partialFilterExpressionObject);
