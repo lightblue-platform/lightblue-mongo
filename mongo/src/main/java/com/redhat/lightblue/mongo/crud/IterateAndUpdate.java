@@ -198,7 +198,7 @@ public class IterateAndUpdate implements DocUpdater {
         try {
             ctx.getFactory().getInterceptors().callInterceptors(InterceptPoint.PRE_CRUD_UPDATE_RESULTSET, ctx);
             measure.begin("collection.find");
-            cursor = collection.find(query, null);
+            cursor = collection.find(query);
             // Read from primary for read-for-update operations
             cursor.setReadPreference(ReadPreference.primary());
             measure.end("collection.find");

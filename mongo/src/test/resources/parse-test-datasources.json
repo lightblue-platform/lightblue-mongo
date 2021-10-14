@@ -13,7 +13,7 @@
         "type": "com.redhat.lightblue.mongo.config.MongoConfiguration",
         "metadataDataStoreParser": "com.redhat.lightblue.mongo.metadata.MongoDataStoreParser",
         "ssl": true,
-        "writeConcern": "SAFE",
+        "writeConcern": "ACKNOWLEDGED",
         "database": "metadata",
         "credentials": {
             "mechanism": "MONGODB_CR_MECHANISM",
@@ -72,7 +72,7 @@
         "metadataDataStoreParser": "com.redhat.lightblue.mongo.metadata.MongoDataStoreParser",
         "ssl": true,
         "database": "data",
-        "writeConcern": "SAFE",
+        "writeConcern": "ACKNOWLEDGED",
         "credentials": {
             "mechanism": "MONGODB_CR_MECHANISM",
             "userName": "lightblue",
@@ -106,7 +106,7 @@
         "metadataDataStoreParser": "com.redhat.lightblue.mongo.metadata.MongoDataStoreParser",
         "ssl": true,
         "database": "data",
-        "writeConcern": "SAFE",
+        "writeConcern": "ACKNOWLEDGED",
         "credentials": {
             "mechanism": "MONGODB_CR_MECHANISM",
             "userName": "lightblue",
@@ -157,7 +157,7 @@
             "port": "27017"
         },
         "driverOptions": {
-            "writeConcern": "SAFE"
+            "writeConcern": "ACKNOWLEDGED"
         }
     },
     "mongodata_maxResultSetSize": {

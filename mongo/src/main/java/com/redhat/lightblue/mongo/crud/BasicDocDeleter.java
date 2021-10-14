@@ -18,6 +18,7 @@
  */
 package com.redhat.lightblue.mongo.crud;
 
+import com.mongodb.client.model.DBCollectionFindOptions;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -77,7 +78,7 @@ public class BasicDocDeleter implements DocDeleter {
 
         if(!hookOptimization||ctx.getHookManager().hasHooks(ctx,CRUDOperation.DELETE)) {
             LOGGER.debug("There are hooks, retrieve-delete");
-            try (DBCursor cursor = collection.find(mongoQuery, null)) {
+            try (DBCursor cursor = collection.find(mongoQuery)) {
                 // Set read preference to primary for read-for-update operations
                 cursor.setReadPreference(ReadPreference.primary());
 

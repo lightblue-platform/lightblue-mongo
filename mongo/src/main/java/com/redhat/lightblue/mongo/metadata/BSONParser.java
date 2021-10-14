@@ -20,7 +20,6 @@ package com.redhat.lightblue.mongo.metadata;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.bson.BSONObject;
@@ -30,7 +29,6 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
-import com.mongodb.util.JSON;
 import com.redhat.lightblue.metadata.EntityInfo;
 import com.redhat.lightblue.metadata.EntitySchema;
 import com.redhat.lightblue.metadata.Index;
@@ -140,7 +138,8 @@ public class BSONParser extends MetadataParser<Object> {
         if (partialFilterExpression != null) {
             // convert string to json
             // https://github.com/lightblue-platform/lightblue-mongo/issues/329
-            index.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, (Map<String,Object>)JSON.parse(partialFilterExpression));
+            index.getProperties().put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME,
+                BasicDBObject.parse(partialFilterExpression).toJson());
         }
 
         return index;
@@ -158,12 +157,15 @@ public class BSONParser extends MetadataParser<Object> {
 
         if (dbIndexes != null) {
             for (DBObject index: dbIndexes) {
-                DBObject partialFilterExpression = (DBObject) index.get(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME);
-
-                if (partialFilterExpression != null) {
-                    // convert to string to support dots in field names
-                    // https://github.com/lightblue-platform/lightblue-mongo/issues/329
-                    index.put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, partialFilterExpression.toString());
+                Object partialFilterExpressionObject = index.get(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME);
+                if(partialFilterExpressionObject != null) {
+                    String partialFilterExpressionString = partialFilterExpressionObject.toString();
+                    DBObject partialFilterExpression = BasicDBObject.parse(partialFilterExpressionString);
+                    if (partialFilterExpression != null) {
+                        // convert to string to support dots in field names
+                        // https://github.com/lightblue-platform/lightblue-mongo/issues/329
+                        index.put(MongoCRUDController.PARTIAL_FILTER_EXPRESSION_OPTION_NAME, BasicDBObject.parse(partialFilterExpression.toString()).toJson());
+                    }
                 }
             }
         }

@@ -63,7 +63,7 @@ public class BSONParserTest {
         String bsonString = enumsNode.toString();
         Assert.assertTrue(bsonString.contains("enums"));
         Assert.assertTrue(bsonString.contains(enumName));
-        Assert.assertTrue(bsonString.matches(".*\"values\" : \\[.*"));
+        Assert.assertTrue(bsonString.matches(".*\"values\": \\[.*"));
         //Should just be string elements, not a complex objects.
         Assert.assertTrue(bsonString.contains(enumValue1));
         Assert.assertFalse(bsonString.contains("\"name\" : \"" + enumValue1 + "\""));
@@ -95,10 +95,10 @@ public class BSONParserTest {
         String bsonString = enumsNode.toString();
         Assert.assertTrue(bsonString.contains("enums"));
         Assert.assertTrue(bsonString.contains(enumName));
-        Assert.assertTrue(bsonString.matches(".*\"annotatedValues\" : \\[.*"));
-        Assert.assertTrue(bsonString.contains("{ \"name\" : \"" + enumValue1 + "\" , \"description\" : \"" + enumDescription1 + "\"}"));
-        Assert.assertTrue(bsonString.contains("{ \"name\" : \"" + enumValue2 + "\" , \"description\" : \"" + enumDescription2 + "\"}"));
-        Assert.assertTrue(bsonString.contains("\"name\" : \"" + enumValue3 + "\""));
+        Assert.assertTrue(bsonString.matches(".*\"annotatedValues\": \\[.*"));
+        Assert.assertTrue(bsonString.contains("{\"name\": \"" + enumValue1 + "\", \"description\": \"" + enumDescription1 + "\"}"));
+        Assert.assertTrue(bsonString.contains("{\"name\": \"" + enumValue2 + "\", \"description\": \"" + enumDescription2 + "\"}"));
+        Assert.assertTrue(bsonString.contains("\"name\": \"" + enumValue3 + "\""));
     }
 
     @Test

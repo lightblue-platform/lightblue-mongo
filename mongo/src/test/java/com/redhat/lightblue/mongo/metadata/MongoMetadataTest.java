@@ -231,7 +231,7 @@ public class MongoMetadataTest {
 
         Assert.assertNotNull(m);
         partialIndex = m.getEntityInfo().getIndexes().getIndexes().get(0);
-        Assert.assertEquals("{ \"$and\" : [ { \"field6.nf7.nnf2\" : { \"$gt\" : 5}} , { \"field6.nf7.nnf2\" : { \"$lt\" : 100}}]}", partialIndex.getProperties().get("partialFilterExpression").toString());
+        Assert.assertEquals("{\"$and\": [{\"field6.nf7.nnf2\": {\"$gt\": 5}}, {\"field6.nf7.nnf2\": {\"$lt\": 100}}]}", partialIndex.getProperties().get("partialFilterExpression").toString());
     }
 
     @Test

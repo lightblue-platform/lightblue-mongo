@@ -26,7 +26,7 @@ public class MongoConfigurationParseTest {
 
             assertEquals(ReadPreference.nearest(), metadataConfig.getMongoClientOptions().getReadPreference());
             assertEquals(ReadPreference.secondary(), dataConfig.getMongoClientOptions().getReadPreference());
-            assertEquals(WriteConcern.SAFE, metadataConfig.getWriteConcern());
+            assertEquals(WriteConcern.ACKNOWLEDGED, metadataConfig.getWriteConcern());
         }
     }
 
@@ -50,7 +50,7 @@ public class MongoConfigurationParseTest {
             MongoConfiguration dataConfig = new MongoConfiguration();
             dataConfig.initializeFromJson(node.get("mongodata_writeConcern_deprecated"));
 
-            assertEquals(WriteConcern.SAFE, dataConfig.getWriteConcern());
+            assertEquals(WriteConcern.ACKNOWLEDGED, dataConfig.getWriteConcern());
         }
     }
 
@@ -74,7 +74,7 @@ public class MongoConfigurationParseTest {
             MongoConfiguration dataConfig = new MongoConfiguration();
             dataConfig.initializeFromJson(node.get("mongodata_writeConcern"));
 
-            assertEquals(WriteConcern.SAFE, dataConfig.getWriteConcern());
+            assertEquals(WriteConcern.ACKNOWLEDGED, dataConfig.getWriteConcern());
         }
     }
 

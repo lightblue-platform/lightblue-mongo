@@ -94,11 +94,14 @@ public class MongoMetadata extends AbstractMetadata {
             }
 
             EntityInfo info = getEntityInfo(entityName);
-            if (version == null || version.length() == 0) {
-                if (info.getDefaultVersion() == null || info.getDefaultVersion().length() == 0) {
-                    throw new IllegalArgumentException(LITERAL_VERSION);
-                } else {
-                    version = info.getDefaultVersion();
+            if (info != null) {
+                if (version == null || version.length() == 0) {
+                    if (info.getDefaultVersion() == null
+                        || info.getDefaultVersion().length() == 0) {
+                        throw new IllegalArgumentException(LITERAL_VERSION);
+                    } else {
+                        version = info.getDefaultVersion();
+                    }
                 }
             }
 
@@ -392,8 +395,7 @@ public class MongoMetadata extends AbstractMetadata {
         try {
             cursor = collection.find(new BasicDBObject(LITERAL_NAME, ei.getName()).
                     append(LITERAL_VERSION, new BasicDBObject("$exists", 1)).
-                    append(LITERAL_STATUS_VALUE, new BasicDBObject("$ne", MetadataParser.toString(MetadataStatus.DISABLED))),
-                    null);
+                    append(LITERAL_STATUS_VALUE, new BasicDBObject("$ne", MetadataParser.toString(MetadataStatus.DISABLED))));
             while (cursor.hasNext()) {
                 DBObject object = cursor.next();
                 EntitySchema schema = mdParser.parseEntitySchema(object);

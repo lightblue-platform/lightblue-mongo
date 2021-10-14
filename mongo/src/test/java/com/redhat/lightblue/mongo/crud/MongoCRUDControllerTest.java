@@ -22,6 +22,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import com.mongodb.MongoClient;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.UnknownHostException;
@@ -47,7 +48,6 @@ import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
-import com.mongodb.Mongo;
 import com.redhat.lightblue.DataError;
 import com.redhat.lightblue.ExecutionOptions;
 import com.redhat.lightblue.ResultMetadata;
@@ -115,8 +115,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
             public MongoConfiguration getConfiguration(MongoDataStore store) {
                 MongoConfiguration configuration = new MongoConfiguration();
                 try {
-                    configuration.addServerAddress(db.getMongo().getAddress().getHost(),
-                        db.getMongo().getAddress().getPort());
+                    configuration.addServerAddress("localhost", 27777);
                     configuration.setDatabase("mongo");
                 } catch (UnknownHostException e) {
                     return null;
@@ -519,7 +518,7 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
         DBCollection entityCollection = db.getCollection("data");
         DBObject indexCreated = entityCollection.getIndexInfo().get(1);
         Assert.assertEquals("testPartialIndex", indexCreated.get("name"));
-        Assert.assertEquals("{ \"$and\" : [ { \"field6.nf7.nnf2\" : { \"$gt\" : 5}} , { \"field6.nf7.nnf2\" : { \"$lt\" : 100}}]}", indexCreated.get("partialFilterExpression").toString());
+        Assert.assertEquals("{\"$and\": [{\"field6.nf7.nnf2\": {\"$gt\": 5}}, {\"field6.nf7.nnf2\": {\"$lt\": 100}}]}", indexCreated.get("partialFilterExpression").toString());
 
         TestCRUDOperationContext ctx = new TestCRUDOperationContext(CRUDOperation.INSERT);
         ctx.add(md);
@@ -2925,8 +2924,8 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
          * port 27776 (in memory mongo is running on 27777). The ping to the
          * mongo should fail resulting in health not OK
          */
-        final DB dbx =  new DB(new Mongo(db.getMongo().getAddress().getHost(),
-    			27776), "mongo");
+      MongoClient mongoClient = new MongoClient();
+      final DB dbx =  mongoClient.getDB("mongo");
         
         MongoCRUDController unhealthyController = new MongoCRUDController(null, new DBResolver() {
             @Override
@@ -2961,13 +2960,11 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
     
 	@Test
 	@SuppressWarnings("deprecation")
-	public void unhealthyIfDatabaseIsUnhealthy() throws Exception{ 
-
-        final DB validDB =  new DB(new Mongo(db.getMongo().getAddress().getHost(),
-                db.getMongo().getAddress().getPort()), "valid-mongo");
-        
-        final DB invalidDB =  new DB(new Mongo(db.getMongo().getAddress().getHost(),
-    			27776), "invalid-mongo");
+	public void unhealthyIfDatabaseIsUnhealthy() throws Exception{
+        MongoClient mongoClient = new MongoClient("localhost", 27777);
+        final DB validDB =  mongoClient.getDB("valid-mongo");
+        MongoClient mongoClient2 = new MongoClient("localhost", 27776);
+        final DB invalidDB =  mongoClient2.getDB("invalid-mongo");
 
     	MongoCRUDController unhealthyController = new MongoCRUDController(null, new DBResolver() {
             @Override
@@ -2992,12 +2989,10 @@ public class MongoCRUDControllerTest extends AbstractMongoCrudTest {
                 MongoConfiguration validMongoConfiguration = new MongoConfiguration();
                 MongoConfiguration invalidMongoConfiguration = new MongoConfiguration();
                 try {
-                	validMongoConfiguration.addServerAddress(db.getMongo().getAddress().getHost(),
-                            db.getMongo().getAddress().getPort());
+                  validMongoConfiguration.addServerAddress("localhost", 27777);
                 	validMongoConfiguration.setDatabase("valid-mongo");
                 	
-                	invalidMongoConfiguration.addServerAddress(db.getMongo().getAddress().getHost(),
-                			27776); // adding wrong server port
+                	invalidMongoConfiguration.addServerAddress("localhost",27776); // adding wrong server port
                 	invalidMongoConfiguration.setDatabase("invalid-mongo");
                 } catch (UnknownHostException e) {
                     return null;

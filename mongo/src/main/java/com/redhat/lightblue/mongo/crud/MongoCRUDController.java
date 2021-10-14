@@ -19,6 +19,7 @@
 package com.redhat.lightblue.mongo.crud;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -85,10 +86,6 @@ import com.redhat.lightblue.query.UpdateExpression;
 import com.redhat.lightblue.util.Error;
 import com.redhat.lightblue.util.JsonDoc;
 import com.redhat.lightblue.util.Path;
-import org.bson.types.ObjectId;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -97,7 +94,11 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 import java.util.stream.Collectors;
+import org.bson.types.ObjectId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MongoCRUDController implements CRUDController, MetadataListener, ExtensionSupport, ExplainQuerySupport {
 
@@ -853,10 +854,10 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
                 // partial index
                 if (index.getProperties().containsKey(PARTIAL_FILTER_EXPRESSION_OPTION_NAME)) {
                     try {
-                        @SuppressWarnings("unchecked")
-                        DBObject filter = new BasicDBObject((Map<String,Object>)index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME));
+                        Object partialFilterExpressionObject = index.getProperties().get(PARTIAL_FILTER_EXPRESSION_OPTION_NAME);
+                        BasicDBObject filter = extractPartialFilter(partialFilterExpressionObject);
                         options.append(PARTIAL_FILTER_EXPRESSION_OPTION_NAME, filter);
-                    } catch (ClassCastException e) {
+                    } catch (Throwable e) {
                         throw new RuntimeException("Index property "+PARTIAL_FILTER_EXPRESSION_OPTION_NAME +" needs to be a mongo query in json format", e);
                     }
                 }
@@ -1183,5 +1184,17 @@ public class MongoCRUDController implements CRUDController, MetadataListener, Ex
             LOGGER.error("Error reading Mongo config details");
         }
         return configDetails;
+    }
+
+    @SuppressWarnings("unchecked")
+    private BasicDBObject extractPartialFilter(Object partialFilterExpressionObject)
+        throws IOException {
+        if (partialFilterExpressionObject instanceof Map) {
+            return new BasicDBObject((Map<String,Object>) partialFilterExpressionObject);
+        } else {
+            Map<String,Object> filterMap
+                = new ObjectMapper().readValue((String) partialFilterExpressionObject, HashMap.class);
+            return new BasicDBObject(filterMap);
+        }
     }
 }
