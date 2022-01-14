@@ -28,9 +28,14 @@ import org.junit.Test;
 import org.junit.Ignore;
 
 import com.mongodb.DB;
+import com.mongodb.DBObject;
+import com.mongodb.BasicDBObject;
+import com.mongodb.DBCollection;
 
 import com.redhat.lightblue.metadata.EntityMetadata;
 import com.redhat.lightblue.metadata.ValueGenerator;
+import com.redhat.lightblue.metadata.SimpleField;
+import com.redhat.lightblue.util.Path;
 import com.redhat.lightblue.mongo.common.DBResolver;
 import com.redhat.lightblue.mongo.common.MongoDataStore;
 import com.redhat.lightblue.mongo.config.MongoConfiguration;
@@ -65,6 +70,7 @@ public class GeneratorSupportTest extends AbstractMongoCrudTest {
                 return null;
             }            
         });
+        factory.registerValueGenerators("mongo",controller);
     }
 
     @Test
@@ -78,5 +84,21 @@ public class GeneratorSupportTest extends AbstractMongoCrudTest {
         Assert.assertEquals("1", value.toString());
         value = ss.generateValue(md, vg);
         Assert.assertEquals("2", value.toString());
+    }
+
+    @Test
+    public void poolTest() throws Exception {
+        EntityMetadata md=getMd("./testMetadata-seq.json");
+        ValueGeneratorSupport ss = controller.getExtensionInstance(ValueGeneratorSupport.class);
+        ValueGenerator vg=((SimpleField)md.resolve(new Path("_id"))).getValueGenerator();
+        Object value = ss.generateValue(md, vg);
+
+        DBObject q=new BasicDBObject("name","testSequence");
+
+        DBCollection seqCollection=db.getCollection("sequences");
+        DBObject obj=seqCollection.findOne(q);
+        Assert.assertEquals(150l, ((Long)obj.get("value")).longValue());
+        
+  
     }
 }
