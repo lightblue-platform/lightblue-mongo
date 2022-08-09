@@ -1,6 +1,11 @@
 package com.redhat.lightblue.mongo.test;
 
-import com.mongodb.*;
+import com.mongodb.DB;
+import com.mongodb.DBCollection;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientOptions;
+import com.mongodb.MongoCredential;
+import com.mongodb.ServerAddress;
 import de.flapdoodle.embed.mongo.Command;
 import de.flapdoodle.embed.mongo.MongodExecutable;
 import de.flapdoodle.embed.mongo.MongodProcess;
@@ -8,16 +13,20 @@ import de.flapdoodle.embed.mongo.MongodStarter;
 import de.flapdoodle.embed.mongo.config.Defaults;
 import de.flapdoodle.embed.mongo.config.MongodConfig;
 import de.flapdoodle.embed.mongo.config.Net;
+import de.flapdoodle.embed.mongo.distribution.Version;
 import de.flapdoodle.embed.process.config.RuntimeConfig;
-import de.flapdoodle.embed.process.config.io.ProcessOutput;
-import de.flapdoodle.embed.process.io.Processors;
+import de.flapdoodle.embed.process.extract.DirectoryAndExecutableNaming;
+import de.flapdoodle.embed.process.extract.UserTempNaming;
 import de.flapdoodle.embed.process.io.StreamProcessor;
+import de.flapdoodle.embed.process.io.directories.PlatformTempDir;
 import de.flapdoodle.embed.process.runtime.Network;
-
+import de.flapdoodle.embed.process.store.Downloader;
+import de.flapdoodle.embed.process.store.ExtractedArtifactStore;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -79,7 +88,7 @@ public final class EmbeddedMongo {
         @Override
         public void process(String block) {
             try {
-                outputStream.write(block.getBytes("UTF-8"));
+                outputStream.write(block.getBytes(StandardCharsets.UTF_8));
             } catch (IOException e) {
                 throw new IllegalStateException(e);
             }
@@ -126,19 +135,24 @@ public final class EmbeddedMongo {
         System.setProperty("mongodb.port", String.valueOf(mongoPort));
 
         try {
-            StreamProcessor mongodOutput = Processors.named("[mongod>]",
-                    new FileStreamProcessor(File.createTempFile("mongod", "log")));
-            StreamProcessor mongodError = new FileStreamProcessor(File.createTempFile("mongod-error", "log"));
-            StreamProcessor commandsOutput = Processors.namedConsole("[console>]");
-
             RuntimeConfig runtimeConfig = Defaults.runtimeConfigFor(Command.MongoD)
-                    .processOutput(new ProcessOutput(mongodOutput, mongodError, commandsOutput))
-                    .build();
+                .artifactStore(ExtractedArtifactStore.builder()
+                    .extraction(DirectoryAndExecutableNaming.builder()
+                        .executableNaming(new UserTempNaming())
+                        .directory(new PlatformTempDir()).build())
+                    .downloader(Downloader.platformDefault())
+                    .temp(DirectoryAndExecutableNaming.builder()
+                        .executableNaming(new UserTempNaming())
+                        .directory(new PlatformTempDir()).build())
+                    .downloadConfig(Defaults.downloadConfigFor(Command.MongoD)
+                        .fileNaming(new UserTempNaming()).build())
+                    .build())
+                .build();
 
             MongodStarter runtime = MongodStarter.getInstance(runtimeConfig);
             mongodExe = runtime.prepare(
                     MongodConfig.builder()
-                    .version(de.flapdoodle.embed.mongo.distribution.Version.V2_6_8)
+                    .version(Version.V5_0_2)
                     .net(new Net(mongoPort, Network.localhostIsIPv6()))
                     .build()
             );
