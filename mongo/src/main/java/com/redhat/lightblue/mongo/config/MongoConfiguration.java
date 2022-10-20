@@ -382,6 +382,8 @@ public class MongoConfiguration implements DataSourceConfiguration {
                                                    + "GSSAPI_MECHANISM, MONGODB_CR_MECHANISM, "
                                                    + "MONGODB_X5090_MECHANISM, SCRAM_SHA_1_MECHANISM or PLAIN_MECHANISM");
             }
+        } else {
+            cr = MongoCredential.createCredential(userName, source, password.toCharArray());
         }
         return cr;
     }
