@@ -336,10 +336,10 @@ public class MongoConfiguration implements DataSourceConfiguration {
         String source = null;
 
         JsonNode xnode = node.get("mechanism");
-        if (xnode == null) {
-            throw new IllegalArgumentException("mechanism is required in credentials");
+        String mech = null;
+        if (xnode != null) {
+            mech = xnode.asText();
         }
-        String mech = xnode.asText();
         xnode = node.get("userName");
         if (xnode != null) {
             userName = xnode.asText();
