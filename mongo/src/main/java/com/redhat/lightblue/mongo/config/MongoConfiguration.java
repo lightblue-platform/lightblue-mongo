@@ -289,7 +289,7 @@ public class MongoConfiguration implements DataSourceConfiguration {
     public MongoClient getNewMongoClient() throws UnknownHostException {
         MongoClientOptions options = getMongoClientOptions();
         LOGGER.debug("getNewMongoClient with server: {}, servers:{} and options:{}", theServer, servers, options);
-        MongoCredential mongoCredential = getCredentials().isEmpty() ? null : null;
+        MongoCredential mongoCredential = getCredentials().isEmpty() ? null : getCredentials().get(0);
         if (theServer != null) {
             return new MongoClient(theServer, mongoCredential, options);
         } else {
