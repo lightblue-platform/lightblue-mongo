@@ -34,9 +34,10 @@ import org.bson.BSONObject;
 import org.junit.*;
 import org.junit.runner.RunWith;
 
-@RunWith(QuarantiningRunner.class)
+
+//@RunWith(QuarantiningRunner.class)
 //Classloader isolation due EmbeddedMongo is a singleton instance
-@Quarantine({"com.redhat.lightblue.mongo.test.EmbeddedMongo"})
+//@Quarantine({"com.redhat.lightblue.mongo.test.EmbeddedMongo"})
 public class MongoMetadataFailureTest {
 
     @Test
